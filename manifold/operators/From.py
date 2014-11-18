@@ -148,7 +148,6 @@ class From(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-
         # It is possible that a packet arrives with filters and fields while the gateways does not support them
         packet_field_names = packet.get_destination().get_field_names()
         packet_filter = packet.get_destination().get_filter()
@@ -172,11 +171,11 @@ class From(Operator, ChildSlotMixin):
                         has_operators = True
                 else:
                     target = target.optimize_selection(packet_filter)
-                    target.format_downtree()
                     has_operators = True
         
         if packet_field_names and not packet_field_names.is_star() and not self.get_capabilities().projection:
             target = target.optimize_projection(packet_field_names)
+            packet.update_destination(lambda d: d.set_star_field_names())
             has_operators = True
 
         # The packet needs to come back in the operatorgraph, otherwise, it is

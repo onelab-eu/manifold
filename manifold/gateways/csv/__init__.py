@@ -46,13 +46,23 @@ class CSVCollection(ManifoldCollection):
 
         self._config = config
 
-        dialect, field_names, field_types, has_headers = self.get_dialect_and_field_info()
-        self._has_headers = has_headers
-        self._dialect     = dialect
-        self._field_names = field_names
-        self._field_types = field_types
- 
+        if 'fields' in config and 'key' in config:
+            dialect, field_names, field_types, has_headers = self.get_dialect_and_field_info()
+            self._has_headers = has_headers
+            self._dialect     = dialect
+            self._field_names = field_names
+            self._field_types = field_types
+        else:
+            # We allow those fields not to be specified since they are not
+            # known/needed for writing to a CSV file
+            self._has_headers = True
+            self._dialect     = None
+            self._field_names = None
+            self._field_types = None
+
         self._cls = self.make_object(object_name, config)
+        self._csvfile = None
+        self._writer = None
 
     @returns(StringTypes)
     def guess_type(self, value):
@@ -134,7 +144,8 @@ class CSVCollection(ManifoldCollection):
         """
         # NOTE only a single key is supported
         if not "key" in self._config:
-            raise RuntimeError("Missing key in platform configuration")
+            return None
+            #raise RuntimeError("Missing key in platform configuration")
 
         return self._config["key"].split(",")
 
@@ -163,23 +174,25 @@ class CSVCollection(ManifoldCollection):
     def make_object(self, object_name, options):
 
         fields = dict()
-        for name, type in zip(self._field_names, self._field_types):
-            field = Field(
-                type        = type,
-                name        = name,
-                qualifiers  = ["const"], # unless we want to update the CSV file
-                is_array    = False,
-                description = "(null)"
-            )
-            fields[name] = field
+        if self._field_names and self._field_types:
+            for name, type in zip(self._field_names, self._field_types):
+                field = Field(
+                    type        = type,
+                    name        = name,
+                    qualifiers  = ["const"], # unless we want to update the CSV file
+                    is_array    = False,
+                    description = "(null)"
+                )
+                fields[name] = field
 
         keys = Keys()
         key_field_names = self.get_key()
-        if isinstance(key_field_names, StringTypes):
-            key_fields = frozenset([fields[key_field_names]])
-        elif isinstance(key_field_names, (list, set, frozenset, tuple)):
-            key_fields = frozenset([fields[key_elt] for key_elt in key_field_names])
-        keys.add(Key(key_fields))
+        if key_field_names:
+            if isinstance(key_field_names, StringTypes):
+                key_fields = frozenset([fields[key_field_names]])
+            elif isinstance(key_field_names, (list, set, frozenset, tuple)):
+                key_fields = frozenset([fields[key_elt] for key_elt in key_field_names])
+            keys.add(Key(key_fields))
 
         class obj(ManifoldObject):
             __object_name__ = object_name
@@ -227,6 +240,42 @@ class CSVCollection(ManifoldCollection):
             except csv.Error as e:
                 message = "CSVGateway::forward(): Error in file %s, line %d: %s" % (filename, reader.line_num, e)
 
+    def create(self, packet):
+        # XXX We might maintain the file open
+        if not packet.is_empty():
+            data = packet.get_data()
+            if not self._writer:
+                source = packet.get_source()
+                object_name = source.get_object_name()
+
+                # XXX Headers are already stored for csv read
+                if source.get_field_names().is_star():
+                    self._headers = data.keys()
+                else:
+                    self._headers = list(source.get_field_names())
+
+                if not self._config:
+                    return
+                filename = self._config.get('filename')
+                if not filename:
+                    return
+                self._csvfile = open(filename, 'wb')
+                self._writer = csv.writer(self._csvfile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+                if self._has_headers:
+                    self._writer.writerow(self._headers)
+
+            if data:
+                row = [data[h] for h in self._headers]
+                self._writer.writerow(row)
+
+        if packet.is_last():
+            if not self._csvfile:
+                print "W: no csvfile"
+                return None
+            self._csvfile.close()
+
+        return None
 
 class CSVGateway(Gateway):
     __gateway_name__ = "csv"

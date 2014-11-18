@@ -133,11 +133,12 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         packet = GET()
         packet.set_destination(query.get_destination())
         #packet.set_receiver(self._receiver) # Why is it useful ??
-        packet.update_annotation(self.get_annotation())
+        packet.update_annotation(annotation)
         #packet = QueryPacket(query, annotation, receiver = self._receiver)
         # SyncReceiver()
 
         self._receiver.clear()
+
         self._interface.send(packet)
 
         # This code is blocking

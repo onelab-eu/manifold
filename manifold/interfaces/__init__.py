@@ -169,7 +169,7 @@ class Interface(object):
         
         self.send_impl(packet)
 
-    def receive(self, packet):
+    def receive(self, packet, slot_id = None):
         """
         For packets received from the remote server."
         """
@@ -183,7 +183,6 @@ class Interface(object):
 
         flow = packet.get_flow()
         receiver = self._flow_map.get(flow)
-
 
         if not receiver:
             #print "packet has no receiver", packet

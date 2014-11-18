@@ -622,6 +622,7 @@ class Router(object):
         Args:
             packet: A QueryPacket instance.
         """
+        print "ROUTER RECEIVE PACKET", packet
         
         destination = packet.get_destination()
 
@@ -662,8 +663,7 @@ class Router(object):
 
             receiver._set_child(root_node)
         except Exception, e:
-            import traceback
-            traceback.print_exc()
+            print "E:", e
             Log.tmp(e)
             error_packet = ErrorPacket(
                 type      = ERROR,
@@ -680,12 +680,48 @@ class Router(object):
         # - during the forwarding of results (for synchronous gateways).
         # For async gateways, errors will be handled in errbacks.
         # XXX We should mutualize this error handling core and the errbacks
+
+        orig_receiver = annotation.pop('receiver', None)
+        if orig_receiver:
+            if orig_receiver.startswith('file://'):
+                orig_receiver = orig_receiver[7:]
+            if orig_receiver.endswith('.csv'):
+                # We need to create a new csv interface
+                object_name = destination.get_object_name()
+                gw = Gateway.factory_get('csv')
+                config = {
+                    object_name: {
+                        'filename': orig_receiver,
+                        #'fields' : [],
+                        #'key'
+                    }}
+                interface = gw(self, orig_receiver, config)
+            else:
+                error_packet = ErrorPacket(
+                    type      = ERROR,
+                    code      = BADARGS,
+                    message   = "Invalid receiver: %s" % (receiver, ),
+                )
+                receiver.receive(error_packet)
+                return
+
+            Log.warning("This is a bit harsh if we reuse the results")
+            record = Record(last = True)
+            record.set_source(packet.get_destination())
+            record.set_destination(packet.get_source())
+            for c in root_node.get_consumers():
+                c.receive(record)
+            root_node.clear_consumers()
+            root_node.add_consumer(interface)
+
+            # This is not taken into account by the gateway receiver function,
+            # since it is a customer of the query plan.
+            #packet.set_receiver(interface)
         
         try:
             root_node.send(packet)
         except Exception, e:
             print "EEE:", e
-            import traceback
             traceback.print_exc()
             error_packet = ErrorPacket(
                 type      = ERROR,

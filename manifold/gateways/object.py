@@ -44,7 +44,7 @@ class ManifoldCollection(set):
     def get(self, *args, **kwargs):
         pass
 
-    def insert(self, *args, **kwargs):
+    def create(self, *args, **kwargs):
         pass
 
     def delete(self, *args, **kwargs):
@@ -75,7 +75,7 @@ class ManifoldLocalCollection(ManifoldCollection):
             ret.append(Record(last=True))
         return ret
 
-    def insert(self, obj):
+    def create(self, obj):
         self.add(obj)
 
         # XXX What is the return value for a CREATE

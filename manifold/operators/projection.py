@@ -30,6 +30,8 @@ def do_projection(record, field_names):
     Take the necessary field_names in dic
     """
     ret = Record()
+    ret.set_source(record.get_source())
+    ret.set_destination(record.get_destination())
 
     # 1/ split subqueries
     local = []

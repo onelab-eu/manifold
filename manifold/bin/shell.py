@@ -19,6 +19,7 @@ from types                          import StringTypes
 
 # XXX Those imports may fail for xmlrpc calls
 #from manifold.auth                  import Auth
+from manifold.core.annotation       import Annotation
 from manifold.core.packet           import ErrorPacket
 from manifold.core.query            import Query
 from manifold.core.record           import Record
@@ -65,7 +66,7 @@ class Shell(object):
         self.bootstrap()
         # {String : list(dict)} : maps a variable name with its the corresponding Records
         self._environment = dict()
-        self._annotations = dict()
+        self._annotation = dict()
         self._query_plan = False
 #       self._environment = {"$USER" : "marc-olivier.buob@lip6.fr"}
 
@@ -439,7 +440,7 @@ class Shell(object):
                 raise RuntimeError("Invalid description type (%s) in result_value = %s" % (errors, result_value))
 
     @returns(ResultValue)
-    def evaluate(self, command, annotations = None):
+    def evaluate(self, command, annotation = None):
         """
         Parse a command type by the User, and run the corresponding Query.
         Args:
@@ -456,14 +457,19 @@ class Shell(object):
         dic = SQLParser().parse(command)
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
+        receiver = dic.pop('receiver')
+        if receiver:
+            if not annotation:
+                annotation = Annotation()
+            annotation['receiver'] = receiver
         query = Query.from_dict(dic)
 #DEPRECATED|        if "*" in query.get_select():
 #DEPRECATED|            query.fields = None
 
-        return self.execute(query, annotations)
+        return self.execute(query, annotation)
 
     @returns(ResultValue)
-    def execute(self, query, annotations = None):
+    def execute(self, query, annotation = None, receiver = None):
         """
         Execute a Query (used if the Shell is run with option "-e").
         Args:
@@ -473,7 +479,7 @@ class Shell(object):
         """
 
         try:
-            result_value = self.client.forward(query, annotations)
+            result_value = self.client.forward(query, annotation)
             if result_value.is_success():
                 variable = query.get_variable()
                 if variable and result_value.is_success():
@@ -585,8 +591,8 @@ class Shell(object):
 
     def handle_set(self, args):
         if len(args) == 0:
-            print "Current annotations:"
-            for key, value in self._annotations.items():
+            print "Current annotation:"
+            for key, value in self._annotation.items():
                 print " - ", key, "=", value
             return
         elif len(args) > 2:
@@ -602,7 +608,7 @@ class Shell(object):
             self._query_plan = value.lower() in TRUE_VALUES
             return
 
-        self._annotations[key] = value
+        self._annotation[key] = value
 
     def start(self):
         """
@@ -691,9 +697,9 @@ class Shell(object):
 
                 try:
                     if self._query_plan:
-                        self._annotations['queryplan'] = True
+                        self._annotation['queryplan'] = True
                     self.display(self.evaluate(command))
-                    self._annotations = dict()
+                    self._annotation = dict()
                 except KeyboardInterrupt:
                     # Ctrl c
                     command = ""
@@ -717,12 +723,12 @@ def main():
         Log.init_options()
         Options().parse()
         command = Options().execute
-        annotations = None # XXX undefined
+        annotation = None # XXX undefined
 
         if command:
             try:
                 shell = Shell(interactive = False)
-                shell.display(shell.evaluate(command, annotations))
+                shell.display(shell.evaluate(command, annotation))
             except Exception, e:
                 Log.error(traceback.format_exc())
                 shell.terminate()

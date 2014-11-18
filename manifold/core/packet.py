@@ -546,8 +546,9 @@ class Packet(object):
         Returns:
             The '%r' representation of this Packet.
         """
-        return "<Packet.%s%s %s -> %s [DATA: %s]>" % (
+        return "<Packet.%s%s%s %s -> %s [DATA: %s]>" % (
             Packet.get_protocol_name(self.get_protocol()),
+            ' ANNOTATION:%r' % self.get_annotation() if self.get_annotation else '',
             ' LAST' if self.is_last() else '',
             self.get_source(), self.get_destination(),
             ' '.join([("%s" % self._record) if self._record else '']),
