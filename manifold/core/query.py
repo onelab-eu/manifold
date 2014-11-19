@@ -141,7 +141,7 @@ class Query(object):
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()
         if not self.params:    self.params    = {}
-        if not self.fields:    self.fields    = FieldNames()
+        if not self.fields:    self.fields    = FieldNames(star = True)
         if not self.timestamp: self.timestamp = "now"
 
         if isinstance(self.filters, list):

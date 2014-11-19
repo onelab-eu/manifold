@@ -622,7 +622,7 @@ class Router(object):
             the query.
         """
         query.set_namespace(LOCAL_NAMESPACE)
-        return self.execute_query(query, error_message)
+        return self.execute_query(query, None, error_message)
 
     # XXX Unless we don't need local cache anymore (+ __init__)
 

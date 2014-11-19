@@ -578,6 +578,7 @@ class PostgreSQLGateway(Gateway):
             sql = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", sql)
         # rewrite wildcards set by Filter.py as "***" into "%"
         sql = sql.replace("***", "%")
+        print "sql=", sql
 
         if not params:
             cursor.execute(sql)
