@@ -152,7 +152,11 @@ class NITOSBrokerParser(RSpecParser):
                     resource = cls.dict_rename(resource, resource_type)
                 resource['network_hrn'] = network
                 resource['facility_name'] = 'NITOS'
-                resource['testbed_name'] = 'NITOS'
+                if 'omf' in resource['hrn']:
+                    t_hrn = resource['hrn'].split('.')
+                    resource['testbed_name'] = t_hrn[1]
+                else:
+                    resource['testbed_name'] = 'Nitos'
                 resources.append(resource)
 
                 # Leases
