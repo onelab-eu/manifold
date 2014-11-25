@@ -151,7 +151,9 @@ class NITOSBrokerParser(RSpecParser):
                 if resource_type in cls.MAP:
                     resource = cls.dict_rename(resource, resource_type)
                 resource['network_hrn'] = network
-                resource['facility_name'] = 'NITOS'
+
+                #resource['facility_name'] = 'NITOS'
+                resource['facility_name'] = 'Wireless'
                 if 'omf' in resource['hrn']:
                     t_hrn = resource['hrn'].split('.')
                     resource['testbed_name'] = t_hrn[1]
