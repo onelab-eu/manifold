@@ -194,7 +194,7 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']:
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']) or ('lip6' in server_hrn):
             parser = NITOSBrokerParser
         elif server_hrn == 'iotlab':
             parser = IoTLABParser

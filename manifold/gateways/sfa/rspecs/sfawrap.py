@@ -174,7 +174,10 @@ class SFAWrapParser(RSpecParser):
         This is useful for filtering resources in the portal.
         Should be overloaded in child classes to be effective.
         """
-        return None
+        t_urn = urn.split("+")
+        # urn:publicid:IDN+fuseco.fokus.fraunhofer.de+node+epc_measurement_server
+        # urn:publicid:IDN+wall2.ilabt.iminds.be+node+n097-10b
+        return t_urn[1]
 
     @classmethod
     def get_resource_testbed_name(cls, urn):
@@ -183,7 +186,10 @@ class SFAWrapParser(RSpecParser):
         This is useful for filtering resources in the portal.
         Should be overloaded in child classes to be effective.
         """
-        return None
+        t_urn = urn.split("+")
+        # urn:publicid:IDN+fuseco.fokus.fraunhofer.de+node+epc_measurement_server
+        # urn:publicid:IDN+wall2.ilabt.iminds.be+node+n097-10b
+        return t_urn[1]
 
     @classmethod
     def _process_resource(cls, resource):
@@ -711,7 +717,7 @@ class WiLabtParser(SFAWrapParser):
 
     @classmethod
     def get_resource_facility_name(cls, urn):
-        return "w-iLab.t"
+        return "Wireless"
 
     @classmethod
     def get_resource_testbed_name(cls, urn):
