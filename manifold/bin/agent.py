@@ -50,7 +50,8 @@ class supernode {
     KEY(hostname);
 };
 """
-
+announce, = Announces.from_string(SUPERNODE_CLASS)
+Supernode = ManifoldObject.from_announce(announce)
 NODES_CSV_CONFIG = {
     'hostname': {
         'filename': '/root/datasets/node-lat-lon.csv',
@@ -171,8 +172,8 @@ class AgentDaemon(Daemon):
 
         defer.returnValue(supernode['destination'] if supernode else None)
 
-    @defer.inlineCallbacks
-    def register_as_supernode(self, interface):
+    #@defer.inlineCallbacks
+    def register_as_supernode(self): #, interface):
         self._supernode_collection.create(Supernode(hostname = hostname()))
 
         # XXX We should install a hook to remove from supernodes agents that have disconnected
@@ -369,10 +370,8 @@ class AgentDaemon(Daemon):
         self._server_interface = self._router.add_interface('tcpserver') # Listener XXX port?
 
         Log.info("Bootstraping supernodes...")
-        announce, = Announces.from_string(SUPERNODE_CLASS)
-        Supernode = ManifoldObject.from_announce(announce)
         supernode_collection = ManifoldLocalCollection(Supernode)
-        self._router.register_local_collection(supernode_collection)
+        self._router.register_collection(supernode_collection, namespace='tdmi')
         self._supernode_collection = supernode_collection
 
         # Setup peer overlay
@@ -381,6 +380,8 @@ class AgentDaemon(Daemon):
             self._router.add_platform("dns", "dns")
             self._router.add_platform("nodes", "csv", NODES_CSV_CONFIG)
             #self._router.add_platform("airports", "csv", AIRPORTS_CSV_CONFIG)
+
+            self.register_as_supernode() 
 
             #self._router.get_fib().dump()
 

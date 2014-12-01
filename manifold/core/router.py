@@ -161,6 +161,9 @@ class Router(object):
     def register_local_collection(self, cls):
         self.get_interface('local').register_collection(cls, 'local')
 
+    def register_collection(self, cls, namespace=None):
+        self.get_interface('local').register_collection(cls, namespace)
+
     #---------------------------------------------------------------------------
     # Platform management
     #---------------------------------------------------------------------------

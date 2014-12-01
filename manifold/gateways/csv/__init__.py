@@ -198,7 +198,7 @@ class CSVCollection(ManifoldCollection):
             __object_name__ = object_name
             __fields__ = fields.values()
             __keys__   = keys
-        
+            __capabilities__ = self.get_capabilities()
         # XXX table.capabilities = self.get_capabilities(table_name)
         
         return obj

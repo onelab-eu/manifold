@@ -105,7 +105,8 @@ class ManifoldObject(Record):
 
     @staticmethod
     def from_announce(announce):
-        obj = ManifoldObject
+        class obj(ManifoldObject):
+            pass
 
         table = announce.get_table()
         obj.__object_name__    = table.get_name()

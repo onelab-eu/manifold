@@ -324,6 +324,8 @@ class Table(object):
             self.keys.add(Key(fields, local = local))
 
     def set_capabilities(self, capability):
+        if not capability:
+            return
         if isinstance(capability, Capabilities):
             self.capabilities = capability
             return
@@ -472,6 +474,8 @@ class Table(object):
         self._partitions.add(partition)
 
     def add_partitions(self, partitions):
+        if not partitions:
+            return
         self._partitions |= partitions
 
 #        self._partitions = dict()
