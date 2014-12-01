@@ -1,4 +1,4 @@
-import sys, uuid
+import sys, uuid as uuid_module
 
 from manifold.core.annotation       import Annotation
 from manifold.core.destination      import Destination
@@ -37,7 +37,7 @@ class Interface(object):
 
     def __init__(self, router, uuid = None):
         self._router   = router
-        self._uuid     = uuid if uuid else str(uuid.uuid4())
+        self._uuid     = uuid if uuid else str(uuid_module.uuid4())
         self._up       = False
         self._error    = None # Interface has encountered an error
         self._up_callbacks = list()

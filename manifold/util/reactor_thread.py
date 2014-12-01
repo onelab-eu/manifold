@@ -69,7 +69,6 @@ class ReactorThread(threading.Thread):
         Concurrency issues can occur here since the reactor can be started by
         several interfaces at the same time.
         """
-        print "start reactor"
         try:
             self._lock.acquire()
 
