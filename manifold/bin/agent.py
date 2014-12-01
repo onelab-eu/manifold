@@ -173,16 +173,22 @@ class AgentDaemon(Daemon):
 
     @defer.inlineCallbacks
     def register_as_supernode(self, interface):
+        self._supernode_collection.create(Supernode(hostname = hostname()))
+
+        # XXX We should install a hook to remove from supernodes agents that have disconnected
+
+        # Old version:
+        #
         # As a server, we would do this to create a new object locally.
         # Supernode(hostname = hostname()).insert()
         # We now want to create a new object remotely at the server
         # This should trigger an insert query directed towards the server
-        d = DeferredReceiver()
-        interface.send(CREATE(hostname = hostname()),
-                destination = Destination('supernode', namespace='tdmi'),
-                receiver = d)
-        rv = yield d.get_deferred()
-        Log.info("Supernode registration done. Success ? %r" % (rv.get_all(),))
+        #d = DeferredReceiver()
+        #interface.send(CREATE(hostname = hostname()),
+        #        destination = Destination('supernode', namespace='tdmi'),
+        #        receiver = d)
+        #rv = yield d.get_deferred()
+        #Log.info("Supernode registration done. Success ? %r" % (rv.get_all(),))
 
     def withdrawn_as_supernode(self, interface):
         pass
@@ -362,6 +368,13 @@ class AgentDaemon(Daemon):
         self._local_interface  = self._router.add_interface('unixserver')
         self._server_interface = self._router.add_interface('tcpserver') # Listener XXX port?
 
+        Log.info("Bootstraping supernodes...")
+        announce, = Announces.from_string(SUPERNODE_CLASS)
+        Supernode = ManifoldObject.from_announce(announce)
+        supernode_collection = ManifoldLocalCollection(Supernode)
+        self._router.register_local_collection(supernode_collection)
+        self._supernode_collection = supernode_collection
+
         # Setup peer overlay
         if Options().server_mode:
 
@@ -369,18 +382,7 @@ class AgentDaemon(Daemon):
             self._router.add_platform("nodes", "csv", NODES_CSV_CONFIG)
             #self._router.add_platform("airports", "csv", AIRPORTS_CSV_CONFIG)
 
-            announce, = Announces.from_string(SUPERNODE_CLASS)
-            Supernode = ManifoldObject.from_announce(announce)
-            
-            Log.info("Bootstraping supernodes...")
-            supernode_collection = ManifoldLocalCollection(Supernode)
-            supernode_collection.create(Supernode(hostname = hostname()))
-
-            self._router.register_local_collection(supernode_collection)
-
             #self._router.get_fib().dump()
-
-            # XXX We should install a hook to remove from supernodes agents that have disconnected
 
         else:
             # The agent just builds the overlays and stays passive
