@@ -71,6 +71,9 @@ class Interface(object):
     def get_router(self):
         return self._router
 
+    def get_description(self):
+        return ''
+
     # Request the interface to be up...
     def up(self):
         self.up_impl()

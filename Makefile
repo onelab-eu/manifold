@@ -161,3 +161,6 @@ tags:
 +%: varname=$(subst +,,$@)
 +%:
 	@echo "$($(varname))"
+
+archive:
+	python setup.py sdist --formats=gztar,zip
