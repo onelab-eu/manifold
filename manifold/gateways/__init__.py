@@ -140,10 +140,11 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
         Log.warning("Gateway should become an interface")
 
-        Interface.__init__(self, router)
+        Interface.__init__(self, router, uuid = platform_name)
         Node.__init__(self)
         assert router
         self._platform_name   = platform_name   # String
+
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
@@ -522,7 +523,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
                 self.record(prev_record, packet)
 # >>
         else:
-            self.last()
+            self.last(packet)
             
     def last(self, packet):
         self.record(Record(last = True), packet)

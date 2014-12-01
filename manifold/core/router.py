@@ -75,10 +75,6 @@ class Router(object):
         # platform name (= namespace) with its corresponding Announces.
         self.announces = dict()
 
-        # self.gateways is a {String : Gateway} which maps a platform name to
-        # the appropriate Gateway instance.
-        self.gateways = dict()
-
         # self.policy is a Policy object implementing kind of iptables
         # allowing to filter Packets (Announces and so on).
         self.policy = Policy(self)
@@ -106,8 +102,6 @@ class Router(object):
         self._local_cache = dict()
 
     def terminate(self):
-        for gateway in self.gateways.values():
-            gateway.terminate()
         for interface in self._interfaces.values():
             interface.terminate()
 
@@ -234,10 +228,7 @@ class Router(object):
 #DEPRECATED|            for announce in announces:
 #DEPRECATED|                self._fib.add(platform_name, announce)
 
-            # DEPRECATED
-            self.gateways[platform_name] = gateway
-
-            self._interfaces[platform_name] = gateway
+            #self._interfaces[platform_name] = gateway
 
         except Exception, e:
             Log.warning(traceback.format_exc())
@@ -287,7 +278,6 @@ class Router(object):
         ret = False
         try:
             # DEPRECATED
-            # del self.gateways[platform_name]
             del self._interfaces[platform_name]
             ret = True
         except KeyError:
@@ -296,51 +286,51 @@ class Router(object):
         self.disable_platform(platform_name, rebuild)
         return ret
 
-    @returns(GeneratorType)
-    def get_platforms(self):
-        """
-        Returns:
-            A Generator allowing to iterate on list of dict where each
-            dict represents a Platform managed by this Router.
-        """
-        for platform_name, gateway in self.gateways.items():
-            yield gateway.get_config()
-
-    @returns(dict)
-    def get_platform(self, platform_name):
-        """
-        Retrieve the dictionnary representing a platform for a given
-        platform name.
-        Args:
-            platform_name: A String containing the name of the platform.
-        Raises:
-            KeyError: if platform_name is unknown.
-        Returns:
-            The corresponding Platform if found, None otherwise.
-        """
-        assert isinstance(platform_name, StringTypes),\
-            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
-
-        return self.gateways[platform_name].get_config()
-
-    @returns(set)
-    def get_registered_platform_names(self):
-        """
-        Returns:
-            A set of String where each String is a platform name having
-            a Gateway configured in this Router. It is not necessarily
-            enabled.
-        """
-        return set(self.gateways.keys())
-
-    @returns(set)
-    def get_enabled_platform_names(self):
-        """
-        Returns:
-            A set of String where each String is the name of an enabled
-            (and registered) platform.
-        """
-        return set(self.announces.keys())
+#    @returns(GeneratorType)
+#    def get_platforms(self):
+#        """
+#        Returns:
+#            A Generator allowing to iterate on list of dict where each
+#            dict represents a Platform managed by this Router.
+#        """
+#        for platform_name, gateway in self.gateways.items():
+#            yield gateway.get_config()
+#
+#    @returns(dict)
+#    def get_platform(self, platform_name):
+#        """
+#        Retrieve the dictionnary representing a platform for a given
+#        platform name.
+#        Args:
+#            platform_name: A String containing the name of the platform.
+#        Raises:
+#            KeyError: if platform_name is unknown.
+#        Returns:
+#            The corresponding Platform if found, None otherwise.
+#        """
+#        assert isinstance(platform_name, StringTypes),\
+#            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+#
+#        return self.gateways[platform_name].get_config()
+#
+#    @returns(set)
+#    def get_registered_platform_names(self):
+#        """
+#        Returns:
+#            A set of String where each String is a platform name having
+#            a Gateway configured in this Router. It is not necessarily
+#            enabled.
+#        """
+#        return set(self.gateways.keys())
+#
+#    @returns(set)
+#    def get_enabled_platform_names(self):
+#        """
+#        Returns:
+#            A set of String where each String is the name of an enabled
+#            (and registered) platform.
+#        """
+#        return set(self.announces.keys())
 
     @returns(bool)
     def register_platform(self, platform):
@@ -362,9 +352,6 @@ class Router(object):
         try:
             #Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
             gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-            
-            # DEPRECATED
-            #self.gateways[platform_name] = gateway
 
             self._interfaces[platform_name] = gateway
 
