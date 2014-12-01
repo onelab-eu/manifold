@@ -97,6 +97,13 @@ class TCPInterface(Interface):
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
+    def get_description(self):
+        if not self._client:
+            return '(No client)'
+        else:
+            addr = self._client.transport.addr
+            return 'Connected to %s:%s' % addr
+
 ################################################################################
 # PROTOCOLS
 ################################################################################
@@ -258,3 +265,9 @@ class TCPServerInterface(Interface):
         self.set_down()
 
     # We should be able to end all connected clients
+
+    def get_description(self):
+        if self.is_up():
+            return 'Listening on %s' % (self._port,)
+        else:
+            return 'Not listening'

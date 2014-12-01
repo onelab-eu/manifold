@@ -83,11 +83,15 @@ class LocalInterfaceCollection(ManifoldCollection):
     };
     """
     def get(self, packet):
+        fib = self.get_router().get_fib()
+
         interface_list = list()
         for interface_name, interface in self.get_router().get_interfaces():
             interface = {
                 'name': interface_name, 
-                'type': interface.get_interface_type()
+                'type': interface.get_interface_type(),
+                'status': 'UP' if fib.is_up(interface) else 'DOWN',
+                'description': interface.get_description(),
             }
             interface_list.append(interface)
         return Records(interface_list)

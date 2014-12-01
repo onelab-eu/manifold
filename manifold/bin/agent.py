@@ -103,7 +103,7 @@ class AgentDaemon(Daemon):
 
         d = DeferredReceiver() # SyncReceiver
         interface.send(GET(),
-                destination = Destination('supernode', namespace='local'),
+                destination = Destination('supernode', namespace='tdmi'),
                 receiver = d)
         rv = yield d.get_deferred() # receiver.get_result_value().get_all()
         received_supernodes = rv.get_all()
@@ -179,7 +179,7 @@ class AgentDaemon(Daemon):
         # This should trigger an insert query directed towards the server
         d = DeferredReceiver()
         interface.send(CREATE(hostname = hostname()),
-                destination = Destination('supernode', namespace='local'),
+                destination = Destination('supernode', namespace='tdmi'),
                 receiver = d)
         rv = yield d.get_deferred()
         Log.info("Supernode registration done. Success ? %r" % (rv.get_all(),))
