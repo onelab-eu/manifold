@@ -125,7 +125,6 @@ class Object(object):
 
     @classmethod
     def get_announce(cls):
-        import pdb; pdb.set_trace()
         # The None value corresponds to platform_name. Should be deprecated # soon.
         if cls.__doc__:
             announce, = Announces.from_string(cls.__doc__, None)
