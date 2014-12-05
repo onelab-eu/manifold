@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import copy
+
 from manifold.core.announce         import Announce, Announces
+from manifold.core.capabilities     import Capabilities
 from manifold.core.field_names      import FieldNames
 from manifold.core.keys             import Keys
 from manifold.core.partition        import Partitions
+from manifold.core.record           import Record
 from manifold.core.relation         import Relation
 from manifold.core.table            import Table
 from manifold.util.log              import Log
@@ -52,7 +56,7 @@ class PlatformInfo(object):
     def get_partitions(self):
         return self._partitions
 
-class Object(object):
+class Object(Record):
     """
     A Manifold object.
     """
@@ -66,17 +70,20 @@ class Object(object):
     __partitions__      = None
     __namespace__       = None
 
+    
+
     @staticmethod
     def from_announce(announce):
         class obj(Object):
             pass
 
         table = announce.get_table()
-        obj.__object_name__    = table.get_name()
-        obj.__fields__         = table.get_fields()
-        obj.__keys__           = table.get_keys()
-        obj.__capabilities__   = table.get_capabilities()
-        obj.__partitions__     = table.get_partitions()
+
+        obj = ObjectFactory(table.get_name())
+        obj.set_fields(table.get_fields())
+        obj.set_keys(table.get_keys())
+        obj.set_capabilities(table.get_capabilities())
+        obj.set_partitions(table.get_partitions())
         
         return obj
 
@@ -85,75 +92,49 @@ class Object(object):
 
     @classmethod
     def get_object_name(cls):
-        if cls.__doc__:
-            announce = cls.get_announce()
-            return announce.get_table().get_name()
-        else:
-            return cls.__object_name__ if cls.__object_name__ else cls.__name__
+        return cls.__object_name__ if cls.__object_name__ else cls.__name__
 
     @classmethod
-    def get_fields(cls):
-        if cls.__doc__:
-            announce = cls.get_announce()
-            return announce.get_table().get_fields()
-        else:
-            return cls.__fields__
-
-    @classmethod
-    def get_keys(cls):
-        if cls.__doc__:
-            announce = cls.get_announce()
-            return announce.get_table().get_keys()
-        else:
-            return cls.__keys__
-
-    @classmethod
-    def get_capabilities(cls):
-        if cls.__doc__:
-            announce = cls.get_announce()
-            return announce.get_table().get_capabilities()
-        else:
-            return cls.__capabilities__
-
-    @classmethod
-    def get_partitions(cls):
-        if cls.__doc__:
-            announce = cls.get_announce()
-            return announce.get_table().get_partitions()
-        else:
-            return cls.__partitions__
-
-    @classmethod
-    def get_announce(cls):
-        import pdb; pdb.set_trace()
-        # The None value corresponds to platform_name. Should be deprecated # soon.
-        if cls.__doc__:
-            announce, = Announces.from_string(cls.__doc__, None)
-        else:
-            table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
-            table.set_capabilities(cls.get_capabilities())
-            table.add_partitions(cls.get_partitions())
-            table.set_namespace(cls.get_namespace())
-            #table.partitions.append()
-            announce = Announce(table)
-        return announce
+    def set_namespace(cls, namespace):
+        cls.__namespace__ = namespace
 
     @classmethod
     def get_namespace(cls):
-        if cls.__doc__:
-            announce = self.get_announce()
-            return announce.get_table().get_namespace()
-        else:
-            return cls.__namespace__
+        return cls.__namespace__
 
-    def __init__(self, object_name, namespace = None):
-        self._object_name = object_name
-        self._fields = dict()
-        self._keys = Keys()
-        self._platform_info = dict()  # String -> PlatformInfo()
-        self._relations = dict() # object_name -> relation
-        self._partitions = Partitions()
-        self._namespace = namespace
+    @classmethod
+    def get_fields(cls):
+        return cls.__fields__.values()
+
+    @classmethod
+    def get_field_names(cls):
+        return FieldNames(cls.__fields__.keys())
+
+    @classmethod
+    def get_keys(cls):
+        return cls.__keys__
+
+    @classmethod
+    def get_capabilities(cls):
+        return cls.__capabilities__
+
+    @classmethod
+    def get_partitions(cls):
+        return cls.__partitions__
+
+    @classmethod
+    def get_announce(cls):
+        # The None value corresponds to platform_name. Should be deprecated # soon.
+#        if cls.__doc__:
+#            announce, = Announces.from_string(cls.__doc__, None)
+#        else:
+        table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
+        table.set_capabilities(cls.get_capabilities())
+        table.add_partitions(cls.get_partitions())
+        table.set_namespace(cls.get_namespace())
+        #table.partitions.append()
+        announce = Announce(table)
+        return announce
 
     # XXX Looks like an announce
     def __str__(self):
@@ -171,7 +152,7 @@ class Object(object):
         return CLASS_STR % locals()
 
 #    def get_object_name(self):
-#        return self._object_name
+#        return cls.__object_name__
 #
 #    def get_announce(self):
 #        fields = set(self.get_fields())
@@ -185,93 +166,132 @@ class Object(object):
 #
 #        return Announce(t)
 
-    def remove_platform(self, platform_name):
-        if platform_name in self._platform_info:
-            del self._platform_info[platform_name]
+    @classmethod
+    def remove_platform(cls, platform_name):
+        if platform_name in cls.__platform_info__:
+            del cls.__platform_info__[platform_name]
 
-    def get_platform_object_name(self, platform_name):
-        return self._platform_info[platform_name].get_object_name()
+    @classmethod
+    def get_platform_object_name(cls, platform_name):
+        return cls.__platform_info__[platform_name].get_object_name()
 
-    def set_platform_object_name(self, platform_name, object_name):
-        if not platform_name in self._platform_info:
-            self._platform_info[platform_name] = PlatformInfo()
-        self._platform_info[platform_name].set_object_name(object_name)
+    @classmethod
+    def set_platform_object_name(cls, platform_name, object_name):
+        if not platform_name in cls.__platform_info__:
+            cls.__platform_info__[platform_name] = PlatformInfo()
+        cls.__platform_info__[platform_name].set_object_name(object_name)
 
-    def add_field(self, field):
-        if field.get_name() in self._fields:
+    @classmethod
+    def add_field(cls, field):
+        if field.get_name() in cls.__fields__:
             Log.warning("duplicate field")
             return
-        self._fields[field.get_name()] = field
+        cls.__fields__[field.get_name()] = field
 
-    def add_key(self, key):
-        self._keys.add(key)
+    @classmethod
+    def add_fields(cls, fields):
+        for field in fields:
+            cls.add_field(field)
 
-    def add_platform_field(self, platform_name, field):
-        if not platform_name in self._platform_info:
-            self._platform_info[platform_name] = PlatformInfo()
-        self._platform_info[platform_name].add_field(field)
+    @classmethod
+    def set_fields(cls, fields):
+        cls.__fields__ = dict()
+        cls.add_fields(fields)
 
-    def get_platform_fields(self, platform_name):
-        return self._platform_info[platform_name].get_fields()
+    @classmethod
+    def add_key(cls, key):
+        cls.__keys__.add(key)
 
-    def get_platform_object_name(self, platform_name):
-        return self._platform_info[platform_name].get_object_name()
+    @classmethod
+    def add_keys(cls, keys):
+        for key in keys:
+            cls.add_key(key)
 
-    def get_platform_field_names(self, platform_name):
-        return FieldNames(self._platform_info[platform_name].get_field_names())
+    @classmethod
+    def set_keys(cls, keys):
+        cls.__keys__ = Keys()
+        cls.add_keys(keys)
 
-    def set_platform_capabilities(self, platform_name, capabilities):
-        if not platform_name in self._platform_info:
-            self._platform_info[platform_name] = PlatformInfo()
-        self._platform_info[platform_name].set_capabilities(capabilities)
+    @classmethod
+    def add_platform_field(cls, platform_name, field):
+        if not platform_name in cls.__platform_info__:
+            cls.__platform_info__[platform_name] = PlatformInfo()
+        cls.__platform_info__[platform_name].add_field(field)
 
-    def get_platform_capabilities(self, platform_name):
-        return self._platform_info[platform_name].get_capabilities()
+    @classmethod
+    def get_platform_fields(cls, platform_name):
+        return cls.__platform_info__[platform_name].get_fields()
 
-    def add_partition(self, partition):
-        self._partitions.add(partition)
+    @classmethod
+    def get_platform_object_name(cls, platform_name):
+        return cls.__platform_info__[platform_name].get_object_name()
 
-    def add_partitions(self, partitions):
-        self._partitions |= partitions
+    @classmethod
+    def get_platform_field_names(cls, platform_name):
+        return FieldNames(cls.__platform_info__[platform_name].get_field_names())
 
-#    def get_partitions(self):
-#        return self._partitions
+    @classmethod
+    def set_platform_capabilities(cls, platform_name, capabilities):
+        if not platform_name in cls.__platform_info__:
+            cls.__platform_info__[platform_name] = PlatformInfo()
+        cls.__platform_info__[platform_name].set_capabilities(capabilities)
 
-    def add_platform_partition(self, platform_name, partition):
-        if not platform_name in self._platform_info:
-            self._platform_info[platform_name] = PlatformInfo()
-        self._platform_info[platform_name].add_partition(partition)
+    @classmethod
+    def get_platform_capabilities(cls, platform_name):
+        return cls.__platform_info__[platform_name].get_capabilities()
 
-    def add_platform_partitions(self, platform_name, partitions):
-        if not platform_name in self._platform_info:
-            self._platform_info[platform_name] = PlatformInfo()
-        self._platform_info[platform_name].add_partitions(partitions)
+    @classmethod
+    def add_partition(cls, partition):
+        cls.__partitions__.add(partition)
 
-    def get_platform_partitions(self, platform_name):
-        return self._platform_info[platform_name].get_partitions()
+    @classmethod
+    def add_partitions(cls, partitions):
+        cls.__partitions__ |= partitions
 
-    def get_platform_names(self):
-        return self._platform_info.keys()
+    @classmethod
+    def set_partitions(cls, partitions):
+        cls.__partitions__ = Partitions()
+        cls.add_partitions(partitions)
 
-    def get_name(self):
-        return self._object_name
+#    def get_partitions(cls):
+#        return cls.__partitions__
 
-#    def get_keys(self):
-#        return self._keys
-#
-#    def get_fields(self):
-#        return self._fields.values()
+    @classmethod
+    def add_platform_partition(cls, platform_name, partition):
+        if not platform_name in cls.__platform_info__:
+            cls.__platform_info__[platform_name] = PlatformInfo()
+        cls.__platform_info__[platform_name].add_partition(partition)
 
-    def get_field_names(self):
-        return FieldNames(self._fields.keys())
+    @classmethod
+    def add_platform_partitions(cls, platform_name, partitions):
+        if not platform_name in cls.__platform_info__:
+            cls.__platform_info__[platform_name] = PlatformInfo()
+        cls.__platform_info__[platform_name].add_partitions(partitions)
 
+    @classmethod
+    def get_platform_partitions(cls, platform_name):
+        return cls.__platform_info__[platform_name].get_partitions()
+
+    @classmethod
+    def get_platform_names(cls):
+        return cls.__platform_info__.keys()
+
+    @classmethod
+    def set_capabilities(cls, capabilities):
+        cls.__capabilities__ = capabilities
+
+    @classmethod
+    def get_name(cls):
+        return cls.__object_name__
     # Inference helpers
 
-    def get_common_keys_with(self, other_object):
-        return self.get_keys().intersection(other_object.get_keys())
+    @classmethod
+    def get_common_keys_with(cls, other_object):
+        return cls.get_keys().intersection(other_object.get_keys())
 
-    def infer_relations(self, other_object):
-        u = self
+    @classmethod
+    def infer_relations(cls, other_object):
+        u = cls
         v = other_object
         relations = set()
 
@@ -344,23 +364,52 @@ class Object(object):
 
         return relations
 
-    def get_relations(self):
+    @classmethod
+    def get_relations(cls):
         ret = list()
-        for _, relation_list in self._relations.items():
+        for _, relation_list in cls.__relations__.items():
             ret.extend(relation_list)
         return ret
 
-    def get_relation_tuples(self):
+    @classmethod
+    def get_relation_tuples(cls):
         ret = list()
-        for object_name, relation_list in self._relations.items():
+        for object_name, relation_list in cls.__relations__.items():
             for relation in relation_list:
                 ret.append( (object_name, relation) )
         return ret
 
-    def add_relation(self, other_object_name, relation):
+    @classmethod
+    def add_relation(cls, other_object_name, relation):
         Log.warning("DUPLICATE RELATIONS!")
-        if not other_object_name in self._relations:
-            self._relations[other_object_name] = set()
+        if not other_object_name in cls.__relations__:
+            cls.__relations__[other_object_name] = set()
         relation.set_uuid()
-        self._relations[other_object_name].add(relation)
+        cls.__relations__[other_object_name].add(relation)
 
+def ObjectFactory(name): 
+    def __init__(cls, **kwargs):
+        for key, value in kwargs.items():
+            # here, the argnames variable is the one passed to the
+            # ClassFactory call
+            
+            if not cls.__fields__ or key not in cls.__fields__.keys():
+                raise TypeError("Argument %s not valid for %s" 
+                    % (key, cls.__class__.__name__))
+            setattr(cls, key, value)
+        Object.__init__(cls) # , name)
+    newclass = type(str(name), (Object,),{"__init__": __init__})
+
+    newclass.__object_name__     = name
+    newclass.__fields__          = dict()
+    newclass.__keys__            = Keys()
+    newclass.__capabilities__    = Capabilities()
+    newclass.__partitions__      = Partitions()
+    newclass.__namespace__       = None
+
+    # That is only for FIB
+
+    newclass.__relations__       = dict() # object_name -> relation 
+    newclass.__platform_info__   = dict() # String -> PlatformInfo()    
+
+    return newclass

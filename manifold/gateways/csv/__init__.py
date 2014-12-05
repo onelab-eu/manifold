@@ -20,7 +20,7 @@ from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
 from manifold.core.keys                 import Keys
-from manifold.core.object               import Object
+from manifold.core.object               import Object, ObjectFactory
 from manifold.core.record               import Record
 from manifold.core.table                import Table
 from manifold.gateways                  import Gateway
@@ -195,12 +195,10 @@ class CSVCollection(ManifoldCollection):
                 key_fields = frozenset([fields[key_elt] for key_elt in key_field_names])
             keys.add(Key(key_fields))
 
-        class obj(Object):
-            __object_name__ = object_name
-            __fields__ = fields.values()
-            __keys__   = keys
-            __capabilities__ = self.get_capabilities()
-        # XXX table.capabilities = self.get_capabilities(table_name)
+        obj = ObjectFactory(object_name)
+        obj.set_fields(fields.values())
+        obj.set_keys(keys)
+        obj.set_capabilities(self.get_capabilities())
         
         return obj
 
