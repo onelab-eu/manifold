@@ -1147,7 +1147,6 @@ class SFAGateway(Gateway):
         # This issue causes ugly code, but is solved in future versions of Manifold.
         #
         # See also: update_slice
-        Log.tmp("get_slice")
         fields_am = fields & AM_SLICE_FIELDS
         fields_rm = fields - AM_SLICE_FIELDS
 
@@ -1844,6 +1843,8 @@ class SFAGateway(Gateway):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
 
+        slice = {}
+
         # Manage Rspec versions (XXX tests on RSpec versions partly done before)
         if 'rspec_type' and 'rspec_version' in self.config:
             api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
@@ -1855,6 +1856,7 @@ class SFAGateway(Gateway):
         if self.am_version['geni_api'] == 2:
             # AM API v2
             ois = yield self.ois(self.sliceapi, api_options)
+            Log.warning("CreateSliver REQUEST RSPEC = %s" %rspec)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
             Log.warning("CreateSliver Result: %s" %result)
 
@@ -1978,6 +1980,22 @@ class SFAGateway(Gateway):
             else:
                 manifest_rspec = rspec_sliver_result.get('geni_rspec')
 
+            # GENI V3 AM Calls
+            if 'geni_slivers' in rspec_sliver_result:
+                if isinstance(rspec_sliver_result['geni_slivers'], list):
+                    in_slice = {}
+                    sliver = {}
+                    if 'geni_sliver_urn' in rspec_sliver_result['geni_slivers'][0]:
+                        sliver['geni_sliver_urn'] = rspec_sliver_result['geni_slivers'][0]['geni_sliver_urn']
+                    if 'geni_expires' in rspec_sliver_result['geni_slivers'][0]:
+                        sliver['geni_expires'] = rspec_sliver_result['geni_slivers'][0]['geni_expires']
+                    if 'geni_allocation_status' in rspec_sliver_result['geni_slivers'][0]:
+                        sliver['geni_allocation_status'] = rspec_sliver_result['geni_slivers'][0]['geni_allocation_status']
+                    if 'geni_operational_status' in rspec_sliver_result['geni_slivers'][0]:
+                        sliver['geni_operational_status'] = rspec_sliver_result['geni_slivers'][0]['geni_operational_status']
+                    in_slice['geni_slivers'] = [sliver]
+                    slice.update(in_slice)
+
         if not manifest_rspec:
             #print "NO MANIFEST FROM", self.platform, result
             Log.tmp("manifest is empty")
@@ -1985,7 +2003,6 @@ class SFAGateway(Gateway):
         else:
             #print "GOT MANIFEST FROM", self.platform
             sys.stdout.flush()
-
 
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
@@ -2011,11 +2028,10 @@ class SFAGateway(Gateway):
         if 'flowspace' in rsrc_slice:
             rsrc_slice['flowspace'] = Records(rsrc_slice['flowspace'])
 
-        slice = {
-            'slice_hrn': slice_hrn,
-            SLICE_KEY: slice_urn,
-        }
+        slice['slice_hrn'] = slice_hrn
+        slice[SLICE_KEY] = slice_urn
         slice.update(rsrc_slice)
+
         print "=========="
         print "UPDATE SLICE AM RETURNS", slice
 
