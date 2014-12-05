@@ -124,6 +124,8 @@ class Table(object):
             for key in keys:
                 self.insert_key(key)
 
+        self._namespace = None
+
         # self.platform_names is initialized wile calling self.set_partitions(...)
         #if len(self.get_platforms()) == 0:
         #    raise Exception("strange table %r" % self)
@@ -340,6 +342,12 @@ class Table(object):
 
     def set_capability(self, capabilities):
         return self.set_capabilities(capabilities)
+
+    def get_namespace(self):
+        return self._namespace
+
+    def set_namespace(self, namespace):
+        self._namespace = namespace
 
     @returns(bool)
     def erase_key(self, key):

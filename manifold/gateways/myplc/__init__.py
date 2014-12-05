@@ -18,7 +18,7 @@ from manifold.util.predicate            import eq, included
 from manifold.util.reactor_thread       import ReactorThread
 from manifold.util.type                 import accepts, returns
 
-from manifold.gateways.object           import ManifoldObject, ManifoldCollection
+from manifold.gateways.object           import ManifoldCollection
 
 DEFAULT_API_URL = "https://www.planet-lab.eu:443/PLCAPI/"
 

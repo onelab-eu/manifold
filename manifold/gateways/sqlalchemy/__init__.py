@@ -48,7 +48,7 @@ class SQLAlchemyGateway(Gateway):
 
         engine = create_engine(platform_config["url"], echo = False)
 
-        from ..sqlalchemy.models.base import Base
+        from models.base import Base
         base = declarative_base(cls = Base)
         session = sessionmaker(bind = engine)
         self._session = session()

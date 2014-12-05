@@ -18,13 +18,13 @@ from manifold.core.announce             import Announce
 from manifold.core.field                import Field
 from manifold.core.record               import Records
 from manifold.core.table                import Table
-from manifold.gateways.object           import Object
+from manifold.gateways                  import ManifoldCollection
 from manifold.gateways.sqlalchemy.util  import xgetattr, row2record
 from manifold.util.log                  import Log
 from manifold.util.password             import hash_password
 from manifold.util.type                 import accepts, returns
 
-class SQLA_Object(Object):
+class SQLACollection(ManifoldCollection):
 
     aliases = dict()
 
@@ -68,15 +68,17 @@ class SQLA_Object(Object):
     #---------------------------------------------------------------------
 
     @returns(Records)
-    def create(self, query, annotation):
+    def create(self, packet):
         """
         This method must be overloaded if supported in the children class.
         Args:
-            query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise).
+            packet:
         Returns:
             The list of created Objects.
         """
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+
         super(SQLA_Object, self).check(query, annotation)
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
@@ -114,16 +116,19 @@ class SQLA_Object(Object):
         return records
 
     @returns(Records)
-    def update(self, query, annotation):
+    def update(self, packet):
         """
         This method must be overloaded if supported in the children class.
         Args:
-            query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise).
+            packet:
         Returns:
             The list of updated Objects.
         """
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+    
         super(SQLA_Object, self).check(query, annotation)
+
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
 
@@ -189,15 +194,17 @@ class SQLA_Object(Object):
         return Records()
 
     @returns(Records)
-    def delete(self, query, annotation):
+    def delete(self, packet):
         """
         This method must be overloaded if supported in the children class.
         Args:
-            query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise).
+            packet:
         Returns:
             The list of deleted Objects.
         """
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+
         super(SQLA_Object, self).check(query, annotation)
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
@@ -225,15 +232,17 @@ class SQLA_Object(Object):
         return Records()
 
     @returns(Records)
-    def get(self, query, annotation):
+    def get(self, packet):
         """
         Retrieve an Object from the Gateway.
         Args:
-            query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise).
+            packet:
         Returns:
             A dictionnary containing the requested Gateway object.
         """
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+
         super(SQLA_Object, self).check(query, annotation)
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()

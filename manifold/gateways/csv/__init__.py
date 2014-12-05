@@ -20,10 +20,11 @@ from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
 from manifold.core.keys                 import Keys
+from manifold.core.object               import Object
 from manifold.core.record               import Record
 from manifold.core.table                import Table
 from manifold.gateways                  import Gateway
-from manifold.gateways.object           import ManifoldObject, ManifoldCollection
+from manifold.gateways.object           import ManifoldCollection
 from manifold.types.inet                import inet
 from manifold.types.hostname            import hostname
 from manifold.types                     import type_get_name, type_by_name, int, string, inet, date
@@ -194,7 +195,7 @@ class CSVCollection(ManifoldCollection):
                 key_fields = frozenset([fields[key_elt] for key_elt in key_field_names])
             keys.add(Key(key_fields))
 
-        class obj(ManifoldObject):
+        class obj(Object):
             __object_name__ = object_name
             __fields__ = fields.values()
             __keys__   = keys

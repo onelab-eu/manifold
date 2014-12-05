@@ -21,29 +21,17 @@ from manifold.gateways                          import Gateway
 from manifold.util.log                          import Log
 from manifold.util.type                         import returns, accepts
 
+
+from ip_collection                              import IPCollection
+from hostname_collection                        import HostnameCollection
+
 class MaxMindGateway(Gateway):
 
     __gateway_name__ = "maxmind"
 
-    from manifold.gateways.maxmind.methods.ip       import Ip
-    from manifold.gateways.maxmind.methods.hostname import Hostname
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        Gateway.__init__(self, router, platform_name, platform_config)
 
-    METHOD_MAP = {
-        "ip"       : Ip,
-# Jordan: I'm disabling the hostname method since it is less accurate than the
-# IP one, and we now have the DNS gateway
-#        "hostname" : Hostname
-    }
-
-    def __init__(self, router, platform_name, platform_config):
-        """
-        Constructor
-        Args:
-            router: The Router on which this Gateway is running.
-            platform_name: A String storing name of the platform related to this Gateway or None.
-            config: A dictionnary containing the configuration related to this Gateway.
-        """
-        super(MaxMindGateway, self).__init__(router, platform_name, platform_config)
         dat_basenames = get_dat_basenames()
 
         self.map_dat_geoips = dict()
@@ -54,6 +42,9 @@ class MaxMindGateway(Gateway):
                 install_dat(dat_basename, False)
             except Exception, e:
                 Log.warning("%s: Cannot install %s database: %s" % (self.get_platform_name(), dat_basename, e))
+
+        self.register_collection(IPCollection())
+        #self.register_collection(HostnameCollection())
 
     def get_geoip(self, dat_basename):
         """
@@ -81,38 +72,3 @@ class MaxMindGateway(Gateway):
             geoip = GeoIP.open(dat_filename, GeoIP.GEOIP_STANDARD)
             self.map_dat_geoips[dat_basename] = geoip
         return geoip
-
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        query = packet.get_query()
-        table_name = query.get_table_name()
-
-        records = None
-        if table_name in MaxMindGateway.METHOD_MAP.keys():
-            instance = MaxMindGateway.METHOD_MAP[table_name](self)
-            records = instance.get(query, packet.get_annotation())
-        else:
-            raise RuntimeError("Invalid object %s" % table_name)
-        self.records(records, packet)
-
-    #---------------------------------------------------------------------------
-    # Metadata
-    #---------------------------------------------------------------------------
-
-    @returns(Announces)
-    def make_announces(self):
-        """
-        Build announces by querying postgresql's information schema
-        Returns:
-            The list of corresponding Announce instances
-        """
-        # Ex:  https://code.google.com/p/pygeoip/wiki/Usage
-        # Doc: https://code.google.com/p/pygeoip/downloads/list
-        announces = Announces()
-        for instance in MaxMindGateway.METHOD_MAP.values():
-            announces.append(instance(self).make_announce())
-        return announces

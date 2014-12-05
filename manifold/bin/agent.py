@@ -16,6 +16,7 @@ from manifold.core.announce             import Announces
 from manifold.core.destination          import Destination
 from manifold.core.field_names          import FieldNames
 from manifold.core.filter               import Filter
+from manifold.core.object               import Object
 from manifold.core.router               import Router
 from manifold.util.daemon               import Daemon
 from manifold.util.filesystem           import hostname
@@ -35,7 +36,7 @@ from manifold.util.predicate            import Predicate
 from manifold.core.annotation           import Annotation
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
-from manifold.gateways.object           import ManifoldObject, ManifoldLocalCollection
+from manifold.gateways.object           import ManifoldLocalCollection
 from manifold.core.packet               import GET, CREATE
 from manifold.core.query                import Query
 from manifold.core.deferred_receiver    import DeferredReceiver
@@ -51,7 +52,7 @@ class supernode {
 };
 """
 announce, = Announces.from_string(SUPERNODE_CLASS)
-Supernode = ManifoldObject.from_announce(announce)
+Supernode = Object.from_announce(announce)
 NODES_CSV_CONFIG = {
     'hostname': {
         'filename': '/root/datasets/node-lat-lon.csv',
