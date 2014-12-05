@@ -7,7 +7,7 @@ from manifold.core.filter           import Filter
 from manifold.core.key              import Key
 from manifold.core.keys             import Keys
 from manifold.core.method           import Method
-from manifold.core.object           import Object
+from manifold.core.object           import Object, ObjectFactory
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.table            import Table
 from manifold.util.log              import Log
@@ -119,7 +119,8 @@ class FIB(ChildSlotMixin):
             if object_name in object_dict:
                 obj = object_dict[object_name]
             else:
-                obj = Object(object_name, namespace)
+                obj = ObjectFactory(object_name)
+                obj.set_namespace(namespace)
                 object_dict[object_name] = obj
 
             obj.add_partitions(partitions)
