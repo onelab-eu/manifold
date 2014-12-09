@@ -43,9 +43,11 @@ class OLocalObject(ManifoldCollection):
     };
     """
 
-    def get(self, query = None):
+    def get(self, packet):
+        destination = packet.get_destination()
+        namespace = destination.get_namespace()
         object_list = list()
-        for obj in self.get_router().get_fib().get_announces():
+        for obj in self.get_router().get_fib().get_announces(namespace):
             obj_dict = obj.to_dict()
             object_name = obj_dict['table']
             fib = self.get_router().get_fib()

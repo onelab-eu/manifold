@@ -75,12 +75,19 @@ class FIB(ChildSlotMixin):
     def get_object_names(self, namespace = None):
         return self._objects_by_namespace[namespace].keys()
 
-    def get_announces(self):
+    def get_announces_from_namespace(self, namespace):
         ret = list()
-        for namespace in self.get_namespaces():
-            print "getting objects of namespace", namespace
-            for obj in self.get_objects(namespace):
-                ret.append(obj.get_announce())
+        for obj in self.get_objects(namespace):
+            ret.append(obj.get_announce())
+        return ret
+
+    def get_announces(self, namespace = None):
+        ret = list()
+        if namespace:
+            ret.extend(self.get_announces_from_namespace(namespace))
+        else:
+            for namespace in self.get_namespaces():
+                ret.extend(self.get_announces_from_namespace(namespace))
         return ret
 
     def get_fds(self):
