@@ -69,7 +69,6 @@ class FIB(ChildSlotMixin):
         return self._objects_by_namespace[namespace].values()
 
     def get_object(self, object_name, namespace = None):
-        print "get object", object_name, "in namespace", namespace
         return self._objects_by_namespace[namespace][object_name]
 
     def get_object_names(self, namespace = None):
@@ -242,11 +241,8 @@ class FIB(ChildSlotMixin):
         if packet.is_empty():
             return
 
-        print "packet received by FIB", packet
         packet_dict = packet.to_dict()
         announce = Announce.from_dict(packet.to_dict(), platform_name) # Announce(Table.from_dict(packet_dict['table'], platform_name))
-        print "ANNOUNCE RECEIVED", announce
-        print "ON_RECEIVE => FIB:add(%(platform_name)s, %(announce)s, %(namespace)s)" % locals()
         self.add(platform_name, announce, namespace)
             
 
