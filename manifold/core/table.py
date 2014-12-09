@@ -946,7 +946,7 @@ class Table(object):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
-        partitions_list = dic.pop('partitions')
+        partitions_list = dic.pop('partitions', None)
         partitions  = Partitions.from_list(partitions_list) if partitions_list else None
 
         t = Table(partitions, dic)
