@@ -946,9 +946,10 @@ class Table(object):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
-        partitions  = Partitions.from_list(dic['partitions'])
+        partitions_list = dic.pop('partitions')
+        partitions  = Partitions.from_list(partitions_list) if partitions_list else None
 
-        t = Table(partitions, dic['table'])
+        t = Table(partitions, dic)
 
         key_fields = []
         for column in dic['columns']:
