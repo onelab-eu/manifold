@@ -150,7 +150,7 @@ class Announce(Packet):
         Returns:
             The dict representation of this Announce.
         """
-        return {'cost' : 0, 'table': self._table.to_dict()}
+        return {'cost' : self._cost, 'table': self._table.to_dict()}
 
     @classmethod
     def from_dict(cls, dic, platform_name):

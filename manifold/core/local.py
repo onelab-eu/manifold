@@ -58,7 +58,6 @@ class OLocalObject(ManifoldCollection):
             announce_list.append(announce_dict)
 
         records = Records(announce_list)
-        print "RECORDS", records
         return records
 
 OLocalColumn = OLocalLocalColumn
