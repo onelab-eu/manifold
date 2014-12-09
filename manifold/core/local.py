@@ -56,7 +56,10 @@ class OLocalObject(ManifoldCollection):
             #obj_dict['platforms'] = fib.get_object(object_name).get_platform_names()
 
             announce_list.append(announce_dict)
-        return Records(announce_list)
+
+        records = Records(announce_list)
+        print "RECORDS", records
+        return records
 
 OLocalColumn = OLocalLocalColumn
 

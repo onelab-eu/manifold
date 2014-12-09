@@ -108,6 +108,8 @@ class FIB(ChildSlotMixin):
 
         for announce in announces:
 
+            print "FIB ADD ANNOUNCE", announce
+
             table = announce.get_table() # XXX
 
             object_name     = table.get_name() # XXX
@@ -241,7 +243,7 @@ class FIB(ChildSlotMixin):
             return
 
         packet_dict = packet.to_dict()
-        announce = Announce(Table.from_dict(packet_dict['table'], platform_name))
+        announce = Announce.from_dict(packet.to_dict(), platform_name) # Announce(Table.from_dict(packet_dict['table'], platform_name))
         #print "ON_RECEIVE => FIB:add(%(platform_name)s, %(announce)s, %(namespace)s)" % locals()
         self.add(platform_name, announce, namespace)
 
