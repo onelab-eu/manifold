@@ -240,7 +240,8 @@ class FIB(ChildSlotMixin):
         if packet.is_empty():
             return
 
-        announce = Announce(Table.from_dict(packet.to_dict(), platform_name))
+        packet_dict = packet.to_dict()
+        announce = Announce(Table.from_dict(packet_dict['table'], platform_name))
         #print "ON_RECEIVE => FIB:add(%(platform_name)s, %(announce)s, %(namespace)s)" % locals()
         self.add(platform_name, announce, namespace)
 
