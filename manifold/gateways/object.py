@@ -65,19 +65,15 @@ class ManifoldLocalCollection(ManifoldCollection):
         ret = list()
         # XXX filter and fields
         # XXX How to preserve the object class ?
-        print "COLLECTION GET BEGIN", self
         for x in self:
-            print "x=", x
             y = x.copy()
             y.__class__ = Record
-            print "x recrd=", y
             ret.append(y)
         if ret:
             ret[-1].set_last()
         else:
             ret.append(Record(last=True))
 
-        print "COLLECTION GET", self, ret
         return ret
 
     def create(self, obj):
