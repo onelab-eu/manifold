@@ -91,7 +91,8 @@ class Table(object):
             fields: A set/list of FieldNames involved in the table or None
             keys: A set of Key instances or None
         """
-        # Check parameters
+        # Check parameters 
+        print "table __init__"
         Table.check_init(table_name, fields, keys)
 
         # Init self.name.
@@ -129,6 +130,7 @@ class Table(object):
         # self.platform_names is initialized wile calling self.set_partitions(...)
         #if len(self.get_platforms()) == 0:
         #    raise Exception("strange table %r" % self)
+        print "table init done"
 
     @returns(StringTypes)
     def get_from_name(self):
@@ -190,7 +192,7 @@ class Table(object):
         Returns:
             The '%r' representation of this Table.
         """
-        return "<%s>" % self.get_from_name()
+        return "<Table: %s>" % self.get_from_name()
 
     #-----------------------------------------------------------------------
     # Accessors
@@ -949,7 +951,8 @@ class Table(object):
         partitions_list = dic.pop('partitions', None)
         partitions  = Partitions.from_list(partitions_list) if partitions_list else None
 
-        t = Table(partitions, dic)
+        import pdb; pdb.set_trace()
+        t = Table(partitions, dic['table'])
 
         key_fields = []
         for column in dic['columns']:
@@ -978,4 +981,5 @@ class Table(object):
         t.capabilities.projection = 'projection' in dic['capabilities']
 
 
+        print "table from dict", t
         return t

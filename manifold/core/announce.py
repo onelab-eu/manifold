@@ -157,7 +157,16 @@ class Announce(Packet):
         if dic['table'] in ['object', 'column', 'gateway']:
             return None
 
-        return Announce(Table.from_dict(dic['table'], platform_name), dic['cost'])
+        try:
+            table = Table.from_dict(dic['table'], platform_name)
+        except Exception, e:
+            print "E:", e
+            import traceback
+            traceback.print_exc()
+        cost = dic['cost']
+
+        print "ANNOUNCE FROM DICT TABLE", table
+        return Announce(table, cost)
 
 #------------------------------------------------------------------
 # Announces
