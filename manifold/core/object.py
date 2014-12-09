@@ -389,6 +389,7 @@ class Object(Record):
 
 def ObjectFactory(name): 
     def __init__(cls, **kwargs):
+        Object.__init__(cls, **kwargs)
         for key, value in kwargs.items():
             # here, the argnames variable is the one passed to the
             # ClassFactory call
@@ -396,8 +397,9 @@ def ObjectFactory(name):
             if not cls.__fields__ or key not in cls.__fields__.keys():
                 raise TypeError("Argument %s not valid for %s" 
                     % (key, cls.__class__.__name__))
-            setattr(cls, key, value)
-        Object.__init__(cls) # , name)
+            cls[key] = value
+            #setattr(cls, key, value)
+        #Object.__init__(cls) # , name)
     newclass = type(str(name), (Object,),{"__init__": __init__})
 
     newclass.__object_name__     = name

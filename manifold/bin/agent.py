@@ -174,7 +174,8 @@ class AgentDaemon(Daemon):
         defer.returnValue(supernode['destination'] if supernode else None)
 
     #@defer.inlineCallbacks
-    def register_as_supernode(self): #, interface):
+    def register_as_supernode(self):
+        sn = Supernode(hostname = hostname())
         self._supernode_collection.create(Supernode(hostname = hostname()))
 
         # XXX We should install a hook to remove from supernodes agents that have disconnected
@@ -295,8 +296,7 @@ class AgentDaemon(Daemon):
 
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")
-        yield self.register_as_supernode(self._main_interface)
-
+        yield self.register_as_supernode()
 
         if supernode:
             # Finally once we are all set up, disconnect the interface to the
@@ -374,6 +374,7 @@ class AgentDaemon(Daemon):
         supernode_collection = ManifoldLocalCollection(Supernode)
         self._router.register_collection(supernode_collection, namespace='tdmi')
         self._supernode_collection = supernode_collection
+
 
         # Setup peer overlay
         if Options().server_mode:
