@@ -52,12 +52,11 @@ class OLocalObject(ManifoldCollection):
             announce_dict = announce.to_dict()
 
             # XXX
-            import pdb; pdb.set_trace()
             announce_dict['table']['platforms'] = obj.get_platform_names()
             #obj_dict['platforms'] = fib.get_object(object_name).get_platform_names()
 
             announce_list.append(announce_dict)
-        return Records(object_list)
+        return Records(announce_list)
 
 OLocalColumn = OLocalLocalColumn
 
