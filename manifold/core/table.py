@@ -951,7 +951,6 @@ class Table(object):
         partitions_list = dic.pop('partitions', None)
         partitions  = Partitions.from_list(partitions_list) if partitions_list else None
 
-        import pdb; pdb.set_trace()
         t = Table(partitions, dic['table'])
 
         key_fields = []
