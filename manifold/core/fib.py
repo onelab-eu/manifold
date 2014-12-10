@@ -110,7 +110,6 @@ class FIB(ChildSlotMixin):
 
             table = announce.get_table() # XXX
 
-            print "FIB ADD TABLE", table
             object_name     = table.get_name() # XXX
 
             keys            = table.get_keys()
@@ -205,9 +204,8 @@ class FIB(ChildSlotMixin):
                 #
                 # Child objects too should be considered having the parents'
                 # fields
-                #print "INFERRING RELATIONS FROM ", obj.get_object_name(), "TOWARDS others"
                 # !! We cannot infer relations before we insert the key
-                for other in self.get_objects():
+                for other in self.get_objects(namespace):
                     relations = obj.infer_relations(other)
                     for relation in relations:
                         if not relation in obj.get_relations():
@@ -242,7 +240,11 @@ class FIB(ChildSlotMixin):
             return
 
         packet_dict = packet.to_dict()
-        announce = Announce.from_dict(packet.to_dict(), platform_name) # Announce(Table.from_dict(packet_dict['table'], platform_name))
+
+        # IDEAL, see manifold.core.local before
+        # announce = Announce.from_dict(packet.to_dict(), platform_name)
+
+        announce = Announce(Table.from_dict(packet_dict, platform_name))
         self.add(platform_name, announce, namespace)
             
 

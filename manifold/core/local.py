@@ -46,18 +46,17 @@ class OLocalObject(ManifoldCollection):
     def get(self, packet):
         destination = packet.get_destination()
         namespace = destination.get_namespace()
-        announce_list = list()
+        table_list = list()
         for obj in self.get_router().get_fib().get_objects():
             announce = obj.get_announce()
-            announce_dict = announce.to_dict()
+            table = announce.get_table()
+            table_dict = table.to_dict()
+            table_dict['platforms'] = obj.get_platform_names()
+            table_dict['columns'] = Records(table_dict['columns'])
 
-            # XXX
-            announce_dict['table']['platforms'] = obj.get_platform_names()
-            #obj_dict['platforms'] = fib.get_object(object_name).get_platform_names()
+            table_list.append(table_dict)
 
-            announce_list.append(announce_dict)
-
-        records = Records(announce_list)
+        records = Records(table_list)
         return records
 
 OLocalColumn = OLocalLocalColumn

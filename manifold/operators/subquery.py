@@ -357,7 +357,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         # Object
         parent_object = destination.get_object()
+        parent_namespace = destination.get_namespace()
+
         parent_destination.set_object(parent_object)
+        parent_destination.set_namespace(parent_namespace)
 
         # Filter
         #
@@ -421,6 +424,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
             child_object = self._get_child(child_id).get_destination().get_object()
             child_destinations[child_id].set_object(child_object)
+            child_destinations[child_id].set_namespace(parent_namespace)
 
         return (parent_destination, child_destinations)
     

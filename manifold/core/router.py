@@ -612,8 +612,6 @@ class Router(object):
         Args:
             packet: A QueryPacket instance.
         """
-        print "ROUTER RECEIVE PACKET", packet
-        
         destination = packet.get_destination()
 
         # Packet for the FIB ?

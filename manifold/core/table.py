@@ -92,7 +92,6 @@ class Table(object):
             keys: A set of Key instances or None
         """
         # Check parameters 
-        print "table __init__"
         Table.check_init(table_name, fields, keys)
 
         # Init self.name.
@@ -130,7 +129,6 @@ class Table(object):
         # self.platform_names is initialized wile calling self.set_partitions(...)
         #if len(self.get_platforms()) == 0:
         #    raise Exception("strange table %r" % self)
-        print "table init done"
 
     @returns(StringTypes)
     def get_from_name(self):

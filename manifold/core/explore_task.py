@@ -296,7 +296,6 @@ class ExploreTask(Deferred):
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now.
         for dest_object_name, relation in self.root.get_relation_tuples():
-            #print "objsource", src_object_name, "objdest", dest_object_name, "relation", relation
             name = relation.get_relation_name()
 
             # XXX Sometimes we might want to add the type: if we have not
