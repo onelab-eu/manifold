@@ -159,7 +159,7 @@ class Union(Operator, ChildrenSlotMixin):
                         prev_record[k] = v
                         continue
                     if isinstance(v, Records):
-                        previous[k].extend(v) # DUPLICATES ?
+                        prev_record[k].extend(v) # DUPLICATES ?
                     elif isinstance(v, list):
                         Log.warning("Should be a record")
                     #else:
