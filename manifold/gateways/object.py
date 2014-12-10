@@ -74,8 +74,6 @@ class ManifoldLocalCollection(ManifoldCollection):
         else:
             ret.append(Record(last=True))
 
-        print "COLLECTION", self, "GET", ret
-
         return ret
 
     def create(self, obj):
