@@ -150,14 +150,14 @@ class Announce(Packet):
         Returns:
             The dict representation of this Announce.
         """
-        return {'cost' : self._cost, 'table': self._table.to_dict()}
+        return {'cost' : self._cost, 'object': self._table.to_dict()}
 
     @classmethod
     def from_dict(cls, dic, platform_name):
-        if dic['table']['table'] in ['object', 'column', 'gateway']:
+        if dic['object']['object_name'] in ['object', 'column', 'gateway']:
             return None
 
-        table = Table.from_dict(dic['table'], platform_name)
+        table = Table.from_dict(dic['object'], platform_name)
         cost = dic['cost']
 
         return Announce(table, cost)

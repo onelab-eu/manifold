@@ -36,14 +36,15 @@ LOCAL_NAMESPACE = 'local'
 class OLocalLocalObject(ManifoldCollection):
     """
     class object {
-        string  table;           /**< The name of the object/table.        */
-        column  columns[];       /**< The corresponding fields/columns.    */
-        string  capabilities[];  /**< The supported capabilities           */
-        string  key[];           /**< The keys related to this object      */
-        string  origins[];       /**< The platform originating this object */
+        string object_name;      /**< The name of the object/table.        */
+        string namespace;
+        column columns[];       /**< The corresponding fields/columns.    */
+        string capabilities[];  /**< The supported capabilities           */
+        string key[];           /**< The keys related to this object      */
+        string origins[];       /**< The platform originating this object */
 
         CAPABILITY(retrieve);
-        KEY(table);
+        KEY(object_name);
     };
     """
 
@@ -52,7 +53,7 @@ class OLocalLocalObject(ManifoldCollection):
         objects = list()
         for collection in self.get_gateway().get_collections():
             obj = collection.get_object().get_announce().to_dict()
-            objects.append(obj)
+            objects.append(obj['object'])
         return Records(objects)
 
 class OLocalLocalColumn(ManifoldCollection):

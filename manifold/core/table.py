@@ -935,7 +935,8 @@ class Table(object):
             columns.append(field.to_dict())
 
         return {
-            "table"        : self.get_name(),
+            "object_name"  : self.get_name(),
+            "namespace"    : self.get_namespace(),
             "origins"      : sorted(self.get_platforms()),
             "columns"      : columns,
             "keys"         : self.keys.to_dict_list(),
@@ -949,7 +950,8 @@ class Table(object):
         partitions_list = dic.pop('partitions', None)
         partitions  = Partitions.from_list(partitions_list) if partitions_list else None
 
-        t = Table(partitions, dic['table'])
+        t = Table(partitions, dic['object_name'])
+        t.set_namespace(dic['namespace'])
 
         key_fields = []
         for column in dic['columns']:

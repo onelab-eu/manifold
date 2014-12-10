@@ -179,7 +179,7 @@ class ManifoldGateway(Gateway):
         callback = Callback()
 
         # qualifier name type description is_array # XXX missing origin
-        query_metadata = Query.get("local:object").select("table", "columns", "key", "capabilities").to_dict()
+        query_metadata = Query.get("local:object").select("object_name", "columns", "key", "capabilities").to_dict()
 
         def errback(failure):
             message = "Cannot get announces from %s: %s" % (self.get_platform_name(), failure)
