@@ -47,7 +47,7 @@ class OLocalObject(ManifoldCollection):
         destination = packet.get_destination()
         namespace = destination.get_namespace()
         table_list = list()
-        for obj in self.get_router().get_fib().get_objects():
+        for obj in self.get_router().get_fib().get_objects(namespace='*'):
             announce = obj.get_announce()
             table = announce.get_table()
             table_dict = table.to_dict()
