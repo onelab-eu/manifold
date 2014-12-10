@@ -120,6 +120,9 @@ class Announce(Packet):
         """
         return self._table
 
+    def get_object(self):
+        return self.get_table()
+
     @returns(int)
     def get_cost(self):
         """

@@ -102,7 +102,7 @@ class FIB(ChildSlotMixin):
     def get_fds(self):
         return self._fds.copy()
 
-    def add(self, platform_name, announces, namespace = None):
+    def add(self, platform_name, announces, namespace = None): # XXX namespace should be in announced object 
         """
         Adds a new announce to the FIB.
         """
@@ -244,7 +244,6 @@ class FIB(ChildSlotMixin):
 
     def receive(self, packet):
         platform_name = packet._ingress.get_filter().get_eq('uuid')
-        namespace = 'local' if platform_name == 'local' else None
 
         if packet.is_empty():
             return
@@ -255,6 +254,9 @@ class FIB(ChildSlotMixin):
         # announce = Announce.from_dict(packet.to_dict(), platform_name)
 
         announce = Announce(Table.from_dict(packet_dict, platform_name))
+        obj = announce.get_object()
+        namespace = obj.get_namespace()
+        
         self.add(platform_name, announce, namespace)
             
 
