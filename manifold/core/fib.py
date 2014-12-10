@@ -63,10 +63,20 @@ class FIB(ChildSlotMixin):
             ret.extend(obj.get_relation_tuples())
         return ret
 
-    def get_objects(self, namespace = None):
+
+    def get_objects_from_namespace(self, namespace = None):
         if not namespace in self._objects_by_namespace:
             return list()
         return self._objects_by_namespace[namespace].values()
+
+    def get_objects(self, namespace = None):
+        if namespace == '*':
+            ret = list()
+            for namespace in self.get_namespaces():
+                ret.extend(self.get_objects_from_namespace(namespace))
+            return ret
+        else:
+            return self.get_objects_from_namespace(namespace)
 
     def get_object(self, object_name, namespace = None):
         return self._objects_by_namespace[namespace][object_name]
@@ -81,13 +91,13 @@ class FIB(ChildSlotMixin):
         return ret
 
     def get_announces(self, namespace = None):
-        ret = list()
-        if namespace:
-            ret.extend(self.get_announces_from_namespace(namespace))
-        else:
+        if namespace == '*':
+            ret = list()
             for namespace in self.get_namespaces():
                 ret.extend(self.get_announces_from_namespace(namespace))
-        return ret
+            return ret
+        else:
+            return self.get_announces_from_namespace(namespace)
 
     def get_fds(self):
         return self._fds.copy()

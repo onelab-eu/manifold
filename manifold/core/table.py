@@ -978,5 +978,4 @@ class Table(object):
         t.capabilities.projection = 'projection' in dic['capabilities']
 
 
-        print "table from dict", t
         return t
