@@ -265,7 +265,7 @@ class Router(object):
         interface = self._interfaces.get(interface_name)
         if not interface:
             return False
-        return self._interface[interface_name].is_up()
+        return self._interfaces[interface_name].is_up()
 
     @returns(bool)
     def del_platform(self, platform_name, rebuild = True):
