@@ -537,6 +537,7 @@ class Packet(object):
             A Packet instance cloned from self.
         """
         clone = copy.deepcopy(self)
+        clone._uuid = str(uuid.uuid4())
         clone.set_receiver(self.get_receiver())
         return clone
     copy = clone
