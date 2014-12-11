@@ -131,7 +131,6 @@ class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
 
     def on_client_connected(self):
         self.set_up()
-        self._request_announces()
 
     def up_impl(self):
         # Cannot do much here...
@@ -251,13 +250,10 @@ class TCPServerInterface(Interface):
         Interface.terminate(self)
         ReactorThread().stop_reactor()
 
-    def _request_announces(self):
-        pass
-
     def up_impl(self):
         ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router))
         # XXX How to wait for the server to be effectively listening
-        self.set_up()
+        self.set_up(request_announces = False)
 
     @defer.inlineCallbacks
     def down_impl(self):

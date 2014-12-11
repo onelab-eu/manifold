@@ -63,9 +63,6 @@ class UNIXServerInterface(Interface):
         Interface.terminate(self)
         ReactorThread().stop_reactor()
 
-    def _request_announces(self):
-        pass
-
     def up_impl(self):
         self._connector = ReactorThread().listenUNIX(self._filename, TCPServerSocketFactory(self._router))
         # XXX How to wait for the server to be effectively listening

@@ -64,10 +64,7 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
         self.sendMessage(msg.encode(), False)
 
     def on_client_connected(self):
-        self.set_up()
-
-        # In websockets, we expect no announces from clients so far
-        #self._request_announces()
+        self.set_up(request_announces = False)
 
     def up_impl(self):
         # Cannot do much  here...
@@ -80,9 +77,6 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
     def on_client_disconnected(self, reason):
         self.get_down()
         self.get_router().unregister_interface(self)
-
-    def _request_announces(self):
-        pass
 
     # -----
 
@@ -179,14 +173,11 @@ class ManifoldWebSocketServerInterface(Interface):
         Interface.terminate(self)
         ReactorThread().stop_reactor()
 
-    def _request_announces(self):
-        pass
-
     def up_impl(self):
         factory = ManifoldWebSocketServerFactory(self._router, self._port)
         ReactorThread().listenTCP(self._port, factory)
         # XXX How to wait for the server to be effectively listening
-        self.set_up()
+        self.set_up(request_announces = False)
 
     @defer.inlineCallbacks
     def down_impl(self):

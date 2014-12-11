@@ -83,12 +83,13 @@ class Interface(object):
         self.set_up()
 
     # The interface is now up...
-    def set_up(self):
+    def set_up(self, request_announces = True):
         self._up = True
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
-        print "Requesting announces..."
-        self._request_announces()
+        if request_announces:
+            print "Requesting announces..."
+            self._request_announces()
         self._router.up_interface(self)
         
     def down(self):
@@ -139,8 +140,6 @@ class Interface(object):
             print "Sending GET..."
             print "fib addr:", fib.get_address()
             self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)
-        else:
-            print "FIB IS NONE"
 
     def send_impl(self, packet):
         raise NotImplemented
