@@ -90,7 +90,6 @@ class Interface(object):
         if request_announces:
             print "Requesting announces..."
             self.request_announces()
-        self._router.up_interface(self)
         
     def down(self):
         #self._up = False

@@ -248,12 +248,6 @@ class Router(object):
         del self._interfaces[platform_name]
         self.get_fib().remove_platform(platform_name)
 
-    def up_interface(self, interface):
-        self.get_fib().up_interface(interface)
-
-    def down_interface(self, interface):
-        self.get_fib().down_interface(interface)
-
     def add_interface(self, interface_type, *args, **kwargs):
         interface_cls = Interface.factory_get(interface_type)
         if not interface_cls:
@@ -266,6 +260,12 @@ class Router(object):
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface
         interface.up()
         return interface
+
+    def is_interface_up(self, interface_name):
+        interface = self._interface.get(interface_name)
+        if not interface:
+            return False
+        return self._interface[interface_name].is_up()
 
     @returns(bool)
     def del_platform(self, platform_name, rebuild = True):

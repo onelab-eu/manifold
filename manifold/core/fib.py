@@ -19,7 +19,7 @@ class FIB(ChildSlotMixin):
     Replaces DBNorm and DBGraph.
     """
 
-    def __init__(self):
+    def __init__(self, router):
         ChildSlotMixin.__init__(self)
 
         # Tables indexed by name
@@ -30,16 +30,10 @@ class FIB(ChildSlotMixin):
 
         self._uuid = str(uuid.uuid4())
 
-        self._interface_is_up = dict()
-
-    def up_interface(self, interface):
-        self._interface_is_up[interface.get_uuid()] = True
-
-    def down_interface(self, interface):
-        self._interface_is_up[interface.get_uuid()] = False
+        self._router = router
 
     def is_up(self, interface_name):
-        return self._interface_is_up.get(interface_name, True)
+        return self._router.is_interface_up(interface_name)
 
     # All receivers should have a UUID for destination
     def get_uuid(self):
