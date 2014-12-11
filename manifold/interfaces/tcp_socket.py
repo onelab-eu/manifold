@@ -160,7 +160,7 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
         # This is used to disconnect, can't we just refer to transport for this ?
         self._client = client
 
-        self.set_up()
+        self.set_up(self._request_announces)
 
         # Send buffered packets
         while self._tx_buffer:
@@ -210,10 +210,11 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     __interface_type__ = 'tcpclient'
 
-    def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT):
+    def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT, request_announces = True):
         self._host = host
         self._port = port
         self._timeout = timeout
+        self._request_announces = request_announces
         TCPClientSocketFactory.__init__(self, router)
 
     def reconnect(self, host = None, port = DEFAULT_PORT):
