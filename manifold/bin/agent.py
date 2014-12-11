@@ -129,6 +129,8 @@ class AgentDaemon(Daemon):
         # Remove duplicates in supernodes. As it is the key, this should be enforced by the collection")
         supernodes = list(supernodes)
 
+        print "SUPERNODES", supernodes
+
         if not supernodes:
             defer.returnValue(None)
 
@@ -159,6 +161,7 @@ class AgentDaemon(Daemon):
         # delays = yield Ping(destination in supernodes, fields=destination, # delay)
         # supernode = min(delays, key=operator.itemgetter('delay'))
 
+        print "DELAYS", delays
 
         if not delays:
             defer.returnValue(None)
