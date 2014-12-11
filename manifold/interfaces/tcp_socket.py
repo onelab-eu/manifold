@@ -45,6 +45,7 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
+        print "PACKET RECV BY PROTO", packet
         self.receive(packet)
 
     def send_packet(self, packet):
@@ -194,6 +195,7 @@ class TCPServerSocketFactory(ServerFactory):
         self._router = router
 
     def buildProtocol(self, addr):
+        print "RECEIVED CONNECTION FROM CLIENT", addr
         p = self.protocol(self._router)
         p.factory = self
         return p
