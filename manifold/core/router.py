@@ -83,7 +83,7 @@ class Router(object):
         self._dbgraph = None
 
         # FIB
-        self._fib = FIB()
+        self._fib = FIB(self)
 
         # interface_uuid -> interface
         self._interfaces = dict()
