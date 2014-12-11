@@ -272,4 +272,3 @@ class FIB(ChildSlotMixin):
         for namespace in self.get_namespaces():
             for obj in self.get_objects(namespace):
                 obj.remove_platform(platform_name)
-        del self._interface_is_up[platform_name]
