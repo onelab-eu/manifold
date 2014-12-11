@@ -89,7 +89,7 @@ class Interface(object):
             cb(self, *args, **kwargs)
         if request_announces:
             print "Requesting announces..."
-            self._request_announces()
+            self.request_announces()
         self._router.up_interface(self)
         
     def down(self):
@@ -134,7 +134,7 @@ class Interface(object):
     def del_down_callback(self, callback):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
-    def _request_announces(self):
+    def request_announces(self):
         fib = self._router.get_fib()
         if fib:
             print "Sending GET..."
