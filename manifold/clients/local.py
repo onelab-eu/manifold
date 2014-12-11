@@ -49,7 +49,7 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         super(ManifoldLocalClient, self).__init__()
         self._receiver = self.make_receiver()
 
-        self._interface = TCPClientInterface(self._receiver, 'localhost')
+        self._interface = TCPClientInterface(self._receiver, 'localhost', request_announces = False)
         self._interface.up()
         #self._interface = UNIXClientInterface(self._receiver, socket_path)
         self._user = None
