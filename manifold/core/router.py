@@ -262,7 +262,7 @@ class Router(object):
         return interface
 
     def is_interface_up(self, interface_name):
-        interface = self._interface.get(interface_name)
+        interface = self._interfaces.get(interface_name)
         if not interface:
             return False
         return self._interface[interface_name].is_up()
