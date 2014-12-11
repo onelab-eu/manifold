@@ -95,7 +95,7 @@ class LocalInterfaceCollection(ManifoldCollection):
             interface = {
                 'name': interface_name, 
                 'type': interface.get_interface_type(),
-                'status': 'UP' if fib.is_up(interface) else 'ERROR' if fib.is_error(interface) else 'DOWN',
+                'status': interface.get_status(),
                 'description': interface.get_description(),
             }
             interface_list.append(interface)
