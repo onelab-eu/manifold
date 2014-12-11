@@ -87,6 +87,7 @@ class Interface(object):
         self._up = True
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
+        print "Requesting announces..."
         self._request_announces()
         self._router.up_interface(self)
         
@@ -135,7 +136,11 @@ class Interface(object):
     def _request_announces(self):
         fib = self._router.get_fib()
         if fib:
+            print "Sending GET..."
+            print "fib addr:", fib.get_address()
             self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)
+        else:
+            print "FIB IS NONE"
 
     def send_impl(self, packet):
         raise NotImplemented
@@ -166,7 +171,7 @@ class Interface(object):
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
 
-        #print "[OUT]", self, packet
+        print "[OUT]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         
@@ -176,7 +181,7 @@ class Interface(object):
         """
         For packets received from the remote server."
         """
-        #print "[ IN]", self, packet
+        print "[ IN]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         packet._ingress = self.get_address()

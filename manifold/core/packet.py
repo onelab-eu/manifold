@@ -25,7 +25,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import copy, pickle
+import copy, pickle, uuid
 from types                      import GeneratorType, StringTypes
 
 from manifold.core.annotation   import Annotation
@@ -134,6 +134,7 @@ class Packet(object):
 
         # We internally attach some data to packets
         self._ingress       = None
+        self._uuid          = str(uuid.uuid4())
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -546,8 +547,9 @@ class Packet(object):
         Returns:
             The '%r' representation of this Packet.
         """
-        return "<Packet.%s%s%s %s -> %s [DATA: %s]>" % (
+        return "<Packet.%s%s%s%s %s -> %s [DATA: %s]>" % (
             Packet.get_protocol_name(self.get_protocol()),
+            ' {%s}' % self._uuid,
             ' ANNOTATION:%r' % self.get_annotation() if self.get_annotation else '',
             ' LAST' if self.is_last() else '',
             self.get_source(), self.get_destination(),

@@ -285,6 +285,9 @@ class AgentDaemon(Daemon):
 
         if supernode:
             Log.info("Connecting to supernode: %s..." % (supernode,))
+            print "Sleeping 5s"
+            import time
+            time.sleep(5)
             self._client_interface = yield self.connect_interface(supernode)
             if not self._client_interface:
                 Log.warning("Failed to connect to supernode. Trying again")
