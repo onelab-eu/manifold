@@ -76,7 +76,7 @@ class Interface(object):
 
     def get_status(self):
         return 'UP' if self.is_up() else 'ERROR' if self.is_error() else 'DOWN',
-_
+
     # Request the interface to be up...
     def up(self):
         self.up_impl()
