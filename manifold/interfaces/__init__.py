@@ -75,7 +75,7 @@ class Interface(object):
         return ''
 
     def get_status(self):
-        return 'UP' if self.is_up() else 'ERROR' if self.is_error() else 'DOWN',
+        return 'UP' if self.is_up() else 'ERROR' if self.is_error() else 'DOWN'
 
     # Request the interface to be up...
     def up(self):
@@ -139,8 +139,6 @@ class Interface(object):
     def request_announces(self):
         fib = self._router.get_fib()
         if fib:
-            print "Sending GET..."
-            print "fib addr:", fib.get_address()
             self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)
 
     def send_impl(self, packet):
@@ -199,4 +197,5 @@ class Interface(object):
             self._router.receive(packet)
         else:
             # Existing flows rely on the state defined in the router... XXX
+            packet.set_receiver(receiver)
             receiver.receive(packet)

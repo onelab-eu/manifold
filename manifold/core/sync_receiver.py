@@ -8,16 +8,20 @@
 #   Jordan Augé         <jordan.auge@lip6.fr
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import threading
-from types                       import StringTypes
+import threading, uuid
+from types                          import StringTypes
 
-from manifold.core.operator_slot import ChildSlotMixin
-from manifold.core.node          import Node
-from manifold.core.packet        import Packet
-from manifold.core.record        import Records
-from manifold.core.result_value  import ResultValue
-from manifold.util.log           import Log
-from manifold.util.type          import accepts, returns
+from manifold.core.destination      import Destination
+from manifold.core.filter           import Filter
+from manifold.core.operator_slot    import ChildSlotMixin
+from manifold.core.node             import Node
+from manifold.core.packet           import Packet
+from manifold.core.record           import Records
+from manifold.core.result_value     import ResultValue
+from manifold.util.log              import Log
+from manifold.util.predicate        import Predicate
+from manifold.util.type             import accepts, returns
+
 
 class SyncReceiver(Node, ChildSlotMixin):
 
@@ -33,7 +37,11 @@ class SyncReceiver(Node, ChildSlotMixin):
         Node.__init__(self)
         ChildSlotMixin.__init__(self)
         self._event = threading.Event()
+        self._uuid = str(uuid.uuid4())
         self.clear()
+
+    def get_address(self):
+        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
 
     def clear(self):
         self._records = Records() # Records resulting from a Query
@@ -64,7 +72,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet) # .get_exception()
         elif packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            pass
+            return
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
@@ -77,6 +85,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
         if packet.is_last():
+            print "got last in SR", self
             self.terminate()
 
     @returns(ResultValue)

@@ -113,6 +113,8 @@ class Selection(Operator, ChildSlotMixin):
             self._get_child().send(new_packet)
 
     def receive_impl(self, packet, slot_id = None):
+        packet.update_source(Destination.add_filter, self._filter)
+
         if packet.is_empty() or self._filter.match(packet.get_dict()):
             self.forward_upstream(packet)
             return

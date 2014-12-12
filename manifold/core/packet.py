@@ -51,6 +51,9 @@ class Flow(object):
     def get_destination(self):
         return self._destination
 
+    def get_reverse(self):
+        return Flow(self._destination, self._source)
+
     def __eq__(self, other):
         is_direct  = self._source == other._source and \
                      self._destination == other._destination
@@ -168,6 +171,9 @@ class Packet(object):
 
     def get_destination(self):
         return self._destination
+
+    def update_source(self, method, *args, **kwargs):
+        self.set_source(method(self.get_source(), *args, **kwargs))
 
     def update_destination(self, method, *args, **kwargs):
         self.set_destination(method(self.get_destination(), *args, **kwargs))

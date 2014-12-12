@@ -128,19 +128,21 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         """
         Log.warning("Hardcoded a GET packet")
         packet = GET()
+
+        r = self.make_receiver()
+
+        packet.set_source(self._interface.get_address())
         packet.set_destination(query.get_destination())
-        #packet.set_receiver(self._receiver) # Why is it useful ??
         if annotation:
             packet.update_annotation(annotation)
-        #packet = QueryPacket(query, annotation, receiver = self._receiver)
-        # SyncReceiver()
+        packet.set_receiver(r)
 
-        self._receiver.clear()
+        self._interface._flow_map[packet.get_flow().get_reverse()] = r
 
         self._interface.send(packet)
 
         # This code is blocking
-        result_value = self._receiver.get_result_value()
+        result_value = r.get_result_value()
         assert isinstance(result_value, ResultValue),\
             "Invalid result_value = %s (%s)" % (result_value, type(result_value))
         return result_value

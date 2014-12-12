@@ -141,10 +141,11 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
         Log.warning("Gateway should become an interface")
 
+        self._platform_name   = platform_name   # String
         Interface.__init__(self, router, uuid = platform_name)
         Node.__init__(self)
+        self._up = True
         assert router
-        self._platform_name   = platform_name   # String
 
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
