@@ -85,6 +85,9 @@ class Router(object):
         # FIB
         self._fib = FIB(self)
 
+        # A list of query IDs
+        self._pit = set()
+
         # interface_uuid -> interface
         self._interfaces = dict()
 
@@ -612,6 +615,12 @@ class Router(object):
         Args:
             packet: A QueryPacket instance.
         """
+
+        if packet.get_uuid() in self._pit:
+            # ANTI LOOP
+            receiver.receive(Record(last=True))
+            return
+
         destination = packet.get_destination()
 
         # Packet for the FIB ?
@@ -706,6 +715,9 @@ class Router(object):
             # This is not taken into account by the gateway receiver function,
             # since it is a customer of the query plan.
             #packet.set_receiver(interface)
+
+        # Store packet UUID in pit
+        self._pit.add(packet.get_uuid())
         
         try:
             root_node.send(packet)

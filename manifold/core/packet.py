@@ -234,6 +234,9 @@ class Packet(object):
     def get_flow(self):
         return Flow(self._source, self._destination)
 
+    def get_uuid(self):
+        return self._uuid
+
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------

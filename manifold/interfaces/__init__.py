@@ -91,12 +91,10 @@ class Interface(object):
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
         if request_announces:
-            print "Requesting announces..."
             self.request_announces()
         
     def down(self):
-        #self._up = False
-        self._router.down_interface(self)
+        self._up = False
         self.down_impl()
 
     def down_impl(self):
@@ -137,6 +135,7 @@ class Interface(object):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
     def request_announces(self):
+        print "Requesting announces"
         fib = self._router.get_fib()
         if fib:
             self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)
@@ -192,7 +191,6 @@ class Interface(object):
         receiver = self._flow_map.get(flow)
 
         if not receiver:
-            #print "packet has no receiver", packet
             # New flows are sent to the router
             self._router.receive(packet)
         else:
