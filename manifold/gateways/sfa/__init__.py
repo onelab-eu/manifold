@@ -1031,7 +1031,8 @@ class SFAGateway(Gateway):
         #   - recursive: Should be based on jokers, eg. ple.upmc.*
         #   - resolve  : True: make resolve instead of list
         #   - details  : always set to True, should depend on needed fields
-        details   = True
+        #details   = True
+        details   = False
 
         if object_hrns: # CASE 1
             # If the objects are not part of the hierarchy, let's return [] to
@@ -1073,7 +1074,7 @@ class SFAGateway(Gateway):
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
-            _results  = yield self.registry.Resolve(stack, cred, {'details': True})
+            _results  = yield self.registry.Resolve(stack, cred, {'details': details})
 
             output = []
 
@@ -1128,7 +1129,7 @@ class SFAGateway(Gateway):
                 record_urns.insert(0,hrn_to_urn(interface_hrn, object))
 
             started = time.time()
-            records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
+            records = yield self.registry.Resolve(record_urns, cred, {'details': details})
 
 
             # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
