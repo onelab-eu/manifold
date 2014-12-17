@@ -194,7 +194,7 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']) or ('lip6' in server_hrn):
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']) or ('nitos' in server_hrn):
             parser = NITOSBrokerParser
         elif server_hrn == 'iotlab':
             parser = IoTLABParser
@@ -1281,14 +1281,14 @@ class SFAGateway(Gateway):
 #DEPRECATED|            return 
         # If No AM return
         if not self.sliceapi:
-            defer.returnValue({})
+            defer.returnValue([])
 
         # If get_version failed, then self.am_version not initialized
         try:
             self.am_version
         except:
             Log.warning('self.am_version not set, ignoring call to get_resource_lease')
-            defer.returnValue({})
+            defer.returnValue([])
 
         rspec_string = None
 
@@ -1337,7 +1337,7 @@ class SFAGateway(Gateway):
                 cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
         except Exception, e:
             Log.warning("Credential exception ",e)
-            defer.returnValue({})
+            defer.returnValue([])
         # Due to a bug in sfawrap, we need to disable caching on the testbed
         # side, otherwise we might not get RSpecs without leases
         # Anyways, caching on the testbed side is not needed since we have more
@@ -1388,18 +1388,18 @@ class SFAGateway(Gateway):
                             result['value'] = result['value']['geni_rspec']
                     except Exception, e:
                         Log.warning("Exception in result: %r" % result)
-                        defer.returnValue({})
+                        defer.returnValue([])
                 else:
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
                 Log.warning("Exception in result: %r" % result)
-                defer.returnValue({})
+                defer.returnValue([])
 
             rspec_string = result['value']
 
-            #Log.warning("advertisement RSpec")
-            #Log.warning(rspec_string)
+            Log.warning("advertisement RSpec")
+            Log.warning(rspec_string)
 
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
@@ -1448,7 +1448,7 @@ class SFAGateway(Gateway):
     def get_resource(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result.get('resource', dict()))
+            defer.returnValue(result.get('resource', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_resource: %s" % e)
             traceback.print_exc()
@@ -1458,7 +1458,7 @@ class SFAGateway(Gateway):
     def get_lease(self,filters,params,fields):
         try:
             result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
-            defer.returnValue(result.get('lease', dict()))
+            defer.returnValue(result.get('lease', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_lease: %s" % e)
             traceback.print_exc()
@@ -1468,7 +1468,7 @@ class SFAGateway(Gateway):
     def get_flowspace(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result.get('flowspace', dict()))
+            defer.returnValue(result.get('flowspace', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_flowspace: %s" % e)
             traceback.print_exc()
@@ -1478,7 +1478,7 @@ class SFAGateway(Gateway):
     def get_vms(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result.get('vms', dict()))
+            defer.returnValue(result.get('vms', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_vms: %s" % e)
             traceback.print_exc()
@@ -1644,7 +1644,7 @@ class SFAGateway(Gateway):
 
         # If No AM return
         if not self.sliceapi:
-            defer.returnValue({})
+            defer.returnValue([])
 
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
@@ -2529,7 +2529,7 @@ class SFAGateway(Gateway):
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             # return using asynchronous defer
-            defer.returnValue({})
+            defer.returnValue([])
             #return {}
 
         if not 'user_private_key' in config:

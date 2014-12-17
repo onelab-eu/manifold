@@ -74,7 +74,33 @@ class NITOSBrokerParser(RSpecParser):
         # XXX HARDCODED FOR NITOS
         xrn = Xrn('%(network)s.%(component_name)s' % value, type='channel')
         return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+
         return {'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+
+    @staticmethod
+    def urn_to_properties(value):
+        # urn:publicid:IDN+omf:paris.fit-nitos.fr+node+node38
+        # node38.paris.fit-nitos.fr
+        #import pdb
+        #pdb.set_trace()
+        urn = value['component_id']
+        hrn = Xrn(urn).get_hrn()
+        t_urn = urn.split('+')
+        authority = t_urn[1]
+        if ':' in authority:
+            t_authority = authority.split(':')
+            authority = t_authority[1]
+        host = t_urn[-1]
+        hostname = host + '.' + authority
+        if value['type']=='node' and 'available.now' in value: 
+            if value['available.now'] == 'true':
+                boot = "boot"
+            else:
+                boot = "disabled"
+
+            return {'exclusive': True, 'hostname': hostname, 'hrn': hrn, 'urn': urn, 'boot_state': boot}
+        else:
+            return {'exclusive': True, 'hostname': hostname, 'hrn': hrn, 'urn': urn}
 
     #   RSPEC_ELEMENT
     #       rspec_property -> dictionary that is merged when we encounter this
@@ -84,13 +110,15 @@ class NITOSBrokerParser(RSpecParser):
     #              passed as an argument)
     HOOKS = {
         'node': {
-            'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
+            '*': lambda value: NITOSBrokerParser.urn_to_properties(value)
+            #'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
         },
         'link': {
             'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
         },
         'channel': {
-            '*': lambda value: NITOSBrokerParser.channel_urn_hrn_exclusive(value)
+            '*': lambda value: NITOSBrokerParser.urn_to_properties(value)
+            #'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
         },
         '*': {
             'exclusive': lambda value: {'exclusive': value.lower() not in ['false']}
@@ -156,7 +184,7 @@ class NITOSBrokerParser(RSpecParser):
                 resource['facility_name'] = 'Wireless'
                 if 'omf' in resource['hrn']:
                     t_hrn = resource['hrn'].split('.')
-                    resource['testbed_name'] = t_hrn[1]
+                    resource['testbed_name'] = t_hrn[1].replace('\\','')
                 else:
                     resource['testbed_name'] = 'Nitos'
                 resources.append(resource)
