@@ -15,12 +15,23 @@ class slice {
 #    const string slice_url;            /**< MyPLC field slice_url >**/
 #    const string slice_description;    /**< MyPLC field slice_description >**/
 
+    geni_slivers sliver[];
+
 	resource resource[];
 	lease lease[];                      /**< List of leases associated to the slice */
-	flowspace flowspace[];              /**< List of flowspaces associated to the slice */
-	vms vms[];              /**< List of flowspaces associated to the slice */
+#	flowspace flowspace[];              /**< List of flowspaces associated to the slice */
+#	vms vms[];              /**< List of flowspaces associated to the slice */
 
     KEY(slice_urn);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
+class sliver {
+    const string geni_sliver_urn;
+    const string geni_expires;
+    const string geni_allocation_status;
+    const string geni_operational_status;
+    KEY(geni_sliver_urn);
     CAPABILITY(retrieve, join, fullquery);
 };
 
