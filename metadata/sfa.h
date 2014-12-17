@@ -52,7 +52,7 @@ class vms {
     slice slice;
     const resource resource;    /**< Resource URN attached to this lease */
     const string vm;
-    KEY(resource, vm);
+    KEY(vm);
     CAPABILITY(retrieve, join, fullquery);
 };
 
