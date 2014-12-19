@@ -127,6 +127,11 @@ class NITOSBrokerParser(RSpecParser):
 
     # END HOOKS
 
+    @classmethod
+    def get_network(cls):
+        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
+        return 'omf.nitos' 
+
     #---------------------------------------------------------------------------
     # RSpec parsing
     #---------------------------------------------------------------------------
@@ -144,8 +149,7 @@ class NITOSBrokerParser(RSpecParser):
         lease_map = dict() # id -> lease_dict
         elements = rspec.xml.xpath('//ol:lease')
  
-        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
-        network = 'omf.nitos'
+        network = cls.get_network() 
 
         for el in elements:
             try:
@@ -182,9 +186,28 @@ class NITOSBrokerParser(RSpecParser):
 
                 #resource['facility_name'] = 'NITOS'
                 resource['facility_name'] = 'Wireless'
-                if 'omf' in resource['hrn']:
-                    t_hrn = resource['hrn'].split('.')
-                    resource['testbed_name'] = t_hrn[1].replace('\\','')
+                hrn = resource['hrn'].replace('\\','')
+                if 'omf' in hrn:
+                    t_hrn = hrn.split('.')
+                    if t_hrn[1] == 'nitos':
+                        resource['testbed_name'] = 'NITOS Volos'
+                        resource['country']   = 'Greece'
+                        resource['latitude']  = '39.3666667'
+                        resource['longitude'] = '22.9458333'
+                    elif t_hrn[1] == 'netmode':
+                        resource['testbed_name'] = 'Netmode'
+                        resource['country']   = 'Greece'
+                        resource['latitude']  = '37.978377'
+                        resource['longitude'] = '23.782707'
+                    elif 'paris' in hrn:
+                        resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
+                        # XXX Hardcoded for Paris @ UPMC
+                        resource['country']   = 'France'
+                        resource['latitude']  = '48.847104'
+                        resource['longitude'] = '2.357499'
+                    else:
+                        resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
+                        resource['country']   = 'France'
                 else:
                     resource['testbed_name'] = 'Nitos'
                 resources.append(resource)
@@ -334,6 +357,13 @@ class NITOSBrokerParser(RSpecParser):
     def get_min_duration(cls):
         return 1800
                 
+
+class FitNitosParis(NITOSBrokerParser): 
+
+    @classmethod
+    def get_network(cls):
+        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
+        return 'paris.fit-nitos.fr' 
 
 #rspec = RSpec(open(sys.argv[1]).read())
 #NITOSBrokerParser.parse(rspec)

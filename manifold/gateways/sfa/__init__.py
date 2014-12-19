@@ -47,11 +47,11 @@ from xmlrpclib                          import DateTime
 # TESTBED DEPENDENT CODE                                                       #
 ################################################################################
 
-from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
+from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser, FitNitosParis
 from manifold.gateways.sfa.rspecs.ofelia_ocf    import OfeliaOcfParser
 from manifold.gateways.sfa.rspecs.ofelia_vt     import OfeliaVTAMParser
 
-from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser 
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
 ################################################################################
@@ -194,8 +194,10 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']) or ('nitos' in server_hrn):
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']):
             parser = NITOSBrokerParser
+        elif ('paris' in server_hrn):
+            parser = FitNitosParis
         elif server_hrn == 'iotlab':
             parser = IoTLABParser
         elif server_hrn == 'ple':
@@ -1281,14 +1283,14 @@ class SFAGateway(Gateway):
 #DEPRECATED|            return 
         # If No AM return
         if not self.sliceapi:
-            defer.returnValue([])
+            defer.returnValue({})
 
         # If get_version failed, then self.am_version not initialized
         try:
             self.am_version
         except:
             Log.warning('self.am_version not set, ignoring call to get_resource_lease')
-            defer.returnValue([])
+            defer.returnValue({})
 
         rspec_string = None
 
@@ -1337,7 +1339,7 @@ class SFAGateway(Gateway):
                 cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
         except Exception, e:
             Log.warning("Credential exception ",e)
-            defer.returnValue([])
+            defer.returnValue({})
         # Due to a bug in sfawrap, we need to disable caching on the testbed
         # side, otherwise we might not get RSpecs without leases
         # Anyways, caching on the testbed side is not needed since we have more
@@ -1388,18 +1390,18 @@ class SFAGateway(Gateway):
                             result['value'] = result['value']['geni_rspec']
                     except Exception, e:
                         Log.warning("Exception in result: %r" % result)
-                        defer.returnValue([])
+                        defer.returnValue({})
                 else:
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
                 Log.warning("Exception in result: %r" % result)
-                defer.returnValue([])
+                defer.returnValue({})
 
             rspec_string = result['value']
 
-            Log.warning("advertisement RSpec")
-            Log.warning(rspec_string)
+            #Log.warning("advertisement RSpec")
+            #Log.warning(rspec_string)
 
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
@@ -1644,7 +1646,7 @@ class SFAGateway(Gateway):
 
         # If No AM return
         if not self.sliceapi:
-            defer.returnValue([])
+            defer.returnValue({})
 
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
@@ -2546,7 +2548,7 @@ class SFAGateway(Gateway):
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             # return using asynchronous defer
-            defer.returnValue([])
+            defer.returnValue({})
             #return {}
 
         if not 'user_private_key' in config:
