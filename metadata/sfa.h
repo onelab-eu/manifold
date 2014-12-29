@@ -60,13 +60,13 @@ class flowspace {
     CAPABILITY(retrieve, join, fullquery);
 };
 
-class vms {
-    slice slice;
-    const resource resource;    /**< Resource URN attached to this lease */
-    const string vm;
-    KEY(vm);
-    CAPABILITY(retrieve, join, fullquery);
-};
+#class vms {
+#    slice slice;
+#    const resource resource;    /**< Resource URN attached to this lease */
+#    const string vm;
+#    KEY(vm);
+#    CAPABILITY(retrieve, join, fullquery);
+#};
 
 enum boot_state {
     "online-up and running", 
