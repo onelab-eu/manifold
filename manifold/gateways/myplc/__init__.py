@@ -14,6 +14,8 @@
 # manifold-enable-platform ple-myplc
 # manifold-add-account admin ple-myplc user '{"username": "XXX", "password": "XXX"}'
 
+import xmlrpclib
+
 from types                              import StringTypes
 
 from manifold.core.record               import Record, LastRecord
@@ -26,9 +28,10 @@ from manifold.util.type                 import accepts, returns
 API_URL = "https://www.planet-lab.eu:443/PLCAPI/"
 
 MAP_METHOD = {
-    "node" : "GetNodes",
-    "site" : "GetSites",
+    "node"      : "GetNodes",
+    "site"      : "GetSites",
     "myplcuser" : "GetPersons",
+    "tags"      : "GetSliceTags",
 }
 
 # XXX This could inherit from XMLRPC, like manifold_xmlrpc
@@ -112,6 +115,10 @@ class MyPLCGateway(Gateway):
     #---------------------------------------------------------------------------
 
     # XXX        nodes = srv.GetNodes(AUTH, {}, ['hostname', 'site_id'])
+
+    def callback_getResult(self, rows):
+        self.send(rows)
+
     def callback_records(self, rows):
         """
         (Internal usage) See ManifoldGateway::receive_impl.
@@ -119,8 +126,20 @@ class MyPLCGateway(Gateway):
             packet: A QUERY Packet.
             rows: The corresponding list of dict or Record instances.
         """
-        for row in rows:
-            self.send(Record(row))
+        if rows is not None:
+            try:
+                iterator = iter(rows)
+            except TypeError, te:
+                print "rows = ",rows
+                rows = [{'initscript_code':rows}]
+
+            if isinstance(rows, basestring):
+                rows = [{'initscript_code':rows}]
+                
+            for row in rows:
+                print row
+                self.send(Record(row))
+
         self.send(LastRecord())
 
     def callback_error(self, error):
@@ -181,13 +200,88 @@ class MyPLCGateway(Gateway):
         #    except Exception, e:
         #        print "EEE:", e
 
-        method = MAP_METHOD[query.get_from()]
-
         filters = MyPLCGateway.manifold_to_myplc_filter(query.get_where())
         fields = query.get_select()
-        if fields:
-            fields = list(fields)
+        fields = list(fields)
 
-        d = self._proxy.callRemote(method, self._get_auth(), filters, fields)
+        if query.get_from() in MAP_METHOD:
+            method = MAP_METHOD[query.get_from()]
+        else:
+            # XXX Only admin user has an account on ple-myplc platform
+            # XXX Check if the user has the right to do it before the admin_execute_query
+            # XXX Slice or Authority Credentials !!!
+            if query.action == 'get' and query.get_from() == 'initscript':
+                method = "GetSliceInitscriptCode"
+                fields = False
+                slicename = self.get_slicename(filters)
+                if not slicename:
+                    self.send(LastRecord())
+                    return
+
+                filters = slicename
+            
+            if query.action == 'update' and query.get_from() == 'initscript':
+                # UpdateSlice (auth, slice_id_or_name, slice_fields)
+                method = "UpdateSlice"
+
+                slicename = self.get_slicename(filters)
+                if not slicename:
+                    self.send(LastRecord())
+                    return
+
+                filters = slicename
+                params = query.get_params()
+                print params
+                fields = {'initscript_code':params['initscript_code']}
+                # initscript_code ???
+ 
+            # Either in request RSpec or using UpdateSlice method
+            # <node ...>
+            # <sliver_type name="plab-vnode">      
+            #     <planetlab:initscript name="gpolab_sirius"/>      
+            # </sliver_type>
+            # </node>
+
+            if query.action == 'delete' and query.get_from() == 'initscript':
+                #method = "DeleteSliceTag"
+                # GetSliceTags (auth, slice_tag_filter, return_fields)
+                
+                # slicename from slice_hrn
+                slicename = self.get_slicename(filters)
+                if not slicename:
+                    self.send(LastRecord())
+                    return
+
+                # slice_tag_id for initscript_code tag
+                filters = {'name':slicename}
+                fields = ['slice_tag_id','tagname']
+                plc_api=xmlrpclib.ServerProxy(API_URL, allow_none=True)
+
+                result = plc_api.GetSliceTags(self._get_auth(), filters, fields)
+                # XXX How to get the result from callRemote and use it in the rest of the code?
+                for r in result:
+                    if r['tagname'] == 'initscript_code':
+                        method = 'DeleteSliceTag'
+                        fields = False
+                        filters = r['slice_tag_id']
+
+        if fields:
+            d = self._proxy.callRemote(method, self._get_auth(), filters, fields)
+        else:
+            d = self._proxy.callRemote(method, self._get_auth(), filters)
+            
         d.addCallback(self.callback_records)
         d.addErrback(self.callback_error)
+
+    def get_slicename(self, filters):
+        # XXX If slicename is not in WHERE of the Query it will cause an error
+        filters = {'value':filters['slice_hrn']}
+        fields = ['name']
+        plc_api=xmlrpclib.ServerProxy(API_URL, allow_none=True)
+        result = plc_api.GetSliceTags(self._get_auth(), filters, fields)
+        if not result:
+            Log.warning("No Slice name for this hrn ", filters)
+            return None
+        else:
+            return result[0]['name']
+

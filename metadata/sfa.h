@@ -22,6 +22,7 @@ class slice {
 #	flowspace flowspace[];              /**< List of flowspaces associated to the slice */
 #	vms vms[];              /**< List of flowspaces associated to the slice */
 
+#    initscript initscript;         
     KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
 };
@@ -109,12 +110,6 @@ class hardware_type {
 
 class interface {
     const string component_id;
-
-    CAPABILITY(retrieve, join);
-};
-
-class initscript {
-    const string name;
 
     CAPABILITY(retrieve, join);
 };
