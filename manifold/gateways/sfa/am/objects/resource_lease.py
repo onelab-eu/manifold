@@ -12,6 +12,7 @@
 
 from types                              import StringTypes, GeneratorType
 from twisted.internet                   import defer
+from manifold.core.record               import Record, Records
 from manifold.util.misc                 import make_list
 from manifold.util.predicate            import included, eq
 from manifold.gateways.deferred_object  import DeferredObject 

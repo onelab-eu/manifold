@@ -48,8 +48,8 @@ def create_record_from_params(type, params):
         if "slice_hrn" not in params or not params["slice_hrn"]:
             raise Exception, "Must specify slice_hrn to create a slice"
         xrn = Xrn(params["slice_hrn"], type)
-        record_dict["urn"]  = xrn.get_urn()
-        record_dict["hrn"]  = xrn.get_hrn()
+        record_dict["slice_urn"]  = xrn.get_urn()
+        record_dict["slice_hrn"]  = xrn.get_hrn()
         record_dict["type"] = xrn.get_type()
 
     if "key" in params and params["key"]:
