@@ -194,7 +194,7 @@ class Packet(object):
         Log.warning("Distinction between params.keys() and fields is not so good")
         destination = self.get_destination()
 
-        object_name = destination.get_object()
+        object_name = destination.get_object_name()
         namespace   = destination.get_namespace()
         filters     = destination.get_filter()
         field_names = destination.get_field_names()

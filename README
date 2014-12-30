@@ -12,6 +12,7 @@ DEPENDENCIES
 $ apt-get install python-geoip
 $ apt-get install python-ipy
 $ apt-get install python-adns
+$ pip install autobahn
 
 STORAGE
 
