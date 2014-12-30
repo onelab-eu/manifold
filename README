@@ -7,6 +7,24 @@ DIFFERENCES BETWEEN devel and routerv2
 - update slice splitted between AM and RM
 - create_object / update_object added by Loic 
 
+DEPENDENCIES
+
+$ apt-get install python-geoip
+$ apt-get install python-ipy
+$ apt-get install python-adns
+
+STORAGE
+
+$ mkdir /var/lib/manifold
+$ cp /var/myslice/db.sqlite /var/lib/manifold/storage.sqlite
+
+$ sqlite3 /var/lib/manifold/storage.sqlite
+sqlite> SELECT platform, gateway_type from platform;
+sqlite> UPDATE platform SET gateway_type='sfa_am' WHERE gateway_type='sfa';
+sqlite> UPDATE platform SET gateway_type='sfa_rm' WHERE platform='ple_registry';
+sqlite> UPDATE platform SET gateway_type='sfa_rm' WHERE platform='myslice';
+sqlite> SELECT platform, gateway_type from platform;
+
 QUERIES A TESTER
 
 manifold>>> select slice_last_updated from slice where slice_hrn == "ple.upmc.jordan_auge"
