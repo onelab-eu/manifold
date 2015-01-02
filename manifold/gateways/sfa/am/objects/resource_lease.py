@@ -72,8 +72,18 @@ class ResourceLease(DeferredObject):
         else:
             cred = rm_gateway.get_credential(user, "user")
 
+        import time
+        start = time.time()
+
         server_version = yield sfa_proxy.get_cached_version()
         am_api_version = server_version.get('geni_api', AM_API_v3)
+
+        end = time.time()
+        duration = end - start
+        print "--------------------------------------------"
+        print gateway.platform
+        print("GetVersion = %.2f sec." % duration)
+        print "--------------------------------------------"
 
         #-----------------------------------------------------------------------
         # Request : api_options
@@ -122,6 +132,9 @@ class ResourceLease(DeferredObject):
         if slice_hrn:
             api_options["geni_slice_urn"] = slice_urn
 
+        import time
+        start = time.time()
+
         # Retrieve "advertisement" rspec
         # We guess the AM API version from the requested version, that is wrong # !!
         if am_api_version == 2:
@@ -136,6 +149,13 @@ class ResourceLease(DeferredObject):
             else:
                 result = yield sfa_proxy.ListResources([cred], api_options)
                 
+        end = time.time()
+        duration = end - start
+        print "--------------------------------------------"
+        print gateway.platform
+        print("ListResources = %.2f sec." % duration)
+        print "--------------------------------------------"
+
         if not "value" in result or not result["value"]:
             raise Exception, result["output"]
 

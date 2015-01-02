@@ -75,6 +75,8 @@ class SFAGatewayCommon(Gateway):
         if not "timeout" in platform_config:
             platform_config["timeout"] = DEFAULT_TIMEOUT
 
+        self.platform = platform
+
         ReactorThread().start_reactor()
 
     def terminate(self):

@@ -157,10 +157,21 @@ class RM_Object(DeferredObject):
             object_urns = list()
 
             deferred_list = list()
+
+            import time
+            start = time.time()
+    
             while stack:
                 auth_hrn = stack.pop()
                 d = sfa_proxy.List(auth_hrn, credential, {'recursive': recursive}) # XXX
                 deferred_list.append(d)
+
+                end = time.time()
+                duration = end - start
+                print "--------------------------------------------"
+                print "Registry"
+                print("List %s = %.2f sec." % (auth_hrn,duration))
+                print "--------------------------------------------"
 
                 # Insert root authority (if needed, NOTE order is not preserved)
                 if object == 'authority':
@@ -193,8 +204,19 @@ class RM_Object(DeferredObject):
         do_resolve = bool(set(fields) - set(['reg-urn', 'hrn', 'type']))
         if do_resolve:
             print "resolve"
-            
+           
+            import time
+            start = time.time()
+ 
             records = yield sfa_proxy.Resolve(object_urns, credential, {'details': details})
+
+            end = time.time()
+            duration = end - start
+            print "--------------------------------------------"
+            print "Registry"
+            print("Resolve %s = %.2f sec." % (object_urns,duration))
+            print "--------------------------------------------"
+
             for _record in records:
                 # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
                 # If 2 different objects have the same hrn, the bug occurs

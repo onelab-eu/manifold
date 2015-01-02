@@ -309,6 +309,9 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         print "MANAGEMENT OF USER", user_email
 
+        import time
+        start = time.time()
+
         user_account = self.get_account(user_email)
         if not user_account.get('auth_type') == 'managed':
             defer.returnValue(False)
@@ -539,6 +542,12 @@ class SFA_RMGateway(SFAGatewayCommon):
                 )
 
         self.set_account_config(user_email, self.get_platform_name(), user_account_config)
-
+       
+        end = time.time()
+        duration = end - start
+        print "--------------------------------------------"
+        print("manage = %.2f sec." % duration)
+        print "--------------------------------------------"
+ 
         defer.returnValue(True)
 
