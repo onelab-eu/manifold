@@ -43,7 +43,7 @@ class Entry(object):
     def set_records(self, records):
         if not isinstance(records, list):
             records = [records]
-        self._pending_records = None
+        self._pending_records = list()
         self._records = records
         self._updated = time.time()
         for operator in self._operators:
@@ -61,7 +61,7 @@ class Entry(object):
         if record.is_last():
             # Move all pending records to records...
             self._records = self._pending_records
-            self._pending_records = None # None means no query started
+            self._pending_records = list() # None means no query started
             # ... and inform interested operators
         else:
             # Add the records in the pending list...
