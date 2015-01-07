@@ -52,7 +52,7 @@ class Entry(object):
             operator.child_callback(LastRecord())
 
     def has_query_in_progress(self):
-        return self._pending_records is not None
+        return len(self._pending_records) > 0
 
     def has_pending_records(self):
         return self._pending_records
