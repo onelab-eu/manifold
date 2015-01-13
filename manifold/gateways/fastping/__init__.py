@@ -41,6 +41,7 @@ class FastPingCollection(ManifoldCollection):
     def on_done(self, packet):
         self.get_gateway().last(packet)
 
+<<<<<<< HEAD
     def get_target_url(self):
         for filename in TARGET_FILES:
             if url_exists(TARGET_SITE, TARGET_PATH + filename):
@@ -50,12 +51,24 @@ class FastPingCollection(ManifoldCollection):
     def get(self, packet):
         source = hostname()
         target_url = self.get_target_url() % locals()
+=======
+    def get(self, packet):
+        source = hostname()
+        target_url = TARGET_URL % locals()
+        try:
+            f = urllib.urlopen(target_url)
+            target = f.read()
+        except Exception, why:
+            print why  
+            sys.exit()
+>>>>>>> 9023745dddd675f62e7e47fe641450c8a9e5367f
 
         # Get the necessary parameters from the packet destination
         #filter = packet.get_destination().get_filter()
         #target = filter.get_eq('destination')
 
         # Initialize a fastping instance
+<<<<<<< HEAD
         opt = {
             linkFile    : target_url,
             deltaM      : 0,
@@ -70,6 +83,9 @@ class FastPingCollection(ManifoldCollection):
         }
         fastping = Fastping(**opt)
 
+=======
+        fastping = Fastping(linkFile=target_url, deltaM = 0) # deltaM is the allowed time... XXX
+>>>>>>> 9023745dddd675f62e7e47fe641450c8a9e5367f
         fastping.set_raw_callback(self.on_new_measurement, packet, source)
         fastping.set_done_callback(self.on_done, packet)
 
