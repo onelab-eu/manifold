@@ -65,7 +65,8 @@ class FastPingCollection(ManifoldCollection):
             saveSM      : True,
             saveST      : True,
             blacklist   : BLACKLIST_URL,
-            upload      : ['clitos.ipv6.lip6.fr', 'guest@top-hat.info', 'guest', 21, 'anycast', 'False'],
+            upload      : ['clitos.ipv6.lip6.fr', 'guest@top-hat.info', 'guest', 21, 'anycast/census01', 'False'],
+            shuffle     : True,
         }
         fastping = Fastping(**opt)
 
