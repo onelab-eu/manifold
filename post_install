@@ -1,11 +1,9 @@
 #!/bin/bash
 
-DAEMON="manifold-agent"
 
 mkdir -p /var/run/manifold
 
-chkconfig $DAEMON on
-service $DAEMON stop
-service $DAEMON start
-
-
+#DAEMON="manifold-agent"
+#chkconfig $DAEMON on
+#service $DAEMON stop
+#service $DAEMON start
