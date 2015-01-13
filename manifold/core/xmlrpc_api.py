@@ -21,7 +21,6 @@ from manifold.auth                      import Auth
 from manifold.core.annotation           import Annotation
 from manifold.core.code                 import CORE, ERROR, FORBIDDEN
 #from manifold.core.deferred_receiver    import DeferredReceiver
-from manifold.core.packet               import QueryPacket
 from manifold.core.query                import Query
 from manifold.core.result_value         import ResultValue
 from manifold.util.options              import Options
