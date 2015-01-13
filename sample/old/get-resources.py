@@ -8,11 +8,7 @@ import xmlrpclib
 srv = xmlrpclib.ServerProxy(MYSLICE_API, allow_none=True)
 
 # Authentication token
-<<<<<<< HEAD
 auth = {"AuthMethod": "password", "Username": "jordan.auge@lip6.fr", "AuthString": "XXXXXXXX"}
-=======
-auth = {"AuthMethod": "password", "Username": "jordan.auge@lip6.fr", "AuthString": "XXXXXXXX"}
->>>>>>> 9023745dddd675f62e7e47fe641450c8a9e5367f
 
 def print_slice(result):
     print "SLICE: %s" % result['slice_hrn']

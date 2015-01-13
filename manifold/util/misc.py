@@ -78,7 +78,6 @@ def dict_set(dic, key, value):
 def dict_append(dic, key,value):
     dic[key].append(value)
     return dic
-<<<<<<< HEAD
 
 def url_exists(site, path):
     conn = httplib.HTTPConnection(site)
@@ -86,5 +85,3 @@ def url_exists(site, path):
     response = conn.getresponse()
     conn.close()
     return response.status == 200
-=======
->>>>>>> 9023745dddd675f62e7e47fe641450c8a9e5367f
