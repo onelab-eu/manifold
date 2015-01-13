@@ -1,4 +1,4 @@
-import os, glob, inspect, collections
+import os, glob, inspect, collections, httplib
 from types import StringTypes
 
 def find_local_modules(filepath):
@@ -78,3 +78,10 @@ def dict_set(dic, key, value):
 def dict_append(dic, key,value):
     dic[key].append(value)
     return dic
+
+def url_exists(site, path):
+    conn = httplib.HTTPConnection(site)
+    conn.request('HEAD', path)
+    response = conn.getresponse()
+    conn.close()
+    return response.status == 200

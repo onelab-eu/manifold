@@ -9,8 +9,13 @@ from fastping                   import Fastping
 from manifold.gateways          import Gateway
 from manifold.gateways.object   import ManifoldCollection
 from manifold.util.filesystem   import hostname
+from manifold.util.misc         import url_exists
 
-TARGET_URL = 'http://www.top-hat.info/download/anycast-census/iplist-%(source)s.dat'
+TARGET_SITE = 'http://www.top-hat.info'
+TARGET_PATH = '/download/anycast-census/'
+TARGET_FILES = ['iplist-%(source)s.dat', 'iplist.dat']
+
+BLACKLIST_URL = 'http://www.top-hat.info/download/anycast-census/blacklist.fastping'
 
 class FastPingCollection(ManifoldCollection):
     """
@@ -36,22 +41,34 @@ class FastPingCollection(ManifoldCollection):
     def on_done(self, packet):
         self.get_gateway().last(packet)
 
+    def get_target_url(self):
+        for filename in TARGET_FILES:
+            if url_exists(TARGET_SITE, TARGET_PATH + filename):
+                return "%s%s%s" % (TARGET_SITE, TARGET_PATH, filename)
+        raise Exception, "No IP list found."
+
     def get(self, packet):
         source = hostname()
-        target_url = TARGET_URL % locals()
-        try:
-            f = urllib.urlopen(target_url)
-            target = f.read()
-        except Exception, why:
-            print why  
-            sys.exit()
+        target_url = self.get_target_url() % locals()
 
         # Get the necessary parameters from the packet destination
         #filter = packet.get_destination().get_filter()
         #target = filter.get_eq('destination')
 
         # Initialize a fastping instance
-        fastping = Fastping(linkFile=target_url, deltaM = 0) # deltaM is the allowed time... XXX
+        opt = {
+            linkFile    : target_url,
+            deltaM      : 0,
+            numberCycle : 1,
+            saveRW      : True,
+            saveQD      : True,
+            saveSM      : True,
+            saveST      : True,
+            blacklist   : BLACKLIST_URL,
+            upload      : ['clitos.ipv6.lip6.fr', 'guest@top-hat.info', 'guest', 21, 'anycast', 'False'],
+        }
+        fastping = Fastping(**opt)
+
         fastping.set_raw_callback(self.on_new_measurement, packet, source)
         fastping.set_done_callback(self.on_done, packet)
 
