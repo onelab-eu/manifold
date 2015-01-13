@@ -221,6 +221,10 @@ class AgentDaemon(Daemon):
 
     @defer.inlineCallbacks
     def _down_callback(self, interface):
+        if not self._main_interface:
+            print "I: Ignored down callback since main interface is None"
+            return
+
         if interface == self._main_interface:
             if self._reconnect_main:
                 # If we did not requested the interface to go down...
@@ -383,6 +387,7 @@ class AgentDaemon(Daemon):
         self._router.register_collection(supernode_collection, namespace='tdmi')
         self._supernode_collection = supernode_collection
 
+        self._main_interface = None
 
         # Setup peer overlay
         if Options().server_mode:
