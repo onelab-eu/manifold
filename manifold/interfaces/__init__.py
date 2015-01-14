@@ -135,7 +135,6 @@ class Interface(object):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
     def request_announces(self):
-        print "Requesting announces"
         fib = self._router.get_fib()
         if fib:
             self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)

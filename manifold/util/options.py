@@ -91,7 +91,7 @@ class Options(object):
 
         cfg_options = None
         if cfg_filename:
-            print "[OK] Loading configuration file: %s" % cfg_filename
+            #print "[OK] Loading configuration file: %s" % cfg_filename
             config = StringIO.StringIO()
             config.write('[%s]\n' % FAKE_SECTION)
             config.write(open(cfg_filename).read())

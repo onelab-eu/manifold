@@ -15,7 +15,7 @@ from manifold.util.type import returns, accepts
 
 class Field(object):
 
-    def __init__(self, type, name, qualifiers = None, is_array = False, description = None):
+    def __init__(self, type, name, qualifiers = None, is_array = False, alias = None, description = None):
         """
         Constructor
         Args:
@@ -33,6 +33,7 @@ class Field(object):
         self.name        = name
         self._is_array   = is_array
         self.description = description 
+        self.alias       = alias
         self._is_local   = bool(qualifiers and "local" in qualifiers)
         self._is_const   = bool(qualifiers and "const" in qualifiers)
 

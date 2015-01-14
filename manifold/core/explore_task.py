@@ -470,7 +470,7 @@ class ExploreTask(Deferred):
             # XXX We should only be concerned about the destination
             platform_object_name =  obj.get_platform_object_name(platform_name)
             # XXX ISSUE 
-            Log.error("How to handle tables with mutiple partitions, a UNION ?")
+            Log.warning("How to handle tables with mutiple partitions, a UNION ?")
             destination =  Destination(platform_object_name, Filter(), selected_field_names)
             #query = Query.get(platform_object_name).select(selected_field_names)
 

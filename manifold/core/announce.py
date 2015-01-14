@@ -42,7 +42,8 @@ PATTERN_QUALIFIERS   = "((local|const) )?(local|const)?"
 PATTERN_CLASS        = "(class)"
 PATTERN_ARRAY        = "(\[\])?"
 PATTERN_CLASS_BEGIN  = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
-PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_QUALIFIERS, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
+PATTERN_ALIAS        = PATTERN_OPT_SPACE.join(["(AS", PATTERN_SYMBOL, ")?"])
+PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_QUALIFIERS, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, PATTERN_ALIAS, ";"])])
 PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["(LOCAL )?KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)?\)", ";"])
 #PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["(LOCAL )?KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CAP    = PATTERN_OPT_SPACE.join(["CAPABILITY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
@@ -386,7 +387,8 @@ def parse_iterable(iterable, platform_name):
                         name        =  m.group(5),
                         qualifiers  =  qualifiers,
                         is_array    = (m.group(6) != None),
-                        description =  m.group(7).lstrip("/*< ").rstrip("*/ ")
+                        alias       =  m.group(8),
+                        description =  m.group(9).lstrip("/*< ").rstrip("*/ ")
                     )
                 )
                 continue

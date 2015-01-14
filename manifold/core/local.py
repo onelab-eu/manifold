@@ -101,7 +101,6 @@ class LocalInterfaceCollection(ManifoldCollection):
         return Records(interface_list)
 
     def create(self, packet):
-        print "CREATE NEW INTERFACE", packet
         router = self.get_gateway().get_router()
         data = packet.get_data()
         interface_type = data.pop('type')

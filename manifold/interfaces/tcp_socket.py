@@ -169,7 +169,7 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         # reason = ConnectionRefusedError | ...
-        print "TCP CNX FAILED", connector, reason
+        print "TCP CNX FAILED", self, connector, reason
         self.set_error(reason)
 
     def on_client_disconnected(self, client, reason):
@@ -211,6 +211,7 @@ class TCPClientInterface(TCPClientSocketFactory):
     __interface_type__ = 'tcpclient'
 
     def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT, request_announces = True):
+        import pdb;pdb.set_trace()
         self._host = host
         self._port = port
         self._timeout = timeout

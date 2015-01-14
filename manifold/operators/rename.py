@@ -252,7 +252,7 @@ class Rename(Operator, ChildSlotMixin):
 
         # 3) Process params (move to a Params() class ?)
         # XXX This is about the "applicative layer"
-        params = packet.get_query().get_params()
+        params = Query.from_packet(packet).get_params()
         for key in params.keys():
             if key in rmap:
                 params[rmap[key]] = params.pop(key)

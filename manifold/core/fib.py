@@ -250,7 +250,7 @@ class FIB(ChildSlotMixin):
         announce = Announce(Table.from_dict(packet_dict, platform_name))
         obj = announce.get_object()
         namespace = obj.get_namespace()
-        print "FIB received announce %s:%s" % (obj.get_name(), namespace)
+        #print "FIB received announce %s:%s" % (obj.get_name(), namespace)
         
         self.add(platform_name, announce, namespace)
             

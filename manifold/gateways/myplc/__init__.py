@@ -35,14 +35,20 @@ class MyPLCCollection(ManifoldCollection):
 
         self._proxy = None
 
-    def callback_records(self, rows, packet):
+    def callback_records(self, rows, packet, aliases):
         """
         (Internal usage) See ManifoldGateway::receive_impl.
         Args:
             packet: A QUERY Packet.
             rows: The corresponding list of dict or Record instances.
         """
-        self.get_gateway().records(rows, packet)
+        records = list()
+        for r in rows:
+            for k, v in aliases.items():
+                if v in r:
+                    r[k] = r.pop(v, None)
+            records.append(r)
+        self.get_gateway().records(records, packet)
 
     def callback_error(self, error, packet):
         """
@@ -51,7 +57,7 @@ class MyPLCCollection(ManifoldCollection):
             packet: A QUERY Packet.
             error: The corresponding error message.
         """
-        Log.error("Error during Manifold call: %r" % error)
+        Log.error("Error during Manifold call: %s" % error)
         self.get_gateway().last(packet) # XXX Should be error
 
     @staticmethod
@@ -156,19 +162,32 @@ class MyPLCCollection(ManifoldCollection):
         #    except Exception, e:
         #        print "EEE:", e
 
+        
+
         myplc_filter      = self.manifold_to_myplc_filter(destination.get_filter())
-        myplc_field_names = destination.get_field_names()
-        if myplc_field_names:
-            myplc_field_names = list(myplc_field_names)
+        
+        # ALIASES
+        object_name = destination.get_object_name()
+        fib = self.get_gateway().get_router().get_fib()
+        obj = fib.get_object(object_name)
+        fields = { f.get_name(): f for f in obj.get_fields() } 
+
+        myplc_field_names = list()
+        aliases = dict()
+        for f in destination.get_field_names():
+            if fields[f].alias:
+                myplc_field_names.append(fields[f].alias)
+                aliases[fields[f].alias] = f
+            else:
+                myplc_field_names.append(f)
 
         args = (self.__myplc_method__, self._get_auth())
         if myplc_filter or myplc_field_names:
             args += (myplc_filter, )
         if myplc_field_names:
             args += (myplc_field_names, )
-        print "ARGS", args
         d = self._get_proxy().callRemote(*args)
-        d.addCallback(self.callback_records, packet)
+        d.addCallback(self.callback_records, packet, aliases)
         d.addErrback(self.callback_error, packet)
 
 
@@ -237,6 +256,18 @@ class MyPLCUserCollection(MyPLCCollection):
     """
     __myplc_method__ = 'GetPersons'
 
+class MyPLCSliceCollection(MyPLCCollection):
+    """
+    class slice {
+        string name;
+        string description;
+        node nodes[] AS node_ids;
+        CAPABILITY(retrieve,join,selection,projection);
+        KEY(name);
+    };
+    """
+    __myplc_method__ = 'GetSlices'
+
 class MyPLCGateway(Gateway):
 
     __gateway_name__ = "myplc"
@@ -268,6 +299,7 @@ class MyPLCGateway(Gateway):
         self.register_collection(MyPLCNodeCollection())
         self.register_collection(MyPLCSiteCollection())
         self.register_collection(MyPLCUserCollection())
+        self.register_collection(MyPLCSliceCollection())
 
         ReactorThread().start_reactor()
 
