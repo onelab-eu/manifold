@@ -477,7 +477,8 @@ class Query(object):
                 self.fields == other.fields
 
     def __le__(self, other):
-        return self.action == other.action and \
+        return other.action in self.action and \
+                self.object == other.object and \
                 self.timestamp == other.timestamp and \
                 self.filters <= other.filters and \
                 self.params == other.params and \

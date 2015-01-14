@@ -1,5 +1,6 @@
 import time
 from manifold.core.record import LastRecord
+from manifold.util.log    import Log
 
 class Entry(object):
     """
@@ -52,7 +53,7 @@ class Entry(object):
             operator.child_callback(LastRecord())
 
     def has_query_in_progress(self):
-        return len(self._pending_records) > 0
+        return self._pending_records is not None
 
     def has_pending_records(self):
         return self._pending_records
@@ -61,12 +62,21 @@ class Entry(object):
         if record.is_last():
             # Move all pending records to records...
             self._records = self._pending_records
-            self._pending_records = list() # None means no query started
+            self._pending_records = None # None means no query started
             # ... and inform interested operators
         else:
-            # Add the records in the pending list...
-            self._pending_records.append(record)
-            # ... and inform interested operators
+            try:
+                # Add the records in the pending list...
+                self._pending_records.append(record)
+                # ... and inform interested operators
+            except Exception, e:
+                # XXX TO BE FIXED
+                Log.tmp("Cache_Entry append_record Exeption:",e)
+                Log.tmp("record = ",record)
+            
+                #import pdb
+                #pdb.set_trace()
+                raise
 
         for operator in self._operators:
             operator.child_callback(record)
