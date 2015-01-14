@@ -878,9 +878,9 @@ class ErrorPacket(Packet):
 
 class Record(CREATE):
     def __init__(self, *args, **kwargs):
-        last = kwargs.pop('last', True)
+        #last = kwargs.pop('last', True)
         receiver = kwargs.pop('receiver', None)
-        CREATE.__init__(self, receiver=receiver, last=last)
+        CREATE.__init__(self, receiver=receiver, last=False)
         assert len(args) in [0,1]
         if len(args) > 0:
             assert isinstance(args[0], (CREATE, dict))
@@ -902,7 +902,7 @@ class Records(list):
                 a list of dict (having the same keys).
         """
         if itr:
-            list.__init__(self, [x if isinstance(x, CREATE) else Record(x) for x in itr])
+            list.__init__(self, [(x if isinstance(x, CREATE) else Record(x)) for x in itr])
         else:
             list.__init__(self)
 

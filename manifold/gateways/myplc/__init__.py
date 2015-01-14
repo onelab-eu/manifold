@@ -45,8 +45,8 @@ class MyPLCCollection(ManifoldCollection):
         records = list()
         for r in rows:
             for k, v in aliases.items():
-                if v in r:
-                    r[k] = r.pop(v, None)
+                if k in r:
+                    r[v] = r.pop(k, None)
             records.append(r)
         self.get_gateway().records(records, packet)
 
@@ -167,6 +167,7 @@ class MyPLCCollection(ManifoldCollection):
         myplc_filter      = self.manifold_to_myplc_filter(destination.get_filter())
         
         # ALIASES
+        # XXX challenge to have nodes.hostname for a slice for example
         object_name = destination.get_object_name()
         fib = self.get_gateway().get_router().get_fib()
         obj = fib.get_object(object_name)
@@ -190,6 +191,16 @@ class MyPLCCollection(ManifoldCollection):
         d.addCallback(self.callback_records, packet, aliases)
         d.addErrback(self.callback_error, packet)
 
+
+    def update(self, packet):
+        # Update of a given field might require a separate query
+        # Ideally we would need a transaction
+        # eg. AddSliceToNodes
+        # AddSliceToNodes (auth, slice_id_or_name, node_id_or_hostname_list)
+        #
+        # update slice set nodes += ['ple2.ipv6.lip6.fr']
+        # how to handle += ??
+        pass
 
 class MyPLCNodeCollection(MyPLCCollection):
     """
@@ -261,6 +272,7 @@ class MyPLCSliceCollection(MyPLCCollection):
     class slice {
         string name;
         string description;
+        node node_ids[];
         node nodes[] AS node_ids;
         CAPABILITY(retrieve,join,selection,projection);
         KEY(name);
