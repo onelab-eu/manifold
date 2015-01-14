@@ -33,7 +33,6 @@ from manifold.core.code         import ERROR, WARNING
 from manifold.core.destination  import Destination
 from manifold.core.exceptions   import ManifoldException
 from manifold.core.field_names  import FieldNames, FIELD_SEPARATOR
-from manifold.core.query        import Query
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
@@ -60,7 +59,7 @@ class Flow(object):
         is_reverse = self._source == other._destination and \
                      self._destination == other._source
         return is_direct or is_reverse
-        #return self._record == other._record and self._last == other._last
+        #return self._data == other._record and self._last == other._last
 
     def __hash__(self):
         return hash(frozenset([self._source, self._destination]))
@@ -106,20 +105,18 @@ class Packet(object):
         Returns:
             The String corresponding to the type of Packet.
         """
-        return Packet.PROTOCOL_NAMES[type]
+        return Packet.PROTOCOL_NAMES.get(type, 'UNKNOWN')
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, protocol, receiver = None, last = True):
+    def __init__(self, receiver = None, last = True):
         """
         Constructor.
         Args:
             type: A value among {Packet.PROTOCOL_*}.
         """
-        assert protocol in Packet.PROTOCOL_NAMES.keys(),\
-            "Invalid protocol = %s (not in %s)" % (protocol, Packet.PROTOCOL_NAMES.keys())
         assert isinstance(last, bool),\
             "Invalid last = %s (%s)" % (last, type(last))
 
@@ -127,13 +124,13 @@ class Packet(object):
         self._destination   = None
         self._receiver      = receiver
 
-        self._protocol      = protocol
+        self._protocol      = None
         self._annotation    = Annotation()
 
         # Flags
         self._last          = last
 
-        self._record        = None
+        self._data          = None
 
         # We internally attach some data to packets
         self._ingress       = None
@@ -150,6 +147,9 @@ class Packet(object):
             The type of packet corresponding to this Packet instance.
         """
         return self._protocol
+
+    def set_protocol(self, protocol):
+        self._protocol = protocol
 
     def is_last(self):
         return self._last
@@ -190,30 +190,6 @@ class Packet(object):
         self._annotation.update(annotation)
 
     # Compatibility
-    def get_query(self):
-        Log.warning("Distinction between params.keys() and fields is not so good")
-        destination = self.get_destination()
-
-        object_name = destination.get_object_name()
-        namespace   = destination.get_namespace()
-        filters     = destination.get_filter()
-        field_names = destination.get_field_names()
-
-        params      = self.get_data()
-
-        if namespace:
-            query = Query.get("%s:%s" % (namespace, object_name))
-        else:
-            query = Query.get(object_name)
-        if filters:
-            query.filter_by(filters)
-        if field_names:
-            query.select(field_names)
-        if params:
-            query.set(params)
-
-        return query
-
     def set_query(self, query):
         self.set_destination(query.get_destination())
         self.set_data(query.get_data())
@@ -223,13 +199,18 @@ class Packet(object):
         self.set_query(method(self.get_query(), *args, **kwargs))
 
     def get_data(self):
-        return self._record
+        return self._data
 
     def set_data(self, data):
-        self._record = data
+        self._data = data
+
+    def update_data(self, data):
+        if not self._data:
+            self._data = {}
+        self._data.update(data)
 
     def clear_data(self):
-        self._record = None
+        self._data = None
 
     def get_flow(self):
         return Flow(self._source, self._destination)
@@ -248,10 +229,10 @@ class Packet(object):
             The dict nested in this Record. Note that most of time
             you should use to_dict() method instead.
         """
-        return self._record
+        return self._data
 
     def set_dict(self, dic):
-         self._record = dic
+         self._data = dic
 
     @returns(dict)
     def to_dict(self):
@@ -260,9 +241,9 @@ class Packet(object):
             The dict representation of this Record.
         """
         dic = dict() 
-        if self._record:
+        if self._data:
             try:
-                for k, v in self._record.iteritems():
+                for k, v in self._data.iteritems():
                     if isinstance(v, Record):
                         dic[k] = v.to_dict()
                     elif isinstance(v, Records):
@@ -287,7 +268,7 @@ class Packet(object):
             True iif this Record is the last one of a list
             of Records corresponding to a given Query.
         """
-        return self._record is None
+        return self._data is None
 
     #--------------------------------------------------------------------------- 
     # Internal methods
@@ -302,7 +283,7 @@ class Packet(object):
         Returns:
             The corresponding value. 
         """
-        if not self._record:
+        if not self._data:
             raise Exception, "Empty record"
         return self.get(key)
 #        return dict.__getitem__(, key, **kwargs)
@@ -315,9 +296,9 @@ class Packet(object):
                 of this Record.
             value: The value that must be mapped with this key.
         """
-        if not self._record:
-            self._record = dict()
-        return dict.__setitem__(self._record, key, value, **kwargs)
+        if not self._data:
+            self._data = dict()
+        return dict.__setitem__(self._data, key, value, **kwargs)
 
     def __iter__(self): 
         """
@@ -325,9 +306,9 @@ class Packet(object):
             A dictionary-keyiterator allowing to iterate on fields
             of this Record.
         """
-        if self._record is None:
+        if self._data is None:
             return dict.__iter__({})
-        return dict.__iter__(self._record)
+        return dict.__iter__(self._data)
 
 #    def get(self, value, default=None):
 #        return .get(value, default)
@@ -351,13 +332,13 @@ class Packet(object):
         field_name, _, subfield = field_names.partition(FIELD_SEPARATOR)
 
         if not subfield:
-            if field_name in self._record:
-                return [(self._record[field_name], self._record)]
+            if field_name in self._data:
+                return [(self._data[field_name], self._data)]
             else:
                 return list() 
         else:
             ret = list()
-            for record in self._record[field_name]:
+            for record in self._data[field_name]:
                 tuple_list = record.get_map_entries(subfield)
                 ret.extend(tuple_list)
             return ret
@@ -369,20 +350,20 @@ class Packet(object):
         if not subfield:
             if remove:
                 if default is Unspecified:
-                    return dict.pop(self._record, field_name)
+                    return dict.pop(self._data, field_name)
                 else:
-                    return dict.pop(self._record, field_name, default)
+                    return dict.pop(self._data, field_name, default)
             else:
                 if default is Unspecified:
-                    return dict.get(self._record, field_name)
+                    return dict.get(self._data, field_name)
                 else:
-                    return dict.get(self._record, field_name, default)
+                    return dict.get(self._data, field_name, default)
                     
         else:
             if default is Unspecified:
-                subrecord = dict.get(self._record, field_name)
+                subrecord = dict.get(self._data, field_name)
             else:
-                subrecord = dict.get(self._record, field_name, default)
+                subrecord = dict.get(self._data, field_name, default)
             if isinstance(subrecord, Records):
                 # A list of lists
                 return  map(lambda r: r._get(subfield, default, remove), subrecord)
@@ -401,10 +382,10 @@ class Packet(object):
         key, _, subkey = key.partition(FIELD_SEPARATOR)
 
         if subkey:
-            if not key in self._record:
+            if not key in self._data:
                 Log.warning("Strange case 1, should not happen often... To test...")
-                self._record[key] = Record()
-            subrecord = self._record[key]
+                self._data[key] = Record()
+            subrecord = self._data[key]
             if isinstance(subrecord, Records):
                 Log.warning("Strange case 2, should not happen often... To test...")
             elif isinstance(subrecord, Record):
@@ -433,16 +414,16 @@ class Packet(object):
         if isinstance(field_names, StringTypes):
             if '.' in field_names:
                 key, _, subkey = key.partition(FIELD_SEPARATOR)
-                if not key in self._record:
+                if not key in self._data:
                     return None
-                if isinstance(self._record[key], Records):
-                    return [subrecord.get_value(subkey) for subrecord in self._record[key]]
-                elif isinstance(self._record[key], Record):
-                    return self._record[key].get_value(subkey)
+                if isinstance(self._data[key], Records):
+                    return [subrecord.get_value(subkey) for subrecord in self._data[key]]
+                elif isinstance(self._data[key], Record):
+                    return self._data[key].get_value(subkey)
                 else:
                     raise Exception, "Unknown field"
             else:
-                return self._record[field_names]
+                return self._data[field_names]
         else:
             # XXX see. get_map_entries
             if len(field_names) == 1:
@@ -462,23 +443,23 @@ class Packet(object):
 #DEPRECATED|        if isinstance(fields, StringTypes):
 #DEPRECATED|            # SHOULD BE DEPRECATED SOON since we are only using the FieldNames()
 #DEPRECATED|            # class now...
-#DEPRECATED|            return fields in self._record
+#DEPRECATED|            return fields in self._data
         assert isinstance(field_names, FieldNames)
 
         field_names, map_method_subfields, _, _ = field_names.split_subfields()
-        if not set(field_names) <= set(self._record.keys()):
+        if not set(field_names) <= set(self._data.keys()):
             return False
 
         for method, sub_field_names in map_method_subfields.items():
             # XXX 1..1 not taken into account here
-            for record in self._record[method]:
+            for record in self._data[method]:
                 if not record.has_field_names(sub_field_names):
                     return False
         return True
 
-#DEPRECATED|        # self._record.keys() should have type Fields, otherwise comparison
+#DEPRECATED|        # self._data.keys() should have type Fields, otherwise comparison
 #DEPRECATED|        # fails without casting to set
-#DEPRECATED|        return set(fields) <= set(self._record.keys())
+#DEPRECATED|        return set(fields) <= set(self._data.keys())
 
     @returns(bool)
     def has_empty_fields(self, keys):
@@ -490,14 +471,14 @@ class Packet(object):
             True iif self does not contain all the field names.
         """
         for key in keys:
-            if self._record[key]: return False
+            if self._data[key]: return False
         return True
 
 #DEPRECATED|    def pop(self, *args, **kwargs):
-#DEPRECATED|        return dict.pop(self._record, *args, **kwargs)
+#DEPRECATED|        return dict.pop(self._data, *args, **kwargs)
 
     def items(self):
-        return dict.items(self._record) if self._record else list()
+        return dict.items(self._data) if self._data else list()
 
     @returns(list)
     def keys(self):
@@ -506,14 +487,14 @@ class Packet(object):
             A list of String where each String correspond to a field
             name of this Record.
         """
-        return dict.keys(self._record) if self._record else list()
+        return dict.keys(self._data) if self._data else list()
 
     @returns(FieldNames)
     def get_field_names(self):
         return FieldNames(self.keys())
 
     def update(self, other_record):
-        return dict.update(self._record, other_record)
+        return dict.update(self._data, other_record)
 
 #DEPRECATED|    @returns(StringTypes)
 #DEPRECATED|    def __repr__(self):
@@ -563,7 +544,7 @@ class Packet(object):
             ' ANNOTATION:%r' % self.get_annotation() if self.get_annotation else '',
             ' LAST' if self.is_last() else '',
             self.get_source(), self.get_destination(),
-            ' '.join([("%s" % self._record) if self._record else '']),
+            ' '.join([("%s" % self._data) if self._data else '']),
         )
 
 
@@ -725,39 +706,39 @@ class Packet(object):
 #DEPRECATED|        """
 #DEPRECATED|        return "%s(%s)" % (self.__repr__(), self.get_query())
 
-class Record(Packet):
-    #---------------------------------------------------------------------------
-    # Constructor
-    #---------------------------------------------------------------------------
-
-    def __init__(self, *args, **kwargs):
-        """
-        Constructor.
-        """
-
-        protocol = kwargs.pop('protocol', Packet.PROTOCOL_CREATE)
-
-        packet_kwargs = dict()
-        packet_kwargs['last'] = kwargs.pop('last', False)
-        packet_kwargs['receiver'] = kwargs.pop('receiver', None)
-        Packet.__init__(self, protocol = protocol, **packet_kwargs)
-
-        if args or kwargs:
-            self._record = dict()
-            if len(args) == 1:
-                self._record.update(args[0])
-            elif len(args) > 1:
-                raise Exception, "Bad initializer for Record: %r" % (args,)
-
-            self._record.update(kwargs)
-            
-        else:
-            # We need None to test whether the record is empty
-             self._record = None
-
-    #--------------------------------------------------------------------------- 
-    # Class methods
-    #--------------------------------------------------------------------------- 
+#DEPRECATED|class Record(Packet):
+#DEPRECATED|    #---------------------------------------------------------------------------
+#DEPRECATED|    # Constructor
+#DEPRECATED|    #---------------------------------------------------------------------------
+#DEPRECATED|
+#DEPRECATED|    def __init__(self, *args, **kwargs):
+#DEPRECATED|        """
+#DEPRECATED|        Constructor.
+#DEPRECATED|        """
+#DEPRECATED|
+#DEPRECATED|        protocol = kwargs.pop('protocol', Packet.PROTOCOL_CREATE)
+#DEPRECATED|
+#DEPRECATED|# DEPRECATED|        packet_kwargs = dict()
+#DEPRECATED|# DEPRECATED|        packet_kwargs['last'] = kwargs.pop('last', False)
+#DEPRECATED|# DEPRECATED|        packet_kwargs['receiver'] = kwargs.pop('receiver', None)
+#DEPRECATED|# DEPRECATED|        Packet.__init__(self, protocol = protocol, **packet_kwargs)
+#DEPRECATED|
+#DEPRECATED|        if args or kwargs:
+#DEPRECATED|            self._data = dict()
+#DEPRECATED|            if len(args) == 1:
+#DEPRECATED|                self._data.update(args[0])
+#DEPRECATED|            elif len(args) > 1:
+#DEPRECATED|                raise Exception, "Bad initializer for Record: %r" % (args,)
+#DEPRECATED|
+#DEPRECATED|            self._data.update(kwargs)
+#DEPRECATED|            
+#DEPRECATED|        else:
+#DEPRECATED|            # We need None to test whether the record is empty
+#DEPRECATED|             self._data = None
+#DEPRECATED|
+#DEPRECATED|    #--------------------------------------------------------------------------- 
+#DEPRECATED|    # Class methods
+#DEPRECATED|    #--------------------------------------------------------------------------- 
 
     @classmethod
     @returns(dict)
@@ -769,29 +750,28 @@ class Record(Packet):
 
 class PING(Packet):
     def __init__(self):
-        Packet.__init__(self, Packet.PROTOCOL_PING)
+        Packet.__init__(self, **kwargs)
+        self.set_protocol(Packet.PROTOCOL_PING)
 
 class GET(Packet):
+    def __init__(self, **kwargs):
+        Packet.__init__(self, **kwargs)
+        self.set_protocol(Packet.PROTOCOL_GET)
+
+class CREATE(Packet):
+    def __init__(self, **kwargs):
+        Packet.__init__(self, **kwargs)
+        self.set_protocol(Packet.PROTOCOL_CREATE)
+
+class UPDATE(Packet):
     def __init__(self):
-        Packet.__init__(self, Packet.PROTOCOL_GET)
-
-class CREATE(Record):
-    def __init__(self, *args, **kwargs):
-        """
-        Constructor.
-        """
-        Record.__init__(self, *args, protocol = Packet.PROTOCOL_CREATE, **kwargs)
-
-class UPDATE(Record):
-    def __init__(self, *args, **kwargs):
-        """
-        Constructor.
-        """
-        Record.__init__(self, *args, protocol = Packet.PROTOCOL_UPDATE, **kwargs)
+        Packet.__init__(self, **kwargs)
+        self.set_protocol(Packet.PROTOCOL_UPDATE)
 
 class DELETE(Packet):
     def __init__(self):
-        Packet.__init__(self, Packet.PROTOCOL_DELETE)
+        Packet.__init__(self, **kwargs)
+        self.set_protocol(Packet.PROTOCOL_DELETE)
 
 
 # NOTE: This class will probably disappear and we will use only the Packet class
@@ -896,6 +876,17 @@ class ErrorPacket(Packet):
 # Records class
 #-------------------------------------------------------------------------------
 
+class Record(CREATE):
+    def __init__(self, *args, **kwargs):
+        last = kwargs.pop('last', True)
+        receiver = kwargs.pop('receiver', None)
+        CREATE.__init__(self, receiver=receiver, last=last)
+        assert len(args) in [0,1]
+        if len(args) > 0:
+            assert isinstance(args[0], (CREATE, dict))
+            self.update_data(args[0])
+        self.update_data(kwargs)
+
 class Records(list):
     """
     A Records instance transport a list of Record instances.
@@ -911,7 +902,7 @@ class Records(list):
                 a list of dict (having the same keys).
         """
         if itr:
-            list.__init__(self, [Record(x) for x in itr])
+            list.__init__(self, [x if isinstance(x, CREATE) else Record(x) for x in itr])
         else:
             list.__init__(self)
 

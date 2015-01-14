@@ -374,8 +374,8 @@ class AgentDaemon(Daemon):
         self._router = Router()
 
         # XXX We need some auto-detection for processes
-        self._ping = self._router.add_platform("ping", "ping")
-        self._fastping = self._router.add_platform("fastping", "fastping")
+        self._ping = self._router.add_interface("ping", "ping")
+        self._fastping = self._router.add_interface("fastping", "fastping")
 
         # Setup interfaces
         self._ws_interface  = self._router.add_interface('websocketserver')
@@ -392,9 +392,9 @@ class AgentDaemon(Daemon):
         # Setup peer overlay
         if Options().server_mode:
 
-            self._router.add_platform("dns", "dns")
-            self._router.add_platform("nodes", "csv", NODES_CSV_CONFIG)
-            #self._router.add_platform("airports", "csv", AIRPORTS_CSV_CONFIG)
+            self._router.add_interface("dns", "dns")
+            self._router.add_interface("nodes", "csv", NODES_CSV_CONFIG)
+            #self._router.add_interface("airports", "csv", AIRPORTS_CSV_CONFIG)
 
             self.register_as_supernode() 
 

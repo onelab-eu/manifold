@@ -67,16 +67,6 @@ class RouterDaemon(Daemon):
             Log.warning(traceback.format_exc())
             Log.warning("Unable to load the Manifold Storage, continuing without storage")
 
-        # conflict when adding both
-        self._router.add_platform("ping",            "ping_process")
-        ### self._router.add_platform("paristraceroute", "paristraceroute_process")
-        ### self._router.add_platform("dig",             "dig_process")
-        #self._router.add_platform("maxmind",         "maxmind")
-
-        #self._router.add_peer("agent",  "ple2.ipv6.lip6.fr")
-        #self._router.add_peer("fake",   "www.google.fr")
-        #self._router.add_peer("agent2", "planetlab2.cs.du.edu")
-
         self.daemon_loop()
 
     def terminate(self):

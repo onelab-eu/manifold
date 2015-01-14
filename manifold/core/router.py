@@ -94,7 +94,8 @@ class Router(object):
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
-        self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
+        #self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
+        dummy = LocalGateway(router = self)
 
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
@@ -170,78 +171,78 @@ class Router(object):
     #---------------------------------------------------------------------------
     # Platform management
     #---------------------------------------------------------------------------
+# DEPRECATED|
+# DEPRECATED|    # XXX TO DEPRECATE
+# DEPRECATED|    @returns(bool)
+# DEPRECATED|    def add_peer(self, platform_name, hostname, port = DEFAULT_PEER_PORT):
+# DEPRECATED|        """
+# DEPRECATED|        Connect this router to another Manifold Router and fetch the
+# DEPRECATED|        corresponding Announces.
+# DEPRECATED|        Args:
+# DEPRECATED|            platform_name: A String containing the platform_name (= namespace)
+# DEPRECATED|                corresponding to this peer.
+# DEPRECATED|            hostname: A String containing the IP address or the hostname
+# DEPRECATED|                of the Manifold peer.
+# DEPRECATED|            port: An integer value on which the Manifold peer listen for
+# DEPRECATED|                Manifold query. It typically runs a manifold-router process
+# DEPRECATED|                listening on this port.
+# DEPRECATED|        Returns:
+# DEPRECATED|            True iif successful.
+# DEPRECATED|        """
+# DEPRECATED|        assert isinstance(platform_name, StringTypes) and platform_name
+# DEPRECATED|        assert isinstance(hostname,      StringTypes) and hostname
+# DEPRECATED|        assert isinstance(port,          int)
+# DEPRECATED|
+# DEPRECATED|        print "add peer should use an interface... until this is merged with gateways"
+# DEPRECATED|
+# DEPRECATED|        url = DEFAULT_PEER_URL % locals()
+# DEPRECATED|        return self.add_platform(platform_name, "manifold", {"url" : url})
 
-    # XXX TO DEPRECATE
-    @returns(bool)
-    def add_peer(self, platform_name, hostname, port = DEFAULT_PEER_PORT):
-        """
-        Connect this router to another Manifold Router and fetch the
-        corresponding Announces.
-        Args:
-            platform_name: A String containing the platform_name (= namespace)
-                corresponding to this peer.
-            hostname: A String containing the IP address or the hostname
-                of the Manifold peer.
-            port: An integer value on which the Manifold peer listen for
-                Manifold query. It typically runs a manifold-router process
-                listening on this port.
-        Returns:
-            True iif successful.
-        """
-        assert isinstance(platform_name, StringTypes) and platform_name
-        assert isinstance(hostname,      StringTypes) and hostname
-        assert isinstance(port,          int)
-
-        print "add peer should use an interface... until this is merged with gateways"
-
-        url = DEFAULT_PEER_URL % locals()
-        return self.add_platform(platform_name, "manifold", {"url" : url})
-
-    # XXX TO DEPRECATE
-    # This will be the only calls for manipulating router platforms
-    @returns(Gateway)
-    def add_platform(self, platform_name, gateway_type, platform_config = None):
-        """
-        Add a platform (register_platform + enable_platform) in this Router
-        and fetch the corresponding Announces.
-        Args:
-            platform_name: A String containing the name of the Platform.
-            gateway_type: A String containing the type of Gateway used for this Platform.
-            platform_config: A dictionnary { String : instance } containing the
-                configuration of this Platform.
-        Returns:
-            True iif successful.
-        """
-        if not platform_config:
-            platform_config = dict()
-
-        try:
-            Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
-            if gateway_type == LOCAL_NAMESPACE:
-                gateway = LocalGateway(router = self)
-            else:
-                gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-
-#DEPRECATED|            print "REQUESTING ANNOUNCES FOR PLATFORM", platform_name
-#DEPRECATED|            # Retrieving announces from gateway, and populate the FIB
-#DEPRECATED|            packet = GET()
-#DEPRECATED|            packet.set_source(self.get_fib().get_address())
-#DEPRECATED|            packet.set_destination(Destination('object', namespace='local'))
-#DEPRECATED|            packet.set_receiver(self.get_fib())
-#DEPRECATED|            gateway.send(packet)
-
-#DEPRECATED|            announces = gateway.get_announces()
-#DEPRECATED|            for announce in announces:
-#DEPRECATED|                self._fib.add(platform_name, announce)
-
-            #self._interfaces[platform_name] = gateway
-
-        except Exception, e:
-            Log.warning(traceback.format_exc())
-            Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
-            return None
-
-        return gateway
+# DEPRECATED|    # XXX TO DEPRECATE
+# DEPRECATED|    # This will be the only calls for manipulating router platforms
+# DEPRECATED|    @returns(Gateway)
+# DEPRECATED|    def add_platform(self, platform_name, gateway_type, platform_config = None):
+# DEPRECATED|        """
+# DEPRECATED|        Add a platform (register_platform + enable_platform) in this Router
+# DEPRECATED|        and fetch the corresponding Announces.
+# DEPRECATED|        Args:
+# DEPRECATED|            platform_name: A String containing the name of the Platform.
+# DEPRECATED|            gateway_type: A String containing the type of Gateway used for this Platform.
+# DEPRECATED|            platform_config: A dictionnary { String : instance } containing the
+# DEPRECATED|                configuration of this Platform.
+# DEPRECATED|        Returns:
+# DEPRECATED|            True iif successful.
+# DEPRECATED|        """
+# DEPRECATED|        if not platform_config:
+# DEPRECATED|            platform_config = dict()
+# DEPRECATED|
+# DEPRECATED|        try:
+# DEPRECATED|            Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
+# DEPRECATED|            if gateway_type == LOCAL_NAMESPACE:
+# DEPRECATED|                gateway = LocalGateway(router = self)
+# DEPRECATED|            else:
+# DEPRECATED|                gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+# DEPRECATED|
+# DEPRECATED|#DEPRECATED|            print "REQUESTING ANNOUNCES FOR PLATFORM", platform_name
+# DEPRECATED|#DEPRECATED|            # Retrieving announces from gateway, and populate the FIB
+# DEPRECATED|#DEPRECATED|            packet = GET()
+# DEPRECATED|#DEPRECATED|            packet.set_source(self.get_fib().get_address())
+# DEPRECATED|#DEPRECATED|            packet.set_destination(Destination('object', namespace='local'))
+# DEPRECATED|#DEPRECATED|            packet.set_receiver(self.get_fib())
+# DEPRECATED|#DEPRECATED|            gateway.send(packet)
+# DEPRECATED|
+# DEPRECATED|#DEPRECATED|            announces = gateway.get_announces()
+# DEPRECATED|#DEPRECATED|            for announce in announces:
+# DEPRECATED|#DEPRECATED|                self._fib.add(platform_name, announce)
+# DEPRECATED|
+# DEPRECATED|            #self._interfaces[platform_name] = gateway
+# DEPRECATED|
+# DEPRECATED|        except Exception, e:
+# DEPRECATED|            Log.warning(traceback.format_exc())
+# DEPRECATED|            Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
+# DEPRECATED|            return None
+# DEPRECATED|
+# DEPRECATED|        return gateway
 
     def register_interface(self, interface):
         self._interfaces[interface.get_uuid()] = interface
@@ -251,15 +252,28 @@ class Router(object):
         del self._interfaces[platform_name]
         self.get_fib().remove_platform(platform_name)
 
-    def add_interface(self, interface_type, *args, **kwargs):
+    def add_interface(self, interface_type, **kwargs):
         interface_cls = Interface.factory_get(interface_type)
         if not interface_cls:
+            # Get the Gateway class
+#DEPRECATED|            cls_gateway = Gateway.factory_get(interface_type)
+#DEPRECATED|            if not cls_gateway:
             Log.warning("Could not create a %(interface_type)s interface" % locals())
             return None
 
-        router_args = (self,) + args
-        interface = interface_cls(*router_args, **kwargs)
-        # Note the interface will register itself when initialized properly
+#DEPRECATED|            # Create the Gateway
+#DEPRECATED|            print "ADD GW, platform_name", platform_name, "platform_config", platform_config
+#DEPRECATED|            gateway = cls_gateway(self, platform_name, platform_config)
+#DEPRECATED|            return gateway
+
+        platform_name = kwargs.pop('name')
+        platform_config = kwargs
+
+        Log.warning("What about mandatory config?")
+        router_args = (self, platform_name, platform_config)
+        interface = interface_cls(*router_args)
+
+        # Note the interface will register itself when initialized properlyb
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface
         interface.up()
         return interface
@@ -338,34 +352,34 @@ class Router(object):
 #        """
 #        return set(self.announces.keys())
 
-    @returns(bool)
-    def register_platform(self, platform):
-        """
-        Register a platform in this Router.
-        Args:
-            platform: A dict describing a Platform.
-        Returns:
-            True iif successful
-        """
-        assert isinstance(platform, dict),\
-            "Invalid platform = %s (%s)" % (platform, type(platform))
-
-        ret = False
-        platform_name   = platform["platform"]
-        gateway_type    = platform["gateway_type"]
-        platform_config = platform["config"]
-
-        try:
-            #Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
-            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-
-            self._interfaces[platform_name] = gateway
-
-            ret = True
-        except Exception:
-            Log.warning(traceback.format_exc())
-
-        return ret
+# DEPRECATED|    @returns(bool)
+# DEPRECATED|    def register_platform(self, platform):
+# DEPRECATED|        """
+# DEPRECATED|        Register a platform in this Router.
+# DEPRECATED|        Args:
+# DEPRECATED|            platform: A dict describing a Platform.
+# DEPRECATED|        Returns:
+# DEPRECATED|            True iif successful
+# DEPRECATED|        """
+# DEPRECATED|        assert isinstance(platform, dict),\
+# DEPRECATED|            "Invalid platform = %s (%s)" % (platform, type(platform))
+# DEPRECATED|
+# DEPRECATED|        ret = False
+# DEPRECATED|        platform_name   = platform["platform"]
+# DEPRECATED|        gateway_type    = platform["gateway_type"]
+# DEPRECATED|        platform_config = platform["config"]
+# DEPRECATED|
+# DEPRECATED|        try:
+# DEPRECATED|            #Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
+# DEPRECATED|            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+# DEPRECATED|
+# DEPRECATED|            self._interfaces[platform_name] = gateway
+# DEPRECATED|
+# DEPRECATED|            ret = True
+# DEPRECATED|        except Exception:
+# DEPRECATED|            Log.warning(traceback.format_exc())
+# DEPRECATED|
+# DEPRECATED|        return ret
 
 #DEPRECATED|    def update_platforms(self, new_platforms_enabled):
 #DEPRECATED|        """
@@ -501,29 +515,29 @@ class Router(object):
 
     def get_interfaces(self):
         return self._interfaces.items()
-
-    @returns(Gateway)
-    def make_gateway(self, platform_name, gateway_type, platform_config):
-        """
-        Prepare the Gateway instance corresponding to a Platform name.
-        Args:
-            platform_name: A String containing the name of the Platform.
-        Raises:
-            RuntimeError: In case of failure.
-        Returns:
-            The corresponding Gateway if found, None otherwise.
-        """
-        assert isinstance(platform_name, StringTypes),\
-            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
-
-        # Get the Gateway class
-        cls_gateway = Gateway.factory_get(gateway_type)
-        if not cls_gateway:
-            raise RuntimeError, "Gateway not found: %s" % gateway_type
-
-        # Create the Gateway
-        gateway = cls_gateway(self, platform_name, platform_config)
-        return gateway
+# DEPRECATED|
+# DEPRECATED|    @returns(Gateway)
+# DEPRECATED|    def make_gateway(self, platform_name, gateway_type, platform_config):
+# DEPRECATED|        """
+# DEPRECATED|        Prepare the Gateway instance corresponding to a Platform name.
+# DEPRECATED|        Args:
+# DEPRECATED|            platform_name: A String containing the name of the Platform.
+# DEPRECATED|        Raises:
+# DEPRECATED|            RuntimeError: In case of failure.
+# DEPRECATED|        Returns:
+# DEPRECATED|            The corresponding Gateway if found, None otherwise.
+# DEPRECATED|        """
+# DEPRECATED|        assert isinstance(platform_name, StringTypes),\
+# DEPRECATED|            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+# DEPRECATED|
+# DEPRECATED|        # Get the Gateway class
+# DEPRECATED|        cls_gateway = Gateway.factory_get(gateway_type)
+# DEPRECATED|        if not cls_gateway:
+# DEPRECATED|            raise RuntimeError, "Gateway not found: %s" % gateway_type
+# DEPRECATED|
+# DEPRECATED|        # Create the Gateway
+# DEPRECATED|        gateway = cls_gateway(self, platform_name, platform_config)
+# DEPRECATED|        return gateway
 
     #---------------------------------------------------------------------
     # Methods
@@ -628,7 +642,7 @@ class Router(object):
             self.get_fib().receive(packet)
             return
 
-        query      = packet.get_query()
+        query      = Query.from_packet(packet)
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
 

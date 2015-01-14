@@ -15,6 +15,7 @@ from types                          import StringTypes
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter, Predicate
 from manifold.core.field_names      import FieldNames
+from manifold.core.packet           import Packet
 from manifold.util.clause           import Clause
 from manifold.util.frozendict       import frozendict
 from manifold.util.log              import Log
@@ -144,6 +145,32 @@ class Query(object):
 
         query.sanitize()
         return query
+
+    @staticmethod
+    def from_packet(packet):
+        Log.warning("Distinction between params.keys() and fields is not so good")
+        destination = packet.get_destination()
+
+        object_name = destination.get_object_name()
+        namespace   = destination.get_namespace()
+        filters     = destination.get_filter()
+        field_names = destination.get_field_names()
+
+        params      = packet.get_data()
+
+        if namespace:
+            query = Query.get("%s:%s" % (namespace, object_name))
+        else:
+            query = Query.get(object_name)
+        if filters:
+            query.filter_by(filters)
+        if field_names:
+            query.select(field_names)
+        if params:
+            query.set(params)
+
+        return query
+
 
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()
@@ -297,6 +324,16 @@ class Query(object):
             ACTION_DELETE, ACTION_EXECUTE.
         """
         return self.action
+
+    def get_protocol(self):
+        _map = {
+            ACTION_PING     : Packet.PROTOCOL_PING,
+            ACTION_GET      : Packet.PROTOCOL_GET,
+            ACTION_CREATE   : Packet.PROTOCOL_CREATE,
+            ACTION_UPDATE   : Packet.PROTOCOL_UPDATE,
+            ACTION_DELETE   : Packet.PROTOCOL_DELETE,
+        }
+        return _map[self.action]
 
     def set_action(self, action):
         """

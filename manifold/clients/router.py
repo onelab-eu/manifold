@@ -132,21 +132,6 @@ class ManifoldRouterClient(ManifoldClient):
         """
         return self.user
 
-    def send(self, packet):
-        """
-        Send a Packet to the nested Manifold Router.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-#DEPRECATED|        assert isinstance(packet, Packet), \
-#DEPRECATED|            "Invalid packet %s (%s)" % (packet, type(packet))
-#DEPRECATED|        assert packet.get_protocol() == Packet.PROTOCOL_QUERY, \
-#DEPRECATED|            "Invalid packet %s of type %s" % (
-#DEPRECATED|                packet,
-#DEPRECATED|                Packet.get_protocol_name(packet.get_protocol())
-#DEPRECATED|            )
-        self._router.receive(packet)
-
     @returns(ResultValue)
     def forward(self, query, annotation = None):
         """
@@ -164,11 +149,15 @@ class ManifoldRouterClient(ManifoldClient):
 
         receiver = SyncReceiver()
         Log.warning("Hardcoded a GET packet")
-        packet = GET()
+        packet = Packet()
+        packet.set_protocol(query.get_protocol())
+        data = query.get_data()
+        if data:
+            packet.set_data(data)
         packet.set_destination(query.get_destination())
-        packet.set_receiver(receiver) # Why is it useful ??
         packet.update_annotation(self.get_annotation())
-        self.send(packet)
+        packet.set_receiver(receiver) # Why is it useful ??
+        self._router.receive(packet)
 
         # This code is blocking
         result_value = receiver.get_result_value()

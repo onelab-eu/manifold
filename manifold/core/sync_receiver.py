@@ -85,7 +85,6 @@ class SyncReceiver(Node, ChildSlotMixin):
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
         if packet.is_last():
-            print "got last in SR", self
             self.terminate()
 
     @returns(ResultValue)

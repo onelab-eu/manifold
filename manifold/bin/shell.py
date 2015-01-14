@@ -468,6 +468,16 @@ class Shell(object):
 
         return self.execute(query, annotation)
 
+    def evaluate2(self, command, annotation = None):
+        result_value = self.evaluate(command, annotation)
+        if result_value.is_success() or result_value.is_warning():
+            #records = result_value["value"]
+            #dicts = [record.to_dict() for record in records]
+            records = result_value.get_all().to_dict_list()
+            return records
+        else:
+            raise Exception, result_value['description']
+
     @returns(ResultValue)
     def execute(self, query, annotation = None, receiver = None):
         """
