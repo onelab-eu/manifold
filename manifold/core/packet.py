@@ -196,7 +196,7 @@ class Packet(object):
 
     def update_query(self, method, *args, **kwargs):
         Log.warning("update_query is to be deprecated")
-        self.set_query(method(self.get_query(), *args, **kwargs))
+        self.set_query(method(Query.from_packet(self), *args, **kwargs))
 
     def get_data(self):
         return self._data
