@@ -195,6 +195,7 @@ class Packet(object):
         self.set_data(query.get_data())
 
     def update_query(self, method, *args, **kwargs):
+        from manifold.core.query import Query
         Log.warning("update_query is to be deprecated")
         self.set_query(method(Query.from_packet(self), *args, **kwargs))
 
