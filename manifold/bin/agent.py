@@ -42,7 +42,7 @@ from manifold.core.query                import Query
 from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.util.reactor_thread       import ReactorThread
 
-SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
+SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
 
 SUPERNODE_CLASS = """
 class supernode {
