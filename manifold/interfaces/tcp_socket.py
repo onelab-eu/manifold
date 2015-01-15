@@ -190,11 +190,13 @@ class TCPServerSocketFactory(ServerFactory):
     """
     protocol = ManifoldServerProtocol
 
-    def __init__(self, router):
+    def __init__(self, router, platform_name, platform_config):
         self._router = router
+        self._platform_name = platform_name
+        self._platform_config = platform_config
 
     def buildProtocol(self, addr):
-        p = self.protocol(self._router)
+        p = self.protocol(self._router, self._platform_name, self._platform_config)
         p.factory = self
         return p
 
@@ -222,7 +224,7 @@ class TCPClientInterface(TCPClientSocketFactory):
         self._port = port
         self._timeout = timeout
         self._request_announces = request_announces
-        TCPClientSocketFactory.__init__(self, router)
+        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config)
 
     def reconnect(self, host = None, port = DEFAULT_PORT):
         if self._client:
@@ -263,7 +265,7 @@ class TCPServerInterface(Interface):
         ReactorThread().stop_reactor()
 
     def up_impl(self):
-        ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router))
+        ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router, self._platform_name, self._platform_config))
         # XXX How to wait for the server to be effectively listening
         self.set_up(request_announces = False)
 

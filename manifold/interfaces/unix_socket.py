@@ -35,7 +35,7 @@ class UNIXClientInterface(TCPClientSocketFactory):
         self._connector = None
         self._filename = filename
         self._timeout = timeout
-        TCPClientSocketFactory.__init__(self, router)
+        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config)
 
     def reconnect(self, filename = DEFAULT_FILENAME):
         self.down()
@@ -68,6 +68,7 @@ class UNIXServerInterface(Interface):
 
         ReactorThread().start_reactor()
         self._router    = router
+
         self._filename  = filename
         self._connector = None
         Interface.__init__(self, router, platform_name, platform_config)
@@ -79,7 +80,8 @@ class UNIXServerInterface(Interface):
             os.unlink(self._filename)
 
     def up_impl(self):
-        self._connector = ReactorThread().listenUNIX(self._filename, TCPServerSocketFactory(self._router))
+        self._connector = ReactorThread().listenUNIX(self._filename,
+        TCPServerSocketFactory(self._router, self._platform_name, self._platform_config))
         # XXX How to wait for the server to be effectively listening
         self.set_up(request_announces = False)
 
