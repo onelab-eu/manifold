@@ -92,6 +92,7 @@ class Interface(object):
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
         if request_announces:
+            print "requesting announces"
             self.request_announces()
         
     def down(self):

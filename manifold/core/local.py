@@ -51,6 +51,8 @@ class OLocalObject(ManifoldCollection):
         for obj in self.get_router().get_fib().get_objects(namespace='*'):
             announce = obj.get_announce()
             table = announce.get_table()
+            if table.get_namespace() == 'local':
+                continue
             table_dict = table.to_dict()
             table_dict['platforms'] = obj.get_platform_names()
             table_dict['columns'] = Records(table_dict['columns'])
