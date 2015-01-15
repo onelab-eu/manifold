@@ -115,6 +115,7 @@ class FIB(ChildSlotMixin):
             table = announce.get_table() # XXX
 
             object_name     = table.get_name() # XXX
+            print "FIB RECEIVED OBJECT: %s:%s" % (object_name, namespace)
 
             keys            = table.get_keys()
             fields          = table.get_fields()
