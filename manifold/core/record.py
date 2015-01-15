@@ -13,5 +13,5 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from manifold.core.packet       import CREATE as Record, Records
+from manifold.core.packet       import Record, Records
 

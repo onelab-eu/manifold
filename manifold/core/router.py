@@ -266,12 +266,16 @@ class Router(object):
 #DEPRECATED|            gateway = cls_gateway(self, platform_name, platform_config)
 #DEPRECATED|            return gateway
 
-        platform_name = kwargs.pop('name')
+        platform_name = kwargs.pop('name', None)
         platform_config = kwargs
 
         Log.warning("What about mandatory config?")
         router_args = (self, platform_name, platform_config)
-        interface = interface_cls(*router_args)
+        try:
+            interface = interface_cls(*router_args)
+        except Exception, e:
+            Log.warning("Cannot create interface %s of type %s with parameters %r: %s" % (platform_name, interface_type, kwargs, e))
+            return None
 
         # Note the interface will register itself when initialized properlyb
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface

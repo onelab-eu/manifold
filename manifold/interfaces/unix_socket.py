@@ -26,7 +26,11 @@ class UNIXClientInterface(TCPClientSocketFactory):
 
     __interface_tyfpe__ = 'unixclient'
 
-    def __init__(self, router, filename = DEFAULT_FILENAME):
+    def __init__(self, router, platform_name = None, platform_config = None):
+        if not platform_config:
+            platform_config = dict()
+        filename = platform_config.get('filename', DEFAULT_FILENAME)
+
         ensure_writable_directory(os.path.dirname(DEFAULT_FILENAME))
         self._connector = None
         self._filename = filename
@@ -51,17 +55,28 @@ class UNIXServerInterface(Interface):
 
     __interface_type__ = 'unixserver'
 
-    def __init__(self, router, filename = DEFAULT_FILENAME):
-        ensure_writable_directory(os.path.dirname(DEFAULT_FILENAME))
+    def __init__(self, router, platform_name = None, platform_config = None):
+
+        if not platform_config:
+            platform_config = dict()
+        filename = platform_config.get('filename', DEFAULT_FILENAME)
+
+        ensure_writable_directory(os.path.dirname(filename))
+        if os.path.exists(filename):
+            Log.info("Removed existing socket file: %s" % (filename,))
+            os.unlink(filename)
+
         ReactorThread().start_reactor()
         self._router    = router
         self._filename  = filename
         self._connector = None
-        Interface.__init__(self, router)
+        Interface.__init__(self, router, platform_name, platform_config)
 
     def terminate(self):
         Interface.terminate(self)
         ReactorThread().stop_reactor()
+        if os.path.exists(self._filename):
+            os.unlink(self._filename)
 
     def up_impl(self):
         self._connector = ReactorThread().listenUNIX(self._filename, TCPServerSocketFactory(self._router))

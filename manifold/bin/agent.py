@@ -246,7 +246,7 @@ class AgentDaemon(Daemon):
 
     @defer.inlineCallbacks
     def connect_interface(self, host):
-        interface = self._router.add_interface('tcpclient', host)
+        interface = self._router.add_interface('tcpclient', host=host)
 
         interface.add_down_callback(self._down_callback)
 
@@ -374,8 +374,8 @@ class AgentDaemon(Daemon):
         self._router = Router()
 
         # XXX We need some auto-detection for processes
-        self._ping = self._router.add_interface("ping", "ping")
-        self._fastping = self._router.add_interface("fastping", "fastping")
+        self._ping = self._router.add_interface("ping", name="ping")
+        self._fastping = self._router.add_interface("fastping", name="fastping")
 
         # Setup interfaces
         self._ws_interface  = self._router.add_interface('websocketserver')
@@ -392,8 +392,8 @@ class AgentDaemon(Daemon):
         # Setup peer overlay
         if Options().server_mode:
 
-            self._router.add_interface("dns", "dns")
-            self._router.add_interface("nodes", "csv", NODES_CSV_CONFIG)
+            self._router.add_interface("dns", name="dns")
+            self._router.add_interface("csv", name="nodes", **NODES_CSV_CONFIG)
             #self._router.add_interface("airports", "csv", AIRPORTS_CSV_CONFIG)
 
             self.register_as_supernode() 

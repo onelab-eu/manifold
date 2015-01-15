@@ -62,8 +62,9 @@ class TCPInterface(Interface):
 
     __interface_type__ = 'socket'
 
-    def __init__(self, router):
-        Interface.__init__(self, router)
+    def __init__(self, router, platform_name = None, platform_config = None):
+        Interface.__init__(self, router, platform_name, platform_config)
+
         self._tx_buffer = list()
         # _client = None means interface is down
         self._client = None
@@ -210,8 +211,13 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     __interface_type__ = 'tcpclient'
 
-    def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT, request_announces = True):
-        import pdb;pdb.set_trace()
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
+        if not platform_config:
+            platform_config = dict()
+        host = platform_config.get('host')
+        port = platform_config.get('port', DEFAULT_PORT)
+        timeout = platform_config.get('timeout', DEFAULT_TIMEOUT)
+
         self._host = host
         self._port = port
         self._timeout = timeout
@@ -241,10 +247,16 @@ class TCPServerInterface(Interface):
     """
     __interface_type__ = 'tcpserver'
 
-    def __init__(self, router, port = DEFAULT_PORT):
+    def __init__(self, router, platform_name = None, platform_config = None):
+
+        if not platform_config:
+            platform_config = dict()
+        port = platform_config.get('port', DEFAULT_PORT)
+
         ReactorThread().start_reactor()
         self._port      = port
-        Interface.__init__(self, router)
+
+        Interface.__init__(self, router, platform_name, platform_config)
 
     def terminate(self):
         Interface.terminate(self)

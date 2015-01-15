@@ -74,9 +74,6 @@ class Object(Record):
 
     @staticmethod
     def from_announce(announce):
-        class obj(Object):
-            pass
-
         table = announce.get_table()
 
         obj = ObjectFactory(table.get_name())
@@ -388,16 +385,16 @@ class Object(Record):
         cls.__relations__[other_object_name].add(relation)
 
 def ObjectFactory(name): 
-    def __init__(cls, **kwargs):
-        Object.__init__(cls, **kwargs)
+    def __init__(self, **kwargs):
+        Object.__init__(self, **kwargs)
         for key, value in kwargs.items():
             # here, the argnames variable is the one passed to the
             # ClassFactory call
             
-            if not cls.__fields__ or key not in cls.__fields__.keys():
+            if not self.__fields__ or key not in self.__fields__.keys():
                 raise TypeError("Argument %s not valid for %s" 
-                    % (key, cls.__class__.__name__))
-            cls[key] = value
+                    % (key, self.__class__.__name__))
+            self[key] = value
             #setattr(cls, key, value)
         #Object.__init__(cls) # , name)
     newclass = type(str(name), (Object,),{"__init__": __init__})

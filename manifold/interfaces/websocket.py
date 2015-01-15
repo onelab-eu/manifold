@@ -42,8 +42,8 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
 
     __interface_type__ = 'websocket'
 
-    def __init__(self, router):
-        Interface.__init__(self, router)
+    def __init__(self, router, platform_name = None, platform_config = None):
+        Interface.__init__(self, router, platform_name, platform_config)
         self._client = None
 
         # Received packets are sent back to the client
@@ -110,7 +110,11 @@ DEFAULT_PORT = 9000
 class ManifoldWebSocketServerFactory(WebSocketServerFactory):
     protocol = ManifoldWebSocketServerProtocol
 
-    def __init__(self, router, port = DEFAULT_PORT):
+    def __init__(self, router, platform_name = None, platform_config = None):
+        if not platform_config:
+            platform_config = dict()
+        port = platform_config.get('port', DEFAULT_PORT)
+
         WebSocketServerFactory.__init__(self, "ws://localhost:%s" % port, debug = False)
         self._router = router
 
@@ -163,8 +167,12 @@ class ManifoldWebSocketServerInterface(Interface):
     """
     __interface_type__ = 'websocketserver'
 
-    def __init__(self, router, port = DEFAULT_PORT):
-        Interface.__init__(self, router)
+    def __init__(self, router, platform_name = None, platform_config = None):
+        Interface.__init__(self, router, platform_name, platform_config)
+
+        if not platform_config:
+            platform_config = dict()
+        port = platform_config.get('port', DEFAULT_PORT)
 
         self._port = port
         ReactorThread().start_reactor()

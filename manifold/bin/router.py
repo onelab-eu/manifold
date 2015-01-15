@@ -64,6 +64,7 @@ class RouterDaemon(Daemon):
             Log.warning("TODO: Configure a Storage in respect with Options(). Loading default Storage")
             install_default_storage(self._router)
         except Exception, e:
+            import traceback
             Log.warning(traceback.format_exc())
             Log.warning("Unable to load the Manifold Storage, continuing without storage")
 

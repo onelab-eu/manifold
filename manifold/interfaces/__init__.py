@@ -35,9 +35,9 @@ class Interface(object):
         PluginFactory.register(current_module)
         Log.info("Registered interface are: {%s}" % ", ".join(sorted(Interface.factory_list().keys())))
 
-    def __init__(self, router, uuid = None):
+    def __init__(self, router, platform_name = None, platform_config = None):
         self._router   = router
-        self._uuid     = uuid if uuid else str(uuid_module.uuid4())
+        self._platform_name     = platform_name if platform_name else str(uuid_module.uuid4())
         self._up       = False
         self._error    = None # Interface has encountered an error
         self._up_callbacks = list()
@@ -58,12 +58,12 @@ class Interface(object):
         return "<%s %s>" % (self.__class__.__name__, self.get_interface_name())
 
     def get_uuid(self):
-        return self._uuid
+        return self._platform_name
     get_platform_name = get_uuid
     get_interface_name = get_uuid
 
     def get_address(self):
-        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._platform_name)))
 
     def get_interface_type(self):
         return self.__interface_type__

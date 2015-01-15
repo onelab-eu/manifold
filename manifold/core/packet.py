@@ -878,7 +878,7 @@ class ErrorPacket(Packet):
 
 class Record(CREATE):
     def __init__(self, *args, **kwargs):
-        #last = kwargs.pop('last', True)
+        last = kwargs.pop('last', True)
         receiver = kwargs.pop('receiver', None)
         CREATE.__init__(self, receiver=receiver, last=False)
         assert len(args) in [0,1]
