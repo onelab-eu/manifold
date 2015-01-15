@@ -38,6 +38,7 @@ class Interface(object):
     def __init__(self, router, platform_name = None, platform_config = None):
         self._router   = router
         self._platform_name     = platform_name if platform_name else str(uuid_module.uuid4())
+        self._platform_config = platform_config
         self._up       = False
         self._error    = None # Interface has encountered an error
         self._up_callbacks = list()
