@@ -148,12 +148,13 @@ class ManifoldRouterClient(ManifoldClient):
         annotation |= self.get_annotation()
 
         receiver = SyncReceiver()
-        Log.warning("Hardcoded a GET packet")
+
         packet = Packet()
         packet.set_protocol(query.get_protocol())
         data = query.get_data()
         if data:
             packet.set_data(data)
+
         packet.set_destination(query.get_destination())
         packet.update_annotation(self.get_annotation())
         packet.set_receiver(receiver) # Why is it useful ??

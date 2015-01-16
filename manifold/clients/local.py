@@ -126,10 +126,14 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         Results:
             The ResultValue resulting from this Query.
         """
-        Log.warning("Hardcoded a GET packet")
-        packet = GET()
-
         r = self.make_receiver()
+
+        packet = Packet()
+        packet.set_protocol(query.get_protocol())
+        packet.set_protocol(query.get_protocol())
+        data = query.get_data()
+        if data:
+            packet.set_data(data)
 
         packet.set_source(self._interface.get_address())
         packet.set_destination(query.get_destination())
