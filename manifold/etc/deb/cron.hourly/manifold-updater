@@ -2,38 +2,38 @@
 
 DAEMON="manifold-agent"
 
-# Random delay used to avoid the synchronization of updates
-MAX_DELAY=600 # s
-
-yum clean all
-OUT=$(yum info manifold | awk  -F  " " '/Version/ { print $3 }' | wc -l)
-if [[ $OUT == 1 ]]; then
-    echo "No update available."
-    exit
-else
-    echo "Update available."
-fi
-
-echo "Sleeping..."
-sleep $(expr $RANDOM \% $MAX_DELAY);
-
-PID=$(pidof -x $DAEMON)
-if [[ $PID == "" ]]; then
-    echo "No daemon running."
-else
-    echo "Stopping daemon..."
-    # Forcing manifold services to stop
-    /etc/init.d/$DAEMON stop
-
-    PID=$(pidof -x $DAEMON)
-    if [[ $PID == "" ]]; then
-        echo "Daemon stopped properly."
-    else
-        echo "Daemon did not stop, killing it..."
-        kill -9 `pidof -x $DAEMON`
-    fi
-fi
-
-echo "Updating package..."
-yum -y install manifold --nogpgcheck
+#TODO|# Random delay used to avoid the synchronization of updates
+#TODO|MAX_DELAY=600 # s
+#TODO|
+#TODO|yum clean all
+#TODO|OUT=$(yum info manifold | awk  -F  " " '/Version/ { print $3 }' | wc -l)
+#TODO|if [[ $OUT == 1 ]]; then
+#TODO|    echo "No update available."
+#TODO|    exit
+#TODO|else
+#TODO|    echo "Update available."
+#TODO|fi
+#TODO|
+#TODO|echo "Sleeping..."
+#TODO|sleep $(expr $RANDOM \% $MAX_DELAY);
+#TODO|
+#TODO|PID=$(pidof -x $DAEMON)
+#TODO|if [[ $PID == "" ]]; then
+#TODO|    echo "No daemon running."
+#TODO|else
+#TODO|    echo "Stopping daemon..."
+#TODO|    # Forcing manifold services to stop
+#TODO|    /etc/init.d/$DAEMON stop
+#TODO|
+#TODO|    PID=$(pidof -x $DAEMON)
+#TODO|    if [[ $PID == "" ]]; then
+#TODO|        echo "Daemon stopped properly."
+#TODO|    else
+#TODO|        echo "Daemon did not stop, killing it..."
+#TODO|        kill -9 `pidof -x $DAEMON`
+#TODO|    fi
+#TODO|fi
+#TODO|
+#TODO|echo "Updating package..."
+#TODO|yum -y install manifold --nogpgcheck
 

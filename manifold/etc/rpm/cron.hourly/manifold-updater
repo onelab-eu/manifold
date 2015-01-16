@@ -7,7 +7,10 @@ MAX_DELAY=600 # s
 
 yum clean all
 OUT=$(yum info manifold | awk  -F  " " '/Version/ { print $3 }' | wc -l)
-if [[ $OUT == 1 ]]; then
+if [[ $OUT == 0 ]]; then
+    echo "Error. Interrupting update process."
+	exit
+elif [[ $OUT == 1 ]]; then
     echo "No update available."
     exit
 else
@@ -15,7 +18,7 @@ else
 fi
 
 echo "Sleeping..."
-sleep $(expr $RANDOM \% $MAX_DELAY);
+#sleep $(expr $RANDOM \% $MAX_DELAY);
 
 PID=$(pidof -x $DAEMON)
 if [[ $PID == "" ]]; then
