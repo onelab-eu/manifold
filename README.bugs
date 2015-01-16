@@ -1,0 +1,76 @@
+- Agent not responding to SIGTERM, issue with util.daemon and the daemon class
+  itself ?
+
+- when quitting shell and no transport connected before
+--------------------------------------------------------------------------------
+ERROR Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/bin/shell.py", line 746, in main
+    shell = Shell(interactive = True).start()
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/bin/shell.py", line 728, in start
+    self.terminate()
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/bin/shell.py", line 78, in terminate
+    self.client.terminate()
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/clients/local.py", line 58, in terminate
+    self._interface.terminate()
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/interfaces/tcp_socket.py", line 84, in terminate
+    Interface.terminate(self)
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/interfaces/__init__.py", line 55, in terminate
+    self.down()
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/interfaces/__init__.py", line 98, in down
+    self.down_impl()
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.98-py2.7.egg/manifold/interfaces/tcp_socket.py", line 237, in down_impl
+    self._client.transport.loseConnection()
+AttributeError: 'NoneType' object has no attribute 'transport'
+--------------------------------------------------------------------------------
+
+- freeze with wrong command:
+
+--------------------------------------------------------------------------------
+manifold>>>  select * from local:about    
+INFO Running:
+select * from local:about 
+WARNING SyncReceiver::receive(): Invalid Packet type (<Packet.UNKNOWN: Unable to
+build a suitable Query Plan (destination = ('local', 'about', <Filter: <empty
+filter>>, <FieldNames *>)): 'about'>, UNKNOWN) 
+--------------------------------------------------------------------------------
+
+- delete all Query.from_packet
+
+- ????
+
+--------------------------------------------------------------------------------
+/usr/lib/python2.7/site-packages/pyparsing.py:2609: SyntaxWarning: null string passed to Literal; use Empty() instead
+  expr = Literal(expr)
+DELAYS [<Packet.CREATE {49ccb3b2-c6aa-4f31-912d-daefb9deb6aa} ANNOTATION:{} LAST (None, 'ping', <Filter: destination INCLUDED "('ple4.ipv6.lip6.fr', 'ple6.ipv6.lip6.fr')">, <FieldNames ['destination', 'delay']>) -> (None, 'uuid', <Filter: uuid == 'ping'>, <FieldNames *>) [DATA: {'count': '1', 'destination': 'ple6.ipv6.lip6.fr', 'size1': 56, 'size2': 84, 'ip': '132.227.62.124', 'hostname': 'ple6.ipv6.lip6.fr', 'source': 'ple2.ipv6.lip6.fr', 'probes': [{'ip2': '132.227.62.124', 'delay': '0.233', 'size3': 64, 'seq': 1, 'ttl': 64}]}]>]
+INFO DELAY TO ple6.ipv6.lip6.fr = 0.233 
+INFO => Selected ple6.ipv6.lip6.fr 
+INFO Connecting to supernode: ple6.ipv6.lip6.fr... 
+Sleeping 5s
+WARNING Missing error handling: timeout, max_clients, rtt check, etc.  -- REPEATED -- Future similar messages will be silently ignored. Please use the --log-duplicates option to allow for duplicates 
+Interface is up
+INFO Connected to supernode: ple6.ipv6.lip6.fr. Interface=<TCPClientInterface 8d58921e-667f-43d7-af1d-5dfca1243209> 
+INFO Registering as supernode... 
+WARNING params in destination ?  -- REPEATED -- Future similar messages will be silently ignored. Please use the --log-duplicates option to allow for duplicates 
+INFO Disconnecting from main server 
+Exception in thread Thread-2:
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/threading.py", line 530, in __bootstrap_inner
+    self.run()
+  File "/usr/lib/python2.7/threading.py", line 483, in run
+    self.__target(*self.__args, **self.__kwargs)
+  File "/usr/lib/python2.7/site-packages/manifold/gateways/process/__init__.py", line 296, in runInThread
+    self.add_records(batch_id, params, rows, packet)
+  File "/usr/lib/python2.7/site-packages/manifold/gateways/process/__init__.py", line 247, in add_records
+    self.get_gateway().records(self._records[batch_id], packet)
+  File "/usr/lib/python2.7/site-packages/manifold/gateways/__init__.py", line 525, in records
+    self.record(prev_record, packet)
+  File "/usr/lib/python2.7/site-packages/manifold/gateways/__init__.py", line 484, in record
+    packet.get_receiver().receive(record)
+  File "/usr/lib/python2.7/site-packages/manifold/core/deferred_receiver.py", line 99, in receive
+    self._deferred.callback(result_value)
+  File "/usr/lib/python2.7/site-packages/twisted/internet/defer.py", line 368, in callback
+    self._startRunCallbacks(result)
+  File "/usr/lib/python2.7/site-packages/twisted/internet/defer.py", line 457, in _startRunCallbacks
+    raise AlreadyCalledError
+AlreadyCalledError
+--------------------------------------------------------------------------------
