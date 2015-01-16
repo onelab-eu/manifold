@@ -459,8 +459,10 @@ class ExploreTask(Deferred):
         # Loop on all the platforms that have this object
         for platform_name in obj.get_platform_names():
             if exclude_interfaces and platform_name in exclude_interfaces:
+                print "platform", platform_name, "excluded"
                 continue
             if not fib.is_up(platform_name):
+                print "platform", platform_name, "not up"
                 continue
 
             platform_field_names = obj.get_platform_field_names(platform_name)
@@ -480,6 +482,7 @@ class ExploreTask(Deferred):
             partitions = obj.get_platform_partitions(platform_name)
 
             if allowed_platforms and not platform_name in allowed_platforms:
+                print "platform", platform_name, "not allowed"
                 continue
 
             # The current platform::table might be ONJOIN (no retrieve capability), but we

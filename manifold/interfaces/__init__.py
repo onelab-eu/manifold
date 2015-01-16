@@ -37,7 +37,9 @@ class Interface(object):
 
     def __init__(self, router, platform_name = None, platform_config = None):
         self._router   = router
+        print "__init__", platform_name
         self._platform_name     = platform_name if platform_name else str(uuid_module.uuid4())
+        print " => uuid = ", self._platform_name
         self._platform_config = platform_config
         self._up       = False
         self._error    = None # Interface has encountered an error
@@ -56,12 +58,10 @@ class Interface(object):
         self.down()
 
     def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__, self.get_interface_name())
+        return "<%s %s>" % (self.__class__.__name__, self.get_platform_name())
 
-    def get_uuid(self):
+    def get_platform_name(self):
         return self._platform_name
-    get_platform_name = get_uuid
-    get_interface_name = get_uuid
 
     def get_address(self):
         return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._platform_name)))

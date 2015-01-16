@@ -117,11 +117,9 @@ class ManifoldWebSocketServerFactory(WebSocketServerFactory):
 
         WebSocketServerFactory.__init__(self, "ws://localhost:%s" % port, debug = False)
         self._router = router
-        self._platform_name = platform_name
-        self._platform_config = platform_config
 
     def buildProtocol(self, addr):
-        p = self.protocol(self._router, self._platform_name, self._platform_config)
+        p = self.protocol(self._router)
         p.factory = self
         return p
 

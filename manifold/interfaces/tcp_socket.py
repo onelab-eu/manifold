@@ -99,11 +99,12 @@ class TCPInterface(Interface):
         Interface.receive(self, packet)
 
     def get_description(self):
-        if not self._client:
+        if not self.transport:
             return '(No client)'
         else:
-            addr = self._client.transport.addr
-            return 'Connected to %s:%s' % addr
+            return 'Connected from %s:%s' % self.transport.client
+
+
 
 ################################################################################
 # PROTOCOLS
@@ -192,11 +193,9 @@ class TCPServerSocketFactory(ServerFactory):
 
     def __init__(self, router, platform_name, platform_config):
         self._router = router
-        self._platform_name = platform_name
-        self._platform_config = platform_config
 
     def buildProtocol(self, addr):
-        p = self.protocol(self._router, self._platform_name, self._platform_config)
+        p = self.protocol(self._router)
         p.factory = self
         return p
 
@@ -241,6 +240,14 @@ class TCPClientInterface(TCPClientSocketFactory):
     def up_impl(self):
         ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)
 
+    def get_description(self):
+        if not self._client:
+            return '(No client)'
+        else:
+            addr = self._client.transport.addr
+            return 'Connected to %s:%s' % addr
+
+
 # This interface will spawn other interfaces
 class TCPServerInterface(Interface):
     """
@@ -283,3 +290,4 @@ class TCPServerInterface(Interface):
             return 'Listening on %s' % (self._port,)
         else:
             return 'Not listening'
+
