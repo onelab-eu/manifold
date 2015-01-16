@@ -158,7 +158,7 @@ class ManifoldGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         annotation = packet.get_annotation()
         receiver = packet.get_receiver()
 

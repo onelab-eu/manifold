@@ -4,6 +4,7 @@ import threading, subprocess, uuid, os
 
 from ...core.announce           import Announces
 from manifold.core.field        import Field
+from manifold.core.query        import Query
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
 from manifold.core.table        import Table
@@ -71,7 +72,7 @@ class ProcessCollection(ManifoldCollection):
             self.get_gateway().records([], packet)
             return
 
-        query      = new_packet.get_query()
+        query      = Query.from_packet(new_packet)
         annotation = new_packet.get_annotation()
 
         #Log.tmp("[PROCESS GATEWAY] received query", query)

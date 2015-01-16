@@ -11,6 +11,7 @@
 # Copyright (C) 2013 UFPE/UPMC 
 
 from manifold.core.field                import Field
+from manifold.core.query                import Query
 from manifold.core.record               import Record, Records
 from manifold.core.table                import Table
 from manifold.core.announce             import Announce, announces_from_docstring
@@ -66,7 +67,7 @@ class PerfSONARGateway(Gateway):
         # QUERY Packets carry information such as the incoming Query,
         # and some additionnal Annotations carrying (for instance the user
         # credentials).
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         records = list() 
 
         # Fill records by appending Record or dict instances

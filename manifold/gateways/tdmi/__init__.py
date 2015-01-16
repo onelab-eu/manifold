@@ -14,6 +14,7 @@ import re
 
 from manifold.core.announce         import Announces
 from manifold.core.field            import Field 
+from manifold.core.query            import Query
 from manifold.gateways              import Gateway
 from manifold.gateways.postgresql   import PostgreSQLGateway
 from manifold.util.type             import accepts, returns 
@@ -102,7 +103,7 @@ class TDMIGateway(PostgreSQLGateway):
         Args:
             packet: A QUERY Packet instance.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         table_name = query.get_table_name()
 
         if table_name in TDMIGateway.METHOD_MAP.keys():

@@ -18,6 +18,7 @@ from sqlalchemy.orm                 import sessionmaker
 from manifold.core.announce         import Announce, Announces
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
+from manifold.core.query            import Query
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway
 
@@ -116,7 +117,7 @@ class SQLAlchemyGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
 
         # Since the original query will be altered, we are making a copy here,
         # so that the pit dictionary is not altered

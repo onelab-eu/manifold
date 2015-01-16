@@ -115,7 +115,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         #self._left_packet.update_query(lambda q: q.set(param))
 
         # Check whether we are propagating a CREATE QUERY
-        left_action = self._left_packet.get_query().get_action()
+        left_action = Query.from_packet(self._left_packet).get_action()
         # XXX why testing left_action
         if left_action == ACTION_CREATE and self.right_params:
             param_key   = self._predicate.get_key()
@@ -149,7 +149,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         right_fields = self._get_right().get_destination().get_field_names()
 
         if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            q = packet.get_query()
+            q = Query.from_packet(packet)
             # We forward the query to the left node
             # TODO : a subquery in fact
 

@@ -286,7 +286,7 @@ class SFAGatewayCommon(Gateway):
             packet: A QUERY Packet instance.
         """
         
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         annotation = packet.get_annotation()
         user = annotation.get("user", None)
         user_email = user.get('email') if user else None
@@ -382,7 +382,7 @@ class SFAGatewayCommon(Gateway):
         Returns:
             The list of corresponding Records if any.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
 
         # XXX This would be done on top of the first encountered router. -- # jordan
         # Check whether action is set to a valid value.

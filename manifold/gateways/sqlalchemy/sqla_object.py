@@ -16,6 +16,7 @@ from sqlalchemy.ext.declarative         import declarative_base
 
 from manifold.core.announce             import Announce
 from manifold.core.field                import Field
+from manifold.core.query                import Query
 from manifold.core.record               import Records
 from manifold.core.table                import Table
 from manifold.gateways                  import ManifoldCollection
@@ -76,7 +77,7 @@ class SQLACollection(ManifoldCollection):
         Returns:
             The list of created Objects.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         annotation = packet.get_annotation()
 
         super(SQLA_Object, self).check(query, annotation)
@@ -124,7 +125,7 @@ class SQLACollection(ManifoldCollection):
         Returns:
             The list of updated Objects.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         annotation = packet.get_annotation()
     
         super(SQLA_Object, self).check(query, annotation)
@@ -202,7 +203,7 @@ class SQLACollection(ManifoldCollection):
         Returns:
             The list of deleted Objects.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         annotation = packet.get_annotation()
 
         super(SQLA_Object, self).check(query, annotation)
@@ -240,7 +241,7 @@ class SQLACollection(ManifoldCollection):
         Returns:
             A dictionnary containing the requested Gateway object.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         annotation = packet.get_annotation()
 
         super(SQLA_Object, self).check(query, annotation)

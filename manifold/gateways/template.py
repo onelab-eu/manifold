@@ -12,6 +12,7 @@
 # Add required Manifold modules in the following list (TODO)
 
 from manifold.core.announce import Announce, announces_from_docstring
+from manifold.core.query    import Query
 from manifold.core.table    import Table
 from manifold.gateways      import Gateway
 from manifold.util.log      import Log
@@ -74,7 +75,7 @@ class FooGateway(Gateway): # (TODO) Update this class name
         # QUERY Packets carry information such as the incoming Query,
         # and some additionnal Annotations carrying (for instance the user
         # credentials).
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         records = list() 
 
         # Fill records by appending Record or dict instances

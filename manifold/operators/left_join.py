@@ -181,7 +181,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         left_field_names = self._get_left().get_destination().get_field_names()
 
-        q = packet.get_query()
+        q = Query.from_packet(packet)
         # We forward the query to the left node
         # TODO : a subquery in fact
 

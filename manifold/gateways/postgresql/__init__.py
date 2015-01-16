@@ -26,6 +26,7 @@ psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 from manifold.gateways                  import Gateway
 from manifold.core.announce             import Announce, Announces, merge_announces
 from manifold.core.field                import Field
+from manifold.core.query                import Query
 from manifold.core.table                import Table
 from manifold.util.log                  import Log
 from manifold.util.misc                 import is_iterable
@@ -1118,7 +1119,7 @@ class PostgreSQLGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         sql = PostgreSQLGateway.to_sql(query)
         rows = self.selectall(sql, None)
         self.records(rows, packet)

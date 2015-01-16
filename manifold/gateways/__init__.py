@@ -325,7 +325,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             packet: A QUERY Packet instance.
         """
         self.check_query_packet(packet)
-        query = packet.get_query()
+        query = Query.from_packet(packet)
         socket = self.get_socket(query)
 
 #DEPRECATED|        # Clear PIT
@@ -494,7 +494,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             record: A Records or a list of instances that may be
                 casted in Record (e.g. Record or dict instances).
         """
-        #socket = self.get_socket(packet.get_query())
+        #socket = self.get_socket(Query.from_packet(packet))
 
         # Print debugging information
         # TODO refer properly pending Socket of each Gateway because
@@ -569,7 +569,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
 
         # Could be factorized with Operator::error() by defining Producer::error()
-        #socket = self.get_socket(packet.get_query())
+        #socket = self.get_socket(Query.from_packet(packet))
         error_packet = self.make_error(GATEWAY, description, is_fatal)
         packet.get_receiver().receive(error_packet)
 
@@ -577,7 +577,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
     def handle_query_object(self, packet):
         ret = False
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            query = packet.get_query()
+            query = Query.from_packet(packet)
             table_name = query.get_table_name()
             if table_name == "object":
                 action = query.get_action()

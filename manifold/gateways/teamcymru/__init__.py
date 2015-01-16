@@ -17,6 +17,7 @@ from socket                             import *
 from types                              import StringTypes
 from manifold.core.announce             import Announces, announces_from_docstring
 from manifold.core.field_names          import FieldNames
+from manifold.core.query                import Query
 from manifold.core.record               import Record, Records
 from manifold.gateways                  import Gateway
 from manifold.util.predicate            import eq, included
@@ -96,7 +97,7 @@ class TeamCymruGateway(Gateway):
         #Log.tmp("TEST tc")
         #self.records([{'ip': '8.8.8.8', 'asn': 'TEST'}], packet)
         #return 
-        query = packet.get_query()
+        query = Query.from_packet(packet)
 
         obj = query.get_object()
         if obj == 'ip':
