@@ -5,6 +5,14 @@ DAEMON="manifold-agent"
 # Random delay used to avoid the synchronization of updates
 MAX_DELAY=600 # s
 
+function check_started()
+{
+    PID=$(pidof -x $DAEMON)
+    if [[ $PID == "" ]]; then
+        echo "No daemon running. Starting."
+        do_start
+    fi
+}
 
 function do_restart()
 {
@@ -35,7 +43,7 @@ function do_stop()
 function do_start()
 {
     echo "Starting daemon"
-    /etc/init.d/$DAEM0N start
+    /etc/init.d/$DAEMON start
 }
 
 #-------------------------------------------------------------------------------
