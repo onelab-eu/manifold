@@ -33,7 +33,6 @@ SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
 SUPERNODE_CLASS = """
 class supernode {
     string hostname;
-    double rtt;
     KEY(hostname);
 };
 """

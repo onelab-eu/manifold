@@ -96,7 +96,7 @@ class FieldNames(list):
         Args:
             field_names: A FieldNames instance or a set of String instances (field names)
         """
-        assert len(field_names) > 1
+        assert len(field_names) > 0
         self._star = False
         if field_names:
             self |= field_names
@@ -296,6 +296,15 @@ class FieldNames(list):
         # DEPRECATED
         assert isinstance(field_name, StringTypes)
         self.append(field_name)
+
+    def set(self, field_names):
+        if field_names.is_star():
+            self.set_star()
+            return
+        assert len(field_names) > 0
+        self._star = False
+        self.clear()
+        self |= field_names
 
     def append(self, field_name):
         if not isinstance(field_name, StringTypes):

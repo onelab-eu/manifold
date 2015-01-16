@@ -129,7 +129,7 @@ class Destination(object):
         return self
 
     def set_field_names(self, field_names):
-        self._field_names = field_names
+        self._field_names.set(field_names)
         return self
 
     def set_star_field_names(self):

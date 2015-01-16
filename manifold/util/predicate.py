@@ -121,7 +121,12 @@ class Predicate:
             The hash of this Predicate (this allows to define set of
             Predicate instances).
         """
-        return hash(self.get_tuple())
+        try:
+            return hash(self.get_tuple())
+        except Exception, e:
+            # XXX TO REMOVE
+            import pdb; pdb.set_trace()
+            return 0
 
     @returns(bool)
     def __eq__(self, predicate):
