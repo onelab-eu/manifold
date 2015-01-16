@@ -881,7 +881,7 @@ class Record(CREATE):
     def __init__(self, *args, **kwargs):
         last = kwargs.pop('last', True)
         receiver = kwargs.pop('receiver', None)
-        CREATE.__init__(self, receiver=receiver, last=False)
+        CREATE.__init__(self, receiver=receiver, last=last)
         assert len(args) in [0,1]
         if len(args) > 0:
             assert isinstance(args[0], (CREATE, dict))

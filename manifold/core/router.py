@@ -245,7 +245,6 @@ class Router(object):
 # DEPRECATED|        return gateway
 
     def register_interface(self, interface):
-        print "REGISTERING INTERFACE", interface.get_platform_name()
         self._interfaces[interface.get_platform_name()] = interface
 
     def unregister_interface(self, interface):
