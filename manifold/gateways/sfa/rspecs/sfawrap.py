@@ -618,7 +618,6 @@ class LaboraParser(SFAWrapParser):
         return ret
 
 
-
 class NITOSParser(SFAWrapParser):
 
     @classmethod
@@ -633,6 +632,7 @@ class NITOSParser(SFAWrapParser):
     def on_build_resource_hook(cls, resource):
         resource['granularity'] = {'grain': 1800}
         return resource
+
 
 class WiLabtParser(SFAWrapParser):
 
@@ -822,11 +822,15 @@ class WiLabtParser(SFAWrapParser):
                 end_time = lease['end_time']
                 start_time = lease['start_time']
                 break
-        if end_time is None:
-            raise Exception, "end_time is mandatory in leases"
+
         if start_time is None:
             # start_time = Now
             start_time = time.time()
+
+        if end_time is None:
+            end_time = int(start_time + duration_default*60)
+            #raise Exception, "end_time is mandatory in leases"
+
         # duration in seconds from now till end_time
         duration = end_time - start_time
         # duration in minutes
@@ -891,6 +895,53 @@ class WiLabtParser(SFAWrapParser):
         #    # TypeError: list indices must be integers, not str
         #    rspec.version.add_leases(sfa_leases, []) # XXX Empty channels for now
         return rspec.toxml()
+
+class VirtualWallParser(WiLabtParser):
+
+    @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "Emulab"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        t_urn = urn.split("+")
+        # urn:publicid:IDN+wall2.ilabt.iminds.be+node+n097-01a
+        return t_urn[1]
+
+    @classmethod
+    def _process_node(cls, node):
+        authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager_id' in node) or (node['component_manager_id'] != authority):
+            Log.warning("Authority is not WiLab - Ignore node = ",node)
+            return None
+        return super(WiLabtParser, cls)._process_node(node) 
+
+    # link uses component_manager
+    
+    @classmethod
+    def _process_link(cls, link):
+        authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager' in link) or (link['component_manager'] != authority):
+            Log.warning("Authority is not wall2 - Ignore link = ",link)
+            return None
+        return super(WiLabtParser, cls)._process_link(link) 
+
+    @classmethod
+    def _process_channel(cls, channel):
+        authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager_id' in channel) or (channel['component_manager_id'] != authority):
+            Log.warning("Authority is not wall2 - Ignore channel = ",channel)
+            return None
+        return super(WiLabtParser, cls)._process_channel(channel) 
+
+    @classmethod
+    def _process_lease(cls, lease):
+        # Keep only necessary information in leases
+        new_lease = dict()
+        authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager_id' in lease) or (lease['component_manager_id'] != authority):
+            Log.warning("Authority is not wall2 - Ignore lease = ",lease)
+            return None
 
 
 class IoTLABParser(SFAWrapParser):
