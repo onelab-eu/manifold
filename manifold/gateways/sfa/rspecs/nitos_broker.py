@@ -74,7 +74,33 @@ class NITOSBrokerParser(RSpecParser):
         # XXX HARDCODED FOR NITOS
         xrn = Xrn('%(network)s.%(component_name)s' % value, type='channel')
         return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+
         return {'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+
+    @staticmethod
+    def urn_to_properties(value):
+        # urn:publicid:IDN+omf:paris.fit-nitos.fr+node+node38
+        # node38.paris.fit-nitos.fr
+        #import pdb
+        #pdb.set_trace()
+        urn = value['component_id']
+        hrn = Xrn(urn).get_hrn()
+        t_urn = urn.split('+')
+        authority = t_urn[1]
+        if ':' in authority:
+            t_authority = authority.split(':')
+            authority = t_authority[1]
+        host = t_urn[-1]
+        hostname = host + '.' + authority
+        if value['type']=='node' and 'available.now' in value: 
+            if value['available.now'] == 'true':
+                boot = "boot"
+            else:
+                boot = "disabled"
+
+            return {'exclusive': True, 'hostname': hostname, 'hrn': hrn, 'urn': urn, 'boot_state': boot}
+        else:
+            return {'exclusive': True, 'hostname': hostname, 'hrn': hrn, 'urn': urn}
 
     #   RSPEC_ELEMENT
     #       rspec_property -> dictionary that is merged when we encounter this
@@ -84,13 +110,15 @@ class NITOSBrokerParser(RSpecParser):
     #              passed as an argument)
     HOOKS = {
         'node': {
-            'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
+            '*': lambda value: NITOSBrokerParser.urn_to_properties(value)
+            #'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
         },
         'link': {
             'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
         },
         'channel': {
-            '*': lambda value: NITOSBrokerParser.channel_urn_hrn_exclusive(value)
+            '*': lambda value: NITOSBrokerParser.urn_to_properties(value)
+            #'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
         },
         '*': {
             'exclusive': lambda value: {'exclusive': value.lower() not in ['false']}
@@ -98,6 +126,11 @@ class NITOSBrokerParser(RSpecParser):
     }
 
     # END HOOKS
+
+    @classmethod
+    def get_network(cls):
+        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
+        return 'omf.nitos' 
 
     #---------------------------------------------------------------------------
     # RSpec parsing
@@ -116,8 +149,7 @@ class NITOSBrokerParser(RSpecParser):
         lease_map = dict() # id -> lease_dict
         elements = rspec.xml.xpath('//ol:lease')
  
-        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
-        network = 'omf.nitos'
+        network = cls.get_network() 
 
         for el in elements:
             try:
@@ -154,9 +186,28 @@ class NITOSBrokerParser(RSpecParser):
 
                 #resource['facility_name'] = 'NITOS'
                 resource['facility_name'] = 'Wireless'
-                if 'omf' in resource['hrn']:
-                    t_hrn = resource['hrn'].split('.')
-                    resource['testbed_name'] = t_hrn[1]
+                hrn = resource['hrn'].replace('\\','')
+                if 'omf' in hrn:
+                    t_hrn = hrn.split('.')
+                    if t_hrn[1] == 'nitos':
+                        resource['testbed_name'] = 'NITOS Volos'
+                        resource['country']   = 'Greece'
+                        resource['latitude']  = '39.3666667'
+                        resource['longitude'] = '22.9458333'
+                    elif t_hrn[1] == 'netmode':
+                        resource['testbed_name'] = 'Netmode'
+                        resource['country']   = 'Greece'
+                        resource['latitude']  = '37.978377'
+                        resource['longitude'] = '23.782707'
+                    elif 'paris' in hrn:
+                        resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
+                        # XXX Hardcoded for Paris @ UPMC
+                        resource['country']   = 'France'
+                        resource['latitude']  = '48.847104'
+                        resource['longitude'] = '2.357499'
+                    else:
+                        resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
+                        resource['country']   = 'France'
                 else:
                     resource['testbed_name'] = 'Nitos'
                 resources.append(resource)
@@ -306,6 +357,13 @@ class NITOSBrokerParser(RSpecParser):
     def get_min_duration(cls):
         return 1800
                 
+
+class FitNitosParis(NITOSBrokerParser): 
+
+    @classmethod
+    def get_network(cls):
+        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
+        return 'paris.fit-nitos.fr' 
 
 #rspec = RSpec(open(sys.argv[1]).read())
 #NITOSBrokerParser.parse(rspec)

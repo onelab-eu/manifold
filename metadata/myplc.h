@@ -50,3 +50,11 @@ class myplcuser {
     CAPABILITY(retrieve,join,selection,projection);
     KEY(email);
 };
+
+class initscript {
+    string initscript_code;     /** string, Initscript */
+    string slice_hrn;           /** string used in GetSliceInitScript */
+
+    CAPABILITY(retrieve,join,selection,projection);
+    KEY(initscript_code);
+};

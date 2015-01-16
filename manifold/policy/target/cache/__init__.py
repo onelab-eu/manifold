@@ -6,7 +6,6 @@ from manifold.util.log                  import Log
 class CacheTarget(Target):
 
     def process_query(self, query, annotations):
-        #Log.tmp("CACHE - Processing query: %r, %r" % (query, annotations))
 
         if query.object.startswith('local:'):
             return (TargetValue.CONTINUE, None)

@@ -47,7 +47,7 @@ from xmlrpclib                          import DateTime
 # TESTBED DEPENDENT CODE                                                       #
 ################################################################################
 
-from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
+from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser, FitNitosParis
 from manifold.gateways.sfa.rspecs.ofelia_ocf    import OfeliaOcfParser
 from manifold.gateways.sfa.rspecs.ofelia_vt     import OfeliaVTAMParser
 
@@ -194,8 +194,10 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']) or ('lip6' in server_hrn):
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']):
             parser = NITOSBrokerParser
+        elif ('paris' in server_hrn):
+            parser = FitNitosParis
         elif server_hrn == 'iotlab':
             parser = IoTLABParser
         elif server_hrn == 'ple':
@@ -1450,7 +1452,7 @@ class SFAGateway(Gateway):
     def get_resource(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result.get('resource', dict()))
+            defer.returnValue(result.get('resource', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_resource: %s" % e)
             traceback.print_exc()
@@ -1460,7 +1462,7 @@ class SFAGateway(Gateway):
     def get_lease(self,filters,params,fields):
         try:
             result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
-            defer.returnValue(result.get('lease', dict()))
+            defer.returnValue(result.get('lease', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_lease: %s" % e)
             traceback.print_exc()
@@ -1470,7 +1472,7 @@ class SFAGateway(Gateway):
     def get_flowspace(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result.get('flowspace', dict()))
+            defer.returnValue(result.get('flowspace', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_flowspace: %s" % e)
             traceback.print_exc()
@@ -1480,7 +1482,7 @@ class SFAGateway(Gateway):
     def get_vms(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result.get('vms', dict()))
+            defer.returnValue(result.get('vms', list()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_vms: %s" % e)
             traceback.print_exc()

@@ -1,5 +1,6 @@
 import time
 from manifold.core.record import LastRecord
+from manifold.util.log    import Log
 
 class Entry(object):
     """
@@ -43,7 +44,7 @@ class Entry(object):
     def set_records(self, records):
         if not isinstance(records, list):
             records = [records]
-        self._pending_records = None
+        self._pending_records = list()
         self._records = records
         self._updated = time.time()
         for operator in self._operators:
@@ -64,9 +65,18 @@ class Entry(object):
             self._pending_records = None # None means no query started
             # ... and inform interested operators
         else:
-            # Add the records in the pending list...
-            self._pending_records.append(record)
-            # ... and inform interested operators
+            try:
+                # Add the records in the pending list...
+                self._pending_records.append(record)
+                # ... and inform interested operators
+            except Exception, e:
+                # XXX TO BE FIXED
+                Log.tmp("Cache_Entry append_record Exeption:",e)
+                Log.tmp("record = ",record)
+            
+                #import pdb
+                #pdb.set_trace()
+                raise
 
         for operator in self._operators:
             operator.child_callback(record)
