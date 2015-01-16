@@ -74,3 +74,40 @@ Traceback (most recent call last):
     raise AlreadyCalledError
 AlreadyCalledError
 --------------------------------------------------------------------------------
+
+-partitions in fib + capabilities are empty
+
+--------------------------------------------------------------------------------
+manifold>>> select * from local:object where object_name == "ping"
+===== RESULTS =====
+[{'capabilities': [],
+  'columns': [{'default': '',
+               'description': '',
+               'is_array': False,
+               'is_const': False,
+               'is_local': False,
+               'name': 'source',
+               'type': 'hostname'},
+              {'default': '',
+               'description': '',
+               'is_array': False,
+               'is_const': False,
+               'is_local': False,
+               'name': 'destination',
+               'type': 'ip'},
+              {'default': '',
+               'description': '',
+               'is_array': True,
+               'is_const': False,
+               'is_local': False,
+               'name': 'probes',
+               'type': 'probe_ping'}],
+  'keys': [{'field_names': ['source', 'destination'], 'local': False}],
+  'namespace': None,
+  'object_name': u'ping',
+  'origins': [],
+  'partitions': [[['source', '==', 'dryad.ipv6.lip6.fr']],
+                 [['source', '==', 'ple4.ipv6.lip6.fr']],
+                 [['source', '==', 'dryad.ipv6.lip6.fr']]],
+  'platforms': ['987b481d-cd18-451b-97ee-681316801095', 'ping']}]
+--------------------------------------------------------------------------------
