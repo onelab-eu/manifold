@@ -18,11 +18,15 @@ else
 fi
 
 echo "Sleeping..."
-#sleep $(expr $RANDOM \% $MAX_DELAY);
+sleep $(expr $RANDOM \% $MAX_DELAY);
+
+echo "Updating package..."
+yum -y install manifold --nogpgcheck
 
 PID=$(pidof -x $DAEMON)
 if [[ $PID == "" ]]; then
     echo "No daemon running."
+	exit
 else
     echo "Stopping daemon..."
     # Forcing manifold services to stop
@@ -37,6 +41,5 @@ else
     fi
 fi
 
-echo "Updating package..."
-yum -y install manifold --nogpgcheck
-
+echo "Starting daemon"
+/etc/init.d/$DAEMIN start
