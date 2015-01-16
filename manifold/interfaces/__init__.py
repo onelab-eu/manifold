@@ -37,9 +37,7 @@ class Interface(object):
 
     def __init__(self, router, platform_name = None, platform_config = None):
         self._router   = router
-        print "__init__", platform_name
         self._platform_name     = platform_name if platform_name else str(uuid_module.uuid4())
-        print " => uuid = ", self._platform_name
         self._platform_config = platform_config
         self._up       = False
         self._error    = None # Interface has encountered an error
@@ -92,7 +90,6 @@ class Interface(object):
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
         if request_announces:
-            print "requesting announces"
             self.request_announces()
         
     def down(self):
