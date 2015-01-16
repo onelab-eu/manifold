@@ -26,7 +26,6 @@ yum -y install manifold --nogpgcheck
 PID=$(pidof -x $DAEMON)
 if [[ $PID == "" ]]; then
     echo "No daemon running."
-	exit
 else
     echo "Stopping daemon..."
     # Forcing manifold services to stop
@@ -42,4 +41,4 @@ else
 fi
 
 echo "Starting daemon"
-/etc/init.d/$DAEMIN start
+/etc/init.d/$DAEM0N start

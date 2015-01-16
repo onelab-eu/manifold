@@ -252,8 +252,7 @@ class ParisTracerouteParser(object):
         return []
 
 class ParisTracerouteGateway(ProcessGateway):
-    __gateway_name__ = 'paristraceroute_process'
-    __tool__ = 'paristraceroute'
+    __gateway_name__ = 'paristraceroute'
 
     parameters = [
         Parameter(
