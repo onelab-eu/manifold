@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pyparsing as pp
-from .                  import ProcessGateway, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
-from ...util.log        import Log
-from ...core.record     import Record, Records
+
+import os, pyparsing as pp
+from .                          import ProcessGateway, ProcessCollection, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+
+from ...core.record             import Record, Records
+from ...util.log                import Log
+from ...util.misc               import is_iterable
+from ...util.predicate          import eq, included
+from ...util.filesystem         import hostname
 
 class ParisTracerouteParser(object):
     """
@@ -251,8 +256,41 @@ class ParisTracerouteParser(object):
             Log.warning(" " * e.col, "^--- syntax error")
         return []
 
-class ParisTracerouteGateway(ProcessGateway):
-    __gateway_name__ = 'paristraceroute'
+class ProbeCollection(ProcessCollection):
+    """
+    class probe_traceroute {
+        ip ip;
+        string hostname;
+        float rtt;
+        CAPABILITY(join);
+        LOCAL KEY(ip);
+    };
+    """
+
+class HopCollection(ProcessCollection):
+    """
+    class hop {
+        const unsigned ttl;
+        probe_traceroute probes[];
+        CAPABILITY(join);
+        LOCAL KEY(ttl);
+    };
+    """
+
+class TracerouteCollection(ProcessCollection):
+    """
+    class traceroute {
+        ip source;
+        ip destination;
+        unsigned source_port;
+        unsigned destination_port;
+        hop hops[];
+        CAPABILITY(join);
+        KEY(source, destination);
+    };
+    """
+    __object_name__ = 'traceroute'
+    __tool__ = 'traceroute'
 
     parameters = [
         Parameter(
@@ -271,7 +309,40 @@ class ParisTracerouteGateway(ProcessGateway):
             type        = 'ip'
         ),
     ]
-    # WE SHOULD EXPLICITELY SET METADATA HERE
+
+    parser = ParisTracerouteParser
+
+    #path = '/usr/local/bin/paris-traceroute'
+    if os.path.exists("/bin/paris-traceroute"):
+        path = "/bin/paris-traceroute"
+    else:
+        path = '/usr/sbin/paris-traceroute' 
+
+    # XXX redundant with ping !!!
+    def enforce_partition(self, packet):
+        Log.warning("This is approximate...")
+        filter = packet.get_destination().get_filter()
+        my_hostname = hostname()
+
+        source = filter.get_op('source', (eq, included))
+        if source:
+            if is_iterable(source):
+                source = list(source)
+            else:
+                source = [source]
+            if not my_hostname in source:
+                return None
+        return packet
+
+class ParisTracerouteGateway(ProcessGateway):
+    __gateway_name__ = 'paristraceroute'
+
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        ProcessGateway.__init__(self, router, platform_name, platform_config)
+
+        self.register_collection(ProbeCollection())
+        self.register_collection(HopCollection())
+        self.register_collection(TracerouteCollection())
 
     # Parameters and arguments are additional fields that will get added
     # We need not only static fields that are not piloted by an option, but the
@@ -293,41 +364,3 @@ class ParisTracerouteGateway(ProcessGateway):
 # FOR FUTURE USE|        packet packet;
 # FOR FUTURE USE|        timestamp timestamp;
 # FOR FUTURE USE|    };
-
-    # Ideally we should specify an index for the probe_traceroute, that could
-    # act as a key
-    announces = """
-    class probe_traceroute {
-        ip ip;
-        string hostname;
-        float rtt;
-        CAPABILITY(join);
-        LOCAL KEY(ip);
-    };
-
-    class hop {
-        const unsigned ttl;
-        probe_traceroute probes[];
-        CAPABILITY(join);
-        LOCAL KEY(ttl);
-    };
-
-    class traceroute {
-        ip source;
-        ip destination;
-        unsigned source_port;
-        unsigned destination_port;
-        hop hops[];
-        CAPABILITY(join);
-        KEY(source, destination);
-    };
-
-    """
-    parser = ParisTracerouteParser
-
-    #path = '/usr/local/bin/paris-traceroute'
-    import os
-    if os.path.exists("/bin/paris-traceroute"):
-        path = "/bin/paris-traceroute"
-    else:
-        path = '/usr/sbin/paris-traceroute' 

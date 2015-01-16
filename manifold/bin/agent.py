@@ -362,7 +362,7 @@ class AgentDaemon(Daemon):
 
         # XXX We need some auto-detection for processes
         self._ping = self._router.add_interface("ping", name="ping")
-        self._paris-traceroute = self._router.add_interface("paris-traceroute", name="paris-traceroute")
+        self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
         self._fastping = self._router.add_interface("fastping", name="fastping")
 
         # Setup interfaces

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pyparsing as pp
+import os, pyparsing as pp
 from manifold.util.filesystem   import hostname
 from .                          import ProcessGateway, ProcessCollection, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log                import Log
