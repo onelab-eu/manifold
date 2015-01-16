@@ -162,6 +162,7 @@ class Projection(Operator, ChildSlotMixin):
         self._get_child().send(packet)
 
     def receive_impl(self, packet, slot_id = None):
+        packet.update_source(Destination.set_field_names, self._field_names)
 
         if not packet.is_empty() and not self._field_names.is_star():
             packet = do_projection(packet, self._field_names)
