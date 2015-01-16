@@ -5,40 +5,61 @@ DAEMON="manifold-agent"
 # Random delay used to avoid the synchronization of updates
 MAX_DELAY=600 # s
 
+
+function do_restart()
+{
+    do_stop
+    do_start
+}
+
+function do_stop()
+{
+    PID=$(pidof -x $DAEMON)
+    if [[ $PID == "" ]]; then
+        echo "No daemon running."
+    else
+        echo "Stopping daemon..."
+        # Forcing manifold services to stop
+        /etc/init.d/$DAEMON stop
+
+        PID=$(pidof -x $DAEMON)
+        if [[ $PID == "" ]]; then
+            echo "Daemon stopped properly."
+        else
+            echo "Daemon did not stop, killing it..."
+            kill -9 `pidof -x $DAEMON`
+        fi
+    fi
+}
+
+function do_start()
+{
+    echo "Starting daemon"
+    /etc/init.d/$DAEM0N start
+}
+
+#-------------------------------------------------------------------------------
+# Main
+#-------------------------------------------------------------------------------
+
 yum clean all
 OUT=$(yum info manifold | awk  -F  " " '/Version/ { print $3 }' | wc -l)
 if [[ $OUT == 0 ]]; then
     echo "Error. Interrupting update process."
+    check_started
 	exit
 elif [[ $OUT == 1 ]]; then
     echo "No update available."
+    check_started
     exit
 else
     echo "Update available."
+
+    echo "Sleeping..."
+    sleep $(expr $RANDOM \% $MAX_DELAY);
+
+    echo "Updating package..."
+    yum -y install manifold --nogpgcheck
+
+    do_restart
 fi
-
-echo "Sleeping..."
-sleep $(expr $RANDOM \% $MAX_DELAY);
-
-echo "Updating package..."
-yum -y install manifold --nogpgcheck
-
-PID=$(pidof -x $DAEMON)
-if [[ $PID == "" ]]; then
-    echo "No daemon running."
-else
-    echo "Stopping daemon..."
-    # Forcing manifold services to stop
-    /etc/init.d/$DAEMON stop
-
-    PID=$(pidof -x $DAEMON)
-    if [[ $PID == "" ]]; then
-        echo "Daemon stopped properly."
-    else
-        echo "Daemon did not stop, killing it..."
-        kill -9 `pidof -x $DAEMON`
-    fi
-fi
-
-echo "Starting daemon"
-/etc/init.d/$DAEM0N start
