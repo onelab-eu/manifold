@@ -16,13 +16,13 @@
 [ -f /etc/sysconfig/manifold-agent ] && . /etc/sysconfig/manifold-agent
 
 RETVAL=0
-DESC="Manifold XMLRPC daemon"
+DESC="Manifold agent daemon"
 NAME=manifold-agent
 DAEMON=/usr/bin/$NAME
 PIDFILE=/var/run/${NAME}.pid
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
-DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE"
+DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE $SERVER_MODE"
 
 # Distribution specific paths
 VAR_LOCK_FILE=/var/lock/subsys/$NAME

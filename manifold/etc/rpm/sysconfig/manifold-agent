@@ -1,0 +1,2 @@
+# Set to "-s" to run the agent in server mode
+SERVER_MODE=""
