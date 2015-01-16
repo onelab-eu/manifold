@@ -90,8 +90,9 @@ class FastPingCollection(ManifoldCollection):
         # - min of 10 pings
         # - no cycle limit
         # - interrupt
+        print "done starting fastping thread. sending last record"
 
-        self.get_gateway().records(Record(last  = True), packet)
+        self.get_gateway().records(Record(last=True), packet)
 
 class FastPingGateway(Gateway):
     __gateway_name__ = 'fastping'

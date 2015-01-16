@@ -7,6 +7,10 @@
 #DEPRECATED|    __builtins__.print("coucou")
 #DEPRECATED|    __builtins__.print(*args, **kwargs)
 
+# XXX Multiple times registered as supernode
+# XXX Not reconnected when main node disconnect
+# XXX supernode = None even when reconnected
+
 import subprocess, operator, time
 
 from twisted.internet                   import defer
