@@ -7,7 +7,7 @@
 #DEPRECATED|    __builtins__.print("coucou")
 #DEPRECATED|    __builtins__.print(*args, **kwargs)
 
-import subprocess, operator
+import subprocess, operator, time
 
 from twisted.internet                   import defer
 from twisted.internet.task              import LoopingCall
@@ -129,8 +129,6 @@ class AgentDaemon(Daemon):
         # Remove duplicates in supernodes. As it is the key, this should be enforced by the collection")
         supernodes = list(supernodes)
 
-        print "SUPERNODES", supernodes
-
         if not supernodes:
             defer.returnValue(None)
 
@@ -160,8 +158,6 @@ class AgentDaemon(Daemon):
         # XXX syntax !
         # delays = yield Ping(destination in supernodes, fields=destination, # delay)
         # supernode = min(delays, key=operator.itemgetter('delay'))
-
-        print "DELAYS", delays
 
         if not delays:
             defer.returnValue(None)
@@ -224,7 +220,8 @@ class AgentDaemon(Daemon):
         if not self._main_interface:
             print "I: Ignored down callback since main interface is None"
             return
-        self._router.set_keyvalue('agent:supernode', None)
+        self._router.set_keyvalue('agent_supernode', None)
+        self._router.set_keyvalue('agent_supernode_started', time.time())
 
         if interface == self._main_interface:
             if self._reconnect_main:
@@ -281,7 +278,8 @@ class AgentDaemon(Daemon):
             Log.error("TODO")
             return
         Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
-        self._router.set_keyvalue('agent:supernode', SERVER_SUPERNODE)
+        self._router.set_keyvalue('agent_supernode', SERVER_SUPERNODE)
+        self._router.set_keyvalue('agent_supernode_started', time.time())
 
         self.connect_to_supernode()
 
@@ -304,7 +302,8 @@ class AgentDaemon(Daemon):
                 defer.returnValue(None)
 
             Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
-            self._router.set_keyvalue('agent:supernode', supernode)
+            self._router.set_keyvalue('agent_supernode', supernode)
+            self._router.set_keyvalue('agent_supernode_started', time.time())
 
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")
@@ -372,6 +371,8 @@ class AgentDaemon(Daemon):
     def main(self):
         # Create a router instance
         self._router = Router()
+
+        self._router.set_keyvalue('agent_started', time.time())
 
         # XXX We need some auto-detection for processes
         self._ping = self._router.add_interface("ping", name="ping")

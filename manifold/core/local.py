@@ -12,7 +12,8 @@
 # This is used to manipulate the router internal state
 # It should not point to any storage directly unless this is mapped
 
-import traceback
+import time
+from datetime                       import timedelta
 from types                          import StringTypes
 
 from manifold                       import __version__
@@ -21,11 +22,11 @@ from manifold.gateways              import Gateway, OLocalLocalColumn
 from manifold.gateways.object       import ManifoldCollection
 from manifold.util.filesystem       import hostname
 from manifold.util.log              import Log
+from manifold.util.misc             import strfdelta
 from manifold.util.type             import accepts, returns
 
-
 LOCAL_NAMESPACE = "local"
-
+UPTIME_STRING = "{days} days {hours}:{minutes}:{seconds}"
 
 class OLocalObject(ManifoldCollection):
     """
@@ -122,7 +123,17 @@ class LocalAboutCollection(ManifoldCollection):
             'version':  __version__
         }
         router_keyvalues = self.get_gateway().get_router().get_keyvalue_store()
+
+        # XXX This should be done in agent
         about.update(router_keyvalues)
+        if 'agent_started' in about:
+            uptime = time.time() - about['agent_started']
+            about['agent_uptime'] = uptime
+            about['agent_uptime_human'] = strfdelta(timedelta(seconds=uptime), UPTIME_STRING)
+        if 'agent_upernode_started' in about:
+            uptime = time.time() - about['agent_supernode_started']
+            about['agent_supernode_uptime'] = uptime
+            about['agent_supernode_uptime_human'] = strfdelta(timedelta(seconds=uptime), UPTIME_STRING)
         return Records([about])
 
 

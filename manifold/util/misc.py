@@ -85,3 +85,25 @@ def url_exists(site, path):
     response = conn.getresponse()
     conn.close()
     return response.status == 200
+
+# http://stackoverflow.com/questions/8906926/formatting-python-timedelta-objects
+
+# Solution 1:  fmt = "{days} days {hours}:{minutes}:{seconds}"
+def strfdelta(tdelta, fmt):
+    d = {"days": tdelta.days}
+    d["hours"], rem = divmod(tdelta.seconds, 3600)
+    d["minutes"], d["seconds"] = divmod(rem, 60)
+    return fmt.format(**d)
+
+# Solution 2:  fmt = "%D days %H:%M:%S"
+from string import Template
+
+class DeltaTemplate(Template):
+    delimiter = "%"
+
+def strfdelta2(tdelta, fmt):
+    d = {"D": tdelta.days}
+    d["H"], rem = divmod(tdelta.seconds, 3600)
+    d["M"], d["S"] = divmod(rem, 60)
+    t = DeltaTemplate(fmt)
+    return t.substitute(**d)
