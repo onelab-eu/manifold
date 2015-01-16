@@ -42,6 +42,10 @@ function do_stop()
 
 function do_start()
 {
+    # This function is only called when no daemon is running, so we can remove
+    # spurious files.
+    rm -f /var/run/manifold-agent.pid*
+
     echo "Starting daemon"
     /etc/init.d/$DAEMON start
 }
