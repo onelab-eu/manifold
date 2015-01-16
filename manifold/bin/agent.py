@@ -224,6 +224,7 @@ class AgentDaemon(Daemon):
         if not self._main_interface:
             print "I: Ignored down callback since main interface is None"
             return
+        self._router.set_keyvalue('agent:supernode', None)
 
         if interface == self._main_interface:
             if self._reconnect_main:
@@ -280,6 +281,7 @@ class AgentDaemon(Daemon):
             Log.error("TODO")
             return
         Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
+        self._router.set_keyvalue('agent:supernode', SERVER_SUPERNODE)
 
         self.connect_to_supernode()
 
@@ -302,6 +304,7 @@ class AgentDaemon(Daemon):
                 defer.returnValue(None)
 
             Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
+            self._router.set_keyvalue('agent:supernode', supernode)
 
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")

@@ -109,6 +109,7 @@ class LocalInterfaceCollection(ManifoldCollection):
         router.add_interface(interface_type, **data)
 
 class LocalAboutCollection(ManifoldCollection):
+    # XXX Metadata will vary with time, how to refresh ?? how to describe ??
     """
     class about {
         string hostname;
@@ -120,6 +121,8 @@ class LocalAboutCollection(ManifoldCollection):
             'hostname': hostname(),
             'version':  __version__
         }
+        router_keyvalues = self.get_gateway().get_router().get_keyvalue_store()
+        about.update(router_keyvalues)
         return Records([about])
 
 

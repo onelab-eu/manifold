@@ -97,6 +97,9 @@ class Router(object):
         #self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
         dummy = LocalGateway(router = self)
 
+        # Anything can be stored in this key/value store. It will be used by local:about
+        self._keyvalue_store = dict()
+
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
@@ -827,3 +830,15 @@ class Router(object):
         # Those returned records have a parent_uuid field that will allow them
         # to be matched with the parent record
         return records
+
+    def set_keyvalue(self, key, value):
+        self._keyvalue_store[key] = value
+
+    def del_keyvalue(self, key):
+        del self._keyvalue_store[key]
+
+    def get_keyvalue(self, key):
+        return self._keyvalue_store[key]
+
+    def get_keyvalue_store(self):
+        return self._keyvalue_store
