@@ -13,33 +13,19 @@ from twisted.internet                   import defer
 from twisted.internet.task              import LoopingCall
 
 from manifold.core.announce             import Announces
+from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.core.destination          import Destination
 from manifold.core.field_names          import FieldNames
 from manifold.core.filter               import Filter
 from manifold.core.object               import Object
+from manifold.core.packet               import GET, CREATE
 from manifold.core.router               import Router
+from manifold.gateways.object           import ManifoldLocalCollection
 from manifold.util.daemon               import Daemon
 from manifold.util.filesystem           import hostname
 from manifold.util.log                  import Log
 from manifold.util.options              import Options
 from manifold.util.predicate            import Predicate
-
-# An agent is a router preconfigured with all found measurement tools + an
-# XMLRPC/other remotely accessible interface
-# ...or...
-# An agent is responsible for runnning processes (that will be done later)
-#   p = subprocess.Popen(ROUTER, )
-#   self._processes['router'] = p
-#   print p.pid
-#   p.wait()
-
-from manifold.core.annotation           import Annotation
-from manifold.core.field                import Field
-from manifold.core.key                  import Key
-from manifold.gateways.object           import ManifoldLocalCollection
-from manifold.core.packet               import GET, CREATE
-from manifold.core.query                import Query
-from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.util.reactor_thread       import ReactorThread
 
 SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
