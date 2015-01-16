@@ -6,12 +6,14 @@ import sys, urllib, threading
 
 from fastping                   import Fastping
 
+from manifold.core.packet       import Record, Records
 from manifold.gateways          import Gateway
 from manifold.gateways.object   import ManifoldCollection
 from manifold.util.filesystem   import hostname
 from manifold.util.misc         import url_exists
+from manifold.util.filesystem   import hostname
 
-TARGET_SITE = 'http://www.top-hat.info'
+TARGET_SITE = 'www.top-hat.info'
 TARGET_PATH = '/download/anycast-census/'
 TARGET_FILES = ['iplist-%(source)s.dat', 'iplist.dat']
 
@@ -42,7 +44,12 @@ class FastPingCollection(ManifoldCollection):
         self.get_gateway().last(packet)
 
     def get_target_url(self):
+        var_dict = {
+            'source': hostname(),
+        }
         for filename in TARGET_FILES:
+            filename = filename % var_dict
+            print "Testing %s%s%s" % (TARGET_SITE, TARGET_PATH, filename)
             if url_exists(TARGET_SITE, TARGET_PATH + filename):
                 return "%s%s%s" % (TARGET_SITE, TARGET_PATH, filename)
         raise Exception, "No IP list found."
@@ -57,21 +64,21 @@ class FastPingCollection(ManifoldCollection):
 
         # Initialize a fastping instance
         opt = {
-            linkFile    : target_url,
-            deltaM      : 0,
-            numberCycle : 1,
-            saveRW      : True,
-            saveQD      : True,
-            saveSM      : True,
-            saveST      : True,
-            blacklist   : BLACKLIST_URL,
-            upload      : ['clitos.ipv6.lip6.fr', 'guest@top-hat.info', 'guest', 21, 'anycast/census01', 'False'],
-            shuffle     : True,
+            'target'     : target_url,
+            'deltaM'     : 0,
+            'numberCycle': 1,
+            'saveRW'     : True,
+            'saveQD'     : True,
+            'saveSM'     : True,
+            'saveST'     : True,
+            'blacklist'  : BLACKLIST_URL,
+            'upload'     : ['dryad.ipv6.lip6.fr', 'guest@top-hat.info', 'guest', 21, 'anycast/census01', 'False'],
+            'shuffle'    : True,
         }
         fastping = Fastping(**opt)
 
-        fastping.set_raw_callback(self.on_new_measurement, packet, source)
-        fastping.set_done_callback(self.on_done, packet)
+        #fastping.set_raw_callback(self.on_new_measurement, packet, source)
+        #fastping.set_done_callback(self.on_done, packet)
 
         # Return results as they come by, we need to overload some methods from
         # fastping eventually, until callbacks are available
@@ -83,6 +90,8 @@ class FastPingCollection(ManifoldCollection):
         # - min of 10 pings
         # - no cycle limit
         # - interrupt
+
+        self.get_gateway().records(Record(last  = True), packet)
 
 class FastPingGateway(Gateway):
     __gateway_name__ = 'fastping'

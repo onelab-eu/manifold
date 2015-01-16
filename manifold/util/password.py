@@ -8,7 +8,8 @@
 #
 # Copyright (C) 2013 UPMC 
 
-import crypt
+import crypt, time, random
+from hashlib                 import md5
 from getpass                import getpass
 from types                  import StringTypes
 
@@ -28,7 +29,7 @@ def hash_password(password):
     magic = "$1$"
     password = password
     # Generate a somewhat unique 8 character salt string
-    salt = str(time.time()) + str(Random().random())
+    salt = str(time.time()) + str(random.random())
     salt = md5(salt).hexdigest()[:8]
 
     if len(password) <= len(magic) or password[0:len(magic)] != magic:
@@ -43,4 +44,4 @@ def ask_password():
     Returns:
         The hash of the password typed by the User.
     """
-    return hash_password(getpass.getpass(PROMPT_PASSWORD))
+    return hash_password(getpass(PROMPT_PASSWORD))

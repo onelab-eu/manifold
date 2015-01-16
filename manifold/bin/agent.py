@@ -382,7 +382,7 @@ class AgentDaemon(Daemon):
             self._router.add_interface("dns", name="dns")
             self._router.add_interface("csv", name="nodes", **NODES_CSV_CONFIG)
             #self._router.add_interface("airports", "csv", AIRPORTS_CSV_CONFIG)
-            self._router.add_interface("tdmi", name="tdmi") # XXX ? clitos ?
+            #self._router.add_interface("tdmi", name="tdmi") # XXX ? clitos ?
 
             self.register_as_supernode() 
 
