@@ -38,6 +38,7 @@ class Entry(object):
         self._accessed = None
         self._records  = records if records else list()
         self._pending_records = list() # Empty list means a query has been started
+        self._query_started = True
         self._operators = list() # A list of operators interested in our records
 
     # This is equivalent to the child_callback
@@ -53,7 +54,7 @@ class Entry(object):
             operator.child_callback(LastRecord())
 
     def has_query_in_progress(self):
-        return self._pending_records is not None
+        return self._query_started
 
     def has_pending_records(self):
         return self._pending_records
@@ -62,7 +63,8 @@ class Entry(object):
         if record.is_last():
             # Move all pending records to records...
             self._records = self._pending_records
-            self._pending_records = None # None means no query started
+            self._pending_records = list()
+            self._query_started = False # False means no query started
             # ... and inform interested operators
         else:
             try:
