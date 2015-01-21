@@ -22,7 +22,8 @@ DAEMON=/usr/bin/$NAME
 PIDFILE=/var/run/${NAME}.pid
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
-DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE $SERVER_MODE"
+MANIFOLD_LOG="/var/log/manifold-agent.log"
+DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE $SERVER_MODE --log-file=$MANIFOLD_LOG"
 
 # Distribution specific paths
 VAR_LOCK_FILE=/var/lock/subsys/$NAME

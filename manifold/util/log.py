@@ -33,7 +33,7 @@ class Log(object):
         "rsyslog_enable"      : False,
         "rsyslog_host"        : None, #"log.top-hat.info",
         "rsyslog_port"        : None, #28514,
-        "log_file"            : "/var/log/manifold.log",
+        "log_file"            : None, #"/var/log/manifold.log",
         "log_level"           : "DEBUG",
         "debug"               : "default",
         "log_duplicates"      : False
