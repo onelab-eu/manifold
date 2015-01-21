@@ -10,6 +10,7 @@ from manifold.core.packet       import Record, Records
 from manifold.gateways          import Gateway
 from manifold.gateways.object   import ManifoldCollection
 from manifold.util.filesystem   import hostname
+from manifold.util.log          import Log
 from manifold.util.misc         import url_exists
 from manifold.util.filesystem   import hostname
 
@@ -17,7 +18,21 @@ TARGET_SITE = 'www.top-hat.info'
 TARGET_PATH = '/download/anycast-census/'
 TARGET_FILES = ['iplist-%(source)s.dat', 'iplist.dat']
 
+DATASET_URLBASE = 'http://www.top-hat.info/download/manifold/'
+CACHE_DIRECTORY = '/var/cache/manifold/'
+
 BLACKLIST_URL = 'http://www.top-hat.info/download/anycast-census/blacklist.fastping'
+
+def ensure_dataset(dataset):
+    if os.path.exists(CACHE_DIRECTORY + dataset):
+        return
+    
+    # Let's download dataset
+    f = urllib.urlopen(DATASET_URLBASE + dataset)
+    g = open(CACHE_DIRECTORY + dataset, 'w')
+    g.write(f.read())
+    f.close()
+    g.close()
 
 class FastPingCollection(ManifoldCollection):
     """
@@ -43,42 +58,84 @@ class FastPingCollection(ManifoldCollection):
     def on_done(self, packet):
         self.get_gateway().last(packet)
 
-    def get_target_url(self):
-        var_dict = {
-            'source': hostname(),
-        }
-        for filename in TARGET_FILES:
-            filename = filename % var_dict
-            print "Testing %s%s%s" % (TARGET_SITE, TARGET_PATH, filename)
-            if url_exists(TARGET_SITE, TARGET_PATH + filename):
-                return "%s%s%s" % (TARGET_SITE, TARGET_PATH, filename)
-        raise Exception, "No IP list found."
-
     def get(self, packet):
-        source = hostname()
-        target_url = self.get_target_url() % locals()
 
         # Get the necessary parameters from the packet destination
         #filter = packet.get_destination().get_filter()
         #target = filter.get_eq('destination')
 
+        FTP_FIELDS = ['host', 'port', 'username', 'password', 'directory', 'passive']
+        FTP_FIELDS_MANDATORY = ['host', 'username', 'password']
+        FTP_DEFAULT_PORT = 21
+        FTP_DEFAULT_PASSIVE = False
+        FTP_DEFAULT_DIRECTORY = '.'
+
         # Initialize a fastping instance
         opt = {
-            'target'     : target_url,
             'deltaM'     : 0,
             'numberCycle': 1,
             'saveRW'     : True,
             'saveQD'     : True,
             'saveSM'     : True,
             'saveST'     : True,
-            'blacklist'  : BLACKLIST_URL,
-            'upload'     : ['dryad.ipv6.lip6.fr', 'guest@top-hat.info', 'guest', 21, 'anycast/census01', 'False'],
+            'upload'     : upload,
             'shuffle'    : True,
         }
+
+        annotation = packet.get_annotation()
+
+        # IP list: we are given a url
+        if not 'target' in annotation:
+            self.error('Missing target', packet)
+            return
+
+        target = annotation.get('target')
+        if target.startswith('dataset://'):
+            target = target[10:]
+            try:
+                ensure_dataset(target)
+            except Exception, e:
+                self.error('Cannot retrieve dataset: %s' % e, packet)
+                return
+            target = CACHE_DIRECTORY + target
+
+        target.replace('$HOSTNAME', hostname())
+        opt['target'] = target
+
+        # Blacklist
+        blacklist = annotation.get('blacklist', None)
+        if blacklist:
+            if blacklist.startswith('dataset://'):
+                blacklist = blacklist[10:]
+                try:
+                    ensure_dataset(blacklist)
+                except Exception, e:
+                    self.error('Cannot retrieve dataset: %s' % e, packet)
+                    return
+                blacklist = CACHE_DIRECTORY + blacklist
+            opt['blacklist'] = blacklist
+
+        # FTP
+        do_ftp = set(FTP_FIELDS) & set(annotation.get_keys())
+        if do_ftp:
+            try:
+                hostname  = annotation.get('hostname')
+                username  = annotation.get('username')
+                password  = annotation.get('password')
+                port      = annotation.get('port', FTP_DEFAULT_PORT)
+                directory = annotation.get('directory', FTP_DEFAULT_DIRECTORY)
+                passive   = annotation.get('passive', FTP_DEFAULT_PASSIVE)
+            except Exception, e:
+                self.error('Missing mandatory field in annotation for FTP: %s' % e, packet)
+            opt['upload'] = [hostname, username, password, port, directory, passive]
+            
+        Log.info("Initializing fastping with options: %r" % opt)
         fastping = Fastping(**opt)
 
-        #fastping.set_raw_callback(self.on_new_measurement, packet, source)
-        #fastping.set_done_callback(self.on_done, packet)
+        if not do_ftp:
+            source = hostname()
+            fastping.set_raw_callback(self.on_new_measurement, packet, source)
+            fastping.set_done_callback(self.on_done, packet)
 
         # Return results as they come by, we need to overload some methods from
         # fastping eventually, until callbacks are available
@@ -90,9 +147,9 @@ class FastPingCollection(ManifoldCollection):
         # - min of 10 pings
         # - no cycle limit
         # - interrupt
-        print "done starting fastping thread. sending last record"
 
-        self.get_gateway().records(Record(last=True), packet)
+        if do_ftp:
+            self.get_gateway().records(Record(last=True), packet)
 
 class FastPingGateway(Gateway):
     __gateway_name__ = 'fastping'
