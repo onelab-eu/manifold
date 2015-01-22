@@ -87,6 +87,7 @@ class LocalInterfaceCollection(ManifoldCollection):
         string name;
         string type;
         string status;
+        string description;
         CAPABILITY(retrieve);
         KEY(name);
     };
