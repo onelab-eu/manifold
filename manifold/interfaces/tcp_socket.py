@@ -160,6 +160,7 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def on_client_connected(self, client):
         # This is used to disconnect, can't we just refer to transport for this ?
+        print "I: Client connected", client
         self._client = client
 
         self.set_up(self._request_announces)
@@ -171,7 +172,6 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         # reason = ConnectionRefusedError | ...
-        print "TCP CNX FAILED", self, connector, reason
         self.set_error(reason)
 
     def on_client_disconnected(self, client, reason):
@@ -223,6 +223,7 @@ class TCPClientInterface(TCPClientSocketFactory):
         self._port = port
         self._timeout = timeout
         self._request_announces = request_announces
+        print "new interface", platform_name, "req announces=", request_announces
         TCPClientSocketFactory.__init__(self, router, platform_name, platform_config)
 
     def reconnect(self, host = None, port = DEFAULT_PORT):
@@ -235,7 +236,8 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     def down_impl(self):
         # Disconnect from the server
-        self._client.transport.loseConnection()
+        if self._client:
+            self._client.transport.loseConnection()
 
     def up_impl(self):
         ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)

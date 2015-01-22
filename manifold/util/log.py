@@ -36,7 +36,7 @@ class Log(object):
         "log_file"            : None, #"/var/log/manifold.log",
         "log_level"           : "DEBUG",
         "debug"               : "default",
-        "log_duplicates"      : False
+        "log_duplicates"      : True,
     }
 
     # COLORS

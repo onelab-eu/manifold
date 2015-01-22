@@ -194,9 +194,13 @@ class AgentDaemon(Daemon):
         yield async_wait(lambda : interface.is_up() or interface.is_error())
 
         if interface.is_error():
+            self._router.set_keyvalue('agent_supernode_state', 'error')
             Log.info("Waiting 10s before attempting reconnection for interface %r" % (interface,))
             yield async_sleep(10)
             self.reconnect_interface(interface)
+        else:
+            self._router.set_keyvalue('agent_supernode_state', 'up')
+
 
         defer.returnValue(None)
         
@@ -209,7 +213,7 @@ class AgentDaemon(Daemon):
         if not self._main_interface:
             print "I: Ignored down callback since main interface is None"
             return
-        self._router.set_keyvalue('agent_supernode', None)
+        self._router.set_keyvalue('agent_supernode_state', 'down')
         self._router.set_keyvalue('agent_supernode_started', time.time())
 
         if interface == self._main_interface:
@@ -268,6 +272,7 @@ class AgentDaemon(Daemon):
             return
         Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
         self._router.set_keyvalue('agent_supernode', SERVER_SUPERNODE)
+        self._router.set_keyvalue('agent_supernode_state', 'up')
         self._router.set_keyvalue('agent_supernode_started', time.time())
 
         self.connect_to_supernode()
@@ -292,11 +297,8 @@ class AgentDaemon(Daemon):
 
             Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
             self._router.set_keyvalue('agent_supernode', supernode)
+            self._router.set_keyvalue('agent_supernode_state', 'up')
             self._router.set_keyvalue('agent_supernode_started', time.time())
-
-        # Register as a supernode on the main server
-        Log.info("Registering as supernode...")
-        yield self.register_as_supernode()
 
         if supernode:
             # Finally once we are all set up, disconnect the interface to the
@@ -304,6 +306,10 @@ class AgentDaemon(Daemon):
             self._reconnect_main = False
             Log.info("Disconnecting from main server")
             self._main_interface.down()
+
+        # Register as a supernode on the main server
+        Log.info("Registering as supernode...")
+        yield self.register_as_supernode()
 
     ########################################################################### 
     # Misc. unused
