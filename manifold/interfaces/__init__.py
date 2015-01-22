@@ -164,10 +164,10 @@ class Interface(object):
             receiver = packet.get_receiver()
         else:
             packet.set_receiver(receiver)
-        print "send flow", packet.get_flow()
-        try:
-            print "send receiver", receiver
-        except: pass
+        #print "send flow", packet.get_flow()
+        #try:
+        #    print "send receiver", receiver
+        #except: pass
 
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
@@ -193,10 +193,10 @@ class Interface(object):
         flow = packet.get_flow()
         receiver = self._flow_map.get(flow)
 
-        print "send flow", flow
-        try:
-            print "send receiver", receiver
-        except: pass
+        #print "send flow", flow
+        #try:
+        #    print "send receiver", receiver
+        #except: pass
 
         if not receiver:
             # New flows are sent to the router

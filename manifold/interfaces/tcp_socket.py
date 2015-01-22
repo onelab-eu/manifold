@@ -48,6 +48,7 @@ class ManifoldProtocol(IntNStringReceiver):
         self.receive(packet)
 
     def send_packet(self, packet):
+        print "sent packet", packet
         self.sendString(packet.serialize())
 
     def connectionLost(self, reason):
@@ -63,7 +64,7 @@ class TCPInterface(Interface):
     __interface_type__ = 'socket'
 
     def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
-        Interface.__init__(self, router, platform_name, platform_config)
+        Interface.__init__(self, router, platform_name, platform_config, request_announces)
 
         self._tx_buffer = list()
         # _client = None means interface is down
@@ -212,7 +213,7 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     __interface_type__ = 'tcpclient'
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = False):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
         if not platform_config:
             platform_config = dict()
         host = platform_config.get('host')
@@ -258,7 +259,7 @@ class TCPServerInterface(Interface):
     """
     __interface_type__ = 'tcpserver'
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
 
         if not platform_config:
             platform_config = dict()
@@ -267,7 +268,7 @@ class TCPServerInterface(Interface):
         ReactorThread().start_reactor()
         self._port      = port
 
-        Interface.__init__(self, router, platform_name, platform_config)
+        Interface.__init__(self, router, platform_name, platform_config, request_announces)
 
     def terminate(self):
         Interface.terminate(self)

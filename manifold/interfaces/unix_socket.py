@@ -35,7 +35,7 @@ class UNIXClientInterface(TCPClientSocketFactory):
         self._connector = None
         self._filename = filename
         self._timeout = timeout
-        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config)
+        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config, request_announces)
 
     def reconnect(self, filename = DEFAULT_FILENAME):
         self.down()
@@ -71,7 +71,7 @@ class UNIXServerInterface(Interface):
 
         self._filename  = filename
         self._connector = None
-        Interface.__init__(self, router, platform_name, platform_config)
+        Interface.__init__(self, router, platform_name, platform_config, request_announces)
 
     def terminate(self):
         Interface.terminate(self)

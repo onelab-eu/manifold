@@ -43,7 +43,7 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
     __interface_type__ = 'websocket'
 
     def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
-        Interface.__init__(self, router, platform_name, platform_config)
+        Interface.__init__(self, router, platform_name, platform_config, request_announces)
         self._client = None
 
         # Received packets are sent back to the client
