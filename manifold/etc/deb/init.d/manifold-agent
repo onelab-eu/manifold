@@ -23,6 +23,7 @@ NAME="manifold-agent"
 DAEMON=/usr/local/bin/$NAME
 PIDFILE=/var/run/${NAME}.pid
 SCRIPTNAME=/etc/init.d/$NAME
+MANIFOLD_LOG="/var/log/manifold-agent.log"
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
 
 # Exit if the package is not installed
@@ -42,7 +43,7 @@ fi
 # and status_of_proc is working.
 . /lib/lsb/init-functions
 
-DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE $SERVER_MODE"
+DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE $SERVER_MODE --log-file=$MANIFOLD_LOG"
 
 # Return
 #   0 if daemon has been started

@@ -33,7 +33,7 @@ class Log(object):
         "rsyslog_enable"      : False,
         "rsyslog_host"        : None, #"log.top-hat.info",
         "rsyslog_port"        : None, #28514,
-        "log_file"            : "/var/log/manifold.log",
+        "log_file"            : None, #"/var/log/manifold.log",
         "log_level"           : "DEBUG",
         "debug"               : "default",
         "log_duplicates"      : False
@@ -70,7 +70,10 @@ class Log(object):
         Args:
             name: A String identifying the logger (not yet supported).
         """
-        self.log = None # logging.getLogger(name)
+        if Options().rsyslog_enable or Options().log_file:
+            self.log = logging.getLogger(name)
+        else:
+            self.log = None
         self.files_to_keep = list()
         self.init_log()
         self.color = True
@@ -97,7 +100,7 @@ class Log(object):
         opt = Options()
 
         opt.add_argument(
-            "--rsyslog-enable", action = "store_false", dest = "rsyslog_enable",
+            "--rsyslog-enable", action = "store_true", dest = "rsyslog_enable",
             help = "Specify if log have to be written to a rsyslog server.",
             default = self.DEFAULTS["rsyslog_enable"]
         )
@@ -140,7 +143,7 @@ class Log(object):
         """
         # Initialize self.log (require self.files_to_keep)
         if self.log: # for debugging by using stdout, log may be equal to None
-            if Options().rsyslog_host:
+            if Options().rsyslog_enable:
                 shandler = self.make_handler_rsyslog(
                     Options().rsyslog_host,
                     Options().rsyslog_port,

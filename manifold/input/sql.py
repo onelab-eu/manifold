@@ -58,6 +58,7 @@ class SQLParser(object):
         kw_set     = pp.CaselessKeyword('set')
         kw_true    = pp.CaselessKeyword('true').setParseAction(lambda t: 1)
         kw_false   = pp.CaselessKeyword('false').setParseAction(lambda t: 0)
+        kw_with    = pp.CaselessKeyword('with')
 
         # Regex string representing the set of possible operators
         # Example : ">=|<=|!=|>|<|="
@@ -175,7 +176,9 @@ class SQLParser(object):
         insert     = (kw_insert + kw_into + table + set_elt + pp.Optional(select_elt)).setParseAction(lambda args: self.action(args, 'create'))
         delete     = (kw_delete + kw_from + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'delete'))
 
-        self.bnf   = select | update | insert | delete
+        annotation = pp.Optional(kw_with + parameters.setResultsName('annotation'))
+
+        self.bnf   = (select | update | insert | delete) + annotation
 
         # For reusing parser:
         self.filter = filter

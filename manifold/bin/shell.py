@@ -103,12 +103,12 @@ class Shell(object):
     #---------------------------------------------------------------------------
 
     def bootstrap(self):
+        if not self._auth_method:
+            self._auth_method = Options().auth_method
+        self.select_auth_method(self._auth_method)
+        if not self.client:
+            raise RuntimeError("No client set")
         if self.is_interactive():
-            if not self._auth_method:
-                self._auth_method = Options().auth_method
-            self.select_auth_method(self._auth_method)
-            if not self.client:
-                raise RuntimeError("No client set")
             Log.info(self.client.welcome_message())
 
     #---------------------------------------------------------------------------
@@ -271,6 +271,12 @@ class Shell(object):
             help = "Execute a shell command",
             default = None
         )
+
+        opt.add_argument(
+            "-t", "--output-type", dest = "output_type",
+            help = "Output type",
+            default = 'text'
+        )
         #parser.add_argument("-m", "--method", help = "API authentication method")
         #parser.add_argument("-s", "--session", help = "API session key")
 
@@ -409,16 +415,26 @@ class Shell(object):
             result_value: The ResultValue instance corresponding to this Query.
         """
         assert isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
-
         if result_value.is_success() or result_value.is_warning():
             #records = result_value["value"]
             #dicts = [record.to_dict() for record in records]
             records = result_value.get_all().to_dict_list()
-            if self.is_interactive():
+            if Options().output_type == 'text':
                 self._display(records)
-            elif Options().execute:
-                # Used by script to it may be piped.
+            elif Options().output_type == 'json':
                 print json.dumps(records)
+            elif Options().output_type == 'csv':
+                if not records:
+                    # XXX headers only
+                    return
+                headers = records[0].keys()
+                print '\t'.join(headers)
+                # XXX order ?
+                for r in records:
+                    line = [str(r.get(h, 'N/A')) for h in headers]
+                    print '\t'.join(line)
+            else:
+                print "E: Unknown output type: %s" % Options().output_type
 
         # Some queries have failed, report the errors
         if not result_value.is_success():
@@ -457,11 +473,14 @@ class Shell(object):
         dic = SQLParser().parse(command)
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
+
+        if not annotation:
+            annotation = Annotation()
         receiver = dic.pop('receiver', None)
         if receiver:
-            if not annotation:
-                annotation = Annotation()
             annotation['receiver'] = receiver
+        annotation.update(dic.pop('annotation', dict()))
+
         query = Query.from_dict(dic)
 #DEPRECATED|        if "*" in query.get_select():
 #DEPRECATED|            query.fields = None
@@ -717,10 +736,11 @@ class Shell(object):
                 except RuntimeError, e:
                     # Parse error raised by evaluate()
                     Log.error("Shell runtime error", e)
-                except Exception:
+                except Exception, e:
                     # Unhandled Exception raised by this Shell
                     Log.reset_duplicates()
                     print "=== UNHANDLED EXCEPTION ==="
+                    print e
                     Log.error(format_exc())
 
         except EOFError: # Ctrl d
