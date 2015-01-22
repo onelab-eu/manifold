@@ -224,8 +224,6 @@ class TCPClientInterface(TCPClientSocketFactory):
         self._timeout = timeout
         TCPClientSocketFactory.__init__(self, router, platform_name, platform_config, request_announces)
 
-        print "new interface", platform_name, "req announces=", request_announces
-
     def reconnect(self, host = None, port = DEFAULT_PORT):
         if self._client:
             self.down()
