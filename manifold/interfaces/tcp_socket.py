@@ -48,7 +48,6 @@ class ManifoldProtocol(IntNStringReceiver):
         self.receive(packet)
 
     def send_packet(self, packet):
-        print "sent packet", packet
         self.sendString(packet.serialize())
 
     def connectionLost(self, reason):
@@ -161,7 +160,6 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def on_client_connected(self, client):
         # This is used to disconnect, can't we just refer to transport for this ?
-        print "I: Client connected", client
         self._client = client
 
         self.set_up(self._request_announces)
