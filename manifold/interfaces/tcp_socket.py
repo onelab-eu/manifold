@@ -62,7 +62,7 @@ class TCPInterface(Interface):
 
     __interface_type__ = 'socket'
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
         Interface.__init__(self, router, platform_name, platform_config)
 
         self._tx_buffer = list()
@@ -212,7 +212,7 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     __interface_type__ = 'tcpclient'
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = False):
         if not platform_config:
             platform_config = dict()
         host = platform_config.get('host')
@@ -222,9 +222,9 @@ class TCPClientInterface(TCPClientSocketFactory):
         self._host = host
         self._port = port
         self._timeout = timeout
-        self._request_announces = request_announces
+        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config, request_announces)
+
         print "new interface", platform_name, "req announces=", request_announces
-        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config)
 
     def reconnect(self, host = None, port = DEFAULT_PORT):
         if self._client:

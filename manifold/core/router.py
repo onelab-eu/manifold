@@ -270,12 +270,17 @@ class Router(object):
 #DEPRECATED|            return gateway
 
         platform_name = kwargs.pop('name', None)
+        request_announces = kwargs.pop('request_announces', None)
         platform_config = kwargs
 
+        print "router add interface platform name", platform_name, "config=", platform_config
         Log.warning("What about mandatory config?")
         router_args = (self, platform_name, platform_config)
         try:
-            interface = interface_cls(*router_args)
+            if request_announces:
+                interface = interface_cls(*router_args, request_announces = request_announces)
+            else:
+                interface = interface_cls(*router_args)
         except Exception, e:
             Log.warning("Cannot create interface %s of type %s with parameters %r: %s" % (platform_name, interface_type, kwargs, e))
             return None

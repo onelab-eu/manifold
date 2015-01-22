@@ -26,7 +26,7 @@ class UNIXClientInterface(TCPClientSocketFactory):
 
     __interface_tyfpe__ = 'unixclient'
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
         if not platform_config:
             platform_config = dict()
         filename = platform_config.get('filename', DEFAULT_FILENAME)
@@ -55,7 +55,7 @@ class UNIXServerInterface(Interface):
 
     __interface_type__ = 'unixserver'
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
 
         if not platform_config:
             platform_config = dict()

@@ -42,7 +42,7 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
 
     __interface_type__ = 'websocket'
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
         Interface.__init__(self, router, platform_name, platform_config)
         self._client = None
 
@@ -110,7 +110,7 @@ DEFAULT_PORT = 9000
 class ManifoldWebSocketServerFactory(WebSocketServerFactory):
     protocol = ManifoldWebSocketServerProtocol
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
         if not platform_config:
             platform_config = dict()
         port = platform_config.get('port', DEFAULT_PORT)

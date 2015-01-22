@@ -35,10 +35,11 @@ class Interface(object):
         PluginFactory.register(current_module)
         Log.info("Registered interface are: {%s}" % ", ".join(sorted(Interface.factory_list().keys())))
 
-    def __init__(self, router, platform_name = None, platform_config = None):
+    def __init__(self, router, platform_name = None, platform_config = None, request_announces = False):
         self._router   = router
         self._platform_name     = platform_name if platform_name else str(uuid_module.uuid4())
-        self._platform_config = platform_config
+        self._platform_config   = platform_config
+        self._request_announces = request_announces
         self._up       = False
         self._error    = None # Interface has encountered an error
         self._up_callbacks = list()
