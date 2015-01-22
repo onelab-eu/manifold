@@ -225,8 +225,16 @@ class Predicate:
         elif self.op == or_:
             return (dic[self.key] | self.value) # array ?
         elif self.op == contains:
-            method, subfield = self.key.split('.', 1)
-            return not not [ x for x in dic[method] if x[subfield] == self.value] 
+            #method, subfield = self.key.split('.', 1)
+            #return not not [ x for x in dic[method] if x[subfield] == self.value] 
+            if '.' in self.key:
+                # CONTAINS for objects in other object - Ex: users under an authority
+                method, subfield = self.key.split('.', 1)
+                return not not [ x for x in dic[method] if x[subfield] == self.value] 
+            else:
+                # CONTAINS for objects starting with the same name in a hierarchy 
+                # Ex: onalb.upmc CONTAINS onelab.upmc.projectX 
+                return dic[self.key].startswith('%s.' % self.value)
         elif self.op == included:
             if isinstance(self.key, tuple):
                 # The dic needs to match at least one value

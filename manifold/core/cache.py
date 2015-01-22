@@ -47,6 +47,10 @@ class Cache(object):
         entry.set_records(records)
 
     def append_record(self, query, record, create=False):
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
         entry = self.get_entry(query)
         Log.tmp(query, entry)
         if not entry:
@@ -63,6 +67,10 @@ class Cache(object):
 
             status: cached, buffered, multicast, none
         """
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
         best_query_entry_tuple = self._lattice.get_best(query)
         if not best_query_entry_tuple:
             return None

@@ -1022,6 +1022,8 @@ class SFAGateway(Gateway):
         object_hrns = make_list(filters.get_op('%s_hrn' % object, [eq, included]))
         object_urns = make_list(filters.get_op('%s_urn' % object, [eq, included]))
 
+        contains_object_hrns = make_list(filters.get_op('%s_hrn' % object, contains))
+
         for urn in object_urns:
             hrn, _ = hrn_to_urn(urn, object)
             object_hrns.append(hrn)
@@ -1072,6 +1074,9 @@ class SFAGateway(Gateway):
             resolve   = False
             recursive = True if object != 'authority' else False
             stack = [interface_hrn]
+            if contains_object_hrns:
+                recursive = True 
+                stack = contains_object_hrns
         
         # All queries will involve user credentials
         cred = self._get_cred('user')

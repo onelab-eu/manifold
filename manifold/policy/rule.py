@@ -48,9 +48,21 @@ class Rule(object):
         """
         # XXX Note that we are not inspecting 'action' 
 
-        if self.object != '*' and not str(self.object) in str(query.object):
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
+        # The object without namespace to compare with the rule
+        if ':' in query.object:
+            obj = query.object.split(':')[-1] 
+        else:
+            obj = query.object
+
+        # Test if the object of the Query matches the object of the Rule
+        if self.object != '*' and not str(self.object) == str(obj):
             return False
 
+        print "rule.match between these objects: self.object = %s - query.object %s" % (self.object,obj)
         query_fields_R   = set()
         query_fields_R  |= query.get_select()
         query_fields_R  |= query.get_where().get_field_names()

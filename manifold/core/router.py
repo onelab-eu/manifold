@@ -129,6 +129,10 @@ class Router(Interface):
         """
         Log.info("Router::forward: %s" % query)
 
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
         user = annotations['user'] if annotations and 'user' in annotations else None
 
         ret = super(Router, self).forward(query, annotations, is_deferred, execute)
@@ -157,6 +161,10 @@ class Router(Interface):
         # - ERROR
 
         (decision, data) = self.policy.filter(query, None, annotations)
+
+        # TMP CACHE DEBUG
+        #pdb.set_trace()
+
         if decision == Policy.ACCEPT:
             pass
         elif decision == Policy.REWRITE:
@@ -178,6 +186,8 @@ class Router(Interface):
         else:
             raise Exception, "Unknown QUERY decision from policy engine: %s" % Policy.map_decision[decision]
         
+        # TMP CACHE DEBUG
+        #pdb.set_trace()
 
         # We suppose we have no namespace from here
         if not execute: 

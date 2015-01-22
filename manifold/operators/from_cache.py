@@ -43,6 +43,10 @@ class FromCache(Node):
 
         # Will receive a start when executed == when the source is ready to receive records
         # That's when we make the difference between different modes (cached, buffered, multicast)
+
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
         if self._cache_entry.has_query_in_progress():
             print "query in progress"
             if self._cache_entry.has_pending_records():
