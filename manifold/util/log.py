@@ -416,5 +416,5 @@ class Log(object):
 
     @classmethod
     def deprecated(cls, new):
-        #cls.print_msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
+        cls.print_msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
         pass

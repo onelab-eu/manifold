@@ -66,6 +66,7 @@ class SyncReceiver(Node, ChildSlotMixin):
                 corresponding record is bufferized in this SyncReceiver
                 until records retrieval.
         """
+        print self._uuid, "SR", packet
         if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if not packet.is_empty():
                 self._records.append(packet)

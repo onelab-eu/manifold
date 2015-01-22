@@ -676,8 +676,8 @@ class Router(object):
                 receiver.receive(record)
                 return
 
-            #print "QUERY PLAN:"
-            #print root_node.format_downtree() 
+            print "QUERY PLAN:"
+            print root_node.format_downtree() 
 
             receiver._set_child(root_node)
         except Exception, e:
