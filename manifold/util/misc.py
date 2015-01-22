@@ -1,4 +1,3 @@
-import os, glob, inspect, collections, httplib
 from types import StringTypes
 
 def find_local_modules(filepath):
@@ -67,6 +66,7 @@ def is_sublist(x, y, shortcut=None):
     else:
         return is_sublist(x, y[1:], shortcut + [y[0]])
 
+import collections
 def is_iterable(x):
     return isinstance(x, collections.Iterable) and not isinstance(x, StringTypes)
 
@@ -107,3 +107,20 @@ def strfdelta2(tdelta, fmt):
     d["M"], d["S"] = divmod(rem, 60)
     t = DeltaTemplate(fmt)
     return t.substitute(**d)
+
+def async_sleep(secs):
+    d = defer.Deferred()
+    ReactorThread().callLater(secs, d.callback, None)
+    return d
+
+import time
+from twisted.internet                   import defer
+
+@defer.inlineCallbacks
+def async_wait(fun, interval = 1):
+    while not fun():
+        yield async_sleep(interval)
+
+def wait(fun, interval = 1):
+    while not fun():
+        time.sleep(interval)

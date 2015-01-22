@@ -45,9 +45,11 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
+        #print "RECV packet", packet
         self.receive(packet)
 
     def send_packet(self, packet):
+        #print "SENT packet", packet
         self.sendString(packet.serialize())
 
     def connectionLost(self, reason):
@@ -182,7 +184,6 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
             self._client.send_packet(packet)
         else:
             self._tx_buffer.append(packet)
-            print "packet enqueued into buffer"
         #assert self.is_up(), "We should not send packets to a disconnected interface"
 
 class TCPServerSocketFactory(ServerFactory):

@@ -9,12 +9,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import asynchat, errno, socket, threading, time, traceback
-
-# Bugfix http://hg.python.org/cpython/rev/16bc59d37866 (FC14 or less)
-# On recent linux distros we can directly "import asyncore"
-#import manifold.util.asyncore as asyncore
-import asyncore
+import errno, socket, threading, time, traceback
 
 from types                          import StringTypes
 
@@ -35,7 +30,7 @@ from manifold.interfaces.unix_socket import UNIXClientInterface
 
 class State(object): pass
 
-class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
+class ManifoldLocalClient(ManifoldClient):
 
     def __init__(self, username, socket_path = SOCKET_PATH):
         """

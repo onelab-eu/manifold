@@ -258,22 +258,13 @@ class Router(object):
     def add_interface(self, interface_type, **kwargs):
         interface_cls = Interface.factory_get(interface_type)
         if not interface_cls:
-            # Get the Gateway class
-#DEPRECATED|            cls_gateway = Gateway.factory_get(interface_type)
-#DEPRECATED|            if not cls_gateway:
             Log.warning("Could not create a %(interface_type)s interface" % locals())
             return None
-
-#DEPRECATED|            # Create the Gateway
-#DEPRECATED|            print "ADD GW, platform_name", platform_name, "platform_config", platform_config
-#DEPRECATED|            gateway = cls_gateway(self, platform_name, platform_config)
-#DEPRECATED|            return gateway
 
         platform_name = kwargs.pop('name', None)
         request_announces = kwargs.pop('request_announces', None)
         platform_config = kwargs
 
-        print "router add interface platform name", platform_name, "config=", platform_config
         Log.warning("What about mandatory config?")
         router_args = (self, platform_name, platform_config)
         try:

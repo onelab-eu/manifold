@@ -770,7 +770,7 @@ class UPDATE(Packet):
         self.set_protocol(Packet.PROTOCOL_UPDATE)
 
 class DELETE(Packet):
-    def __init__(self):
+    def __init__(self, **kwargs):
         Packet.__init__(self, **kwargs)
         self.set_protocol(Packet.PROTOCOL_DELETE)
 
@@ -785,7 +785,7 @@ class ErrorPacket(Packet):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, type = ERROR, code = ERROR, message = None, traceback = None):
+    def __init__(self, type = ERROR, code = ERROR, message = None, traceback = None, **kwargs):
         """
         Constructor.
         Args:
@@ -800,7 +800,9 @@ class ErrorPacket(Packet):
         assert not message   or isinstance(message, StringTypes)
         assert not traceback or isinstance(traceback, StringTypes)
 
-        Packet.__init__(self, Packet.PROTOCOL_ERROR)
+        Packet.__init__(self, **kwargs)
+        self.set_protocol(Packet.PROTOCOL_ERROR)
+        self.set_last()
         self._type      = type
         self._code      = code
         self._message   = message

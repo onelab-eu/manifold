@@ -32,6 +32,7 @@ from manifold.util.options          import Options
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
 
+from manifold.interfaces            import Interface
 # This could be moved outside of the Shell
 DEFAULT_USER      = "demo"
 DEFAULT_PASSWORD  = "demo"
@@ -50,9 +51,10 @@ class Shell(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self,
+    def __init__(self, interface_type = None,
         auth_method = None,
         interactive = False,
+        **kwargs
     ):
         """
         Constructor.
@@ -63,7 +65,13 @@ class Shell(object):
         self._auth_method = auth_method
         self._interactive = interactive
         self.client       = None
-        self.bootstrap()
+        if interface_type:
+            from manifold.interfaces import Interface
+            Interface.register_all()
+            self.set_interface(interface_type, **kwargs)
+        else:
+            # Old method
+            self.bootstrap()
         # {String : list(dict)} : maps a variable name with its the corresponding Records
         self._environment = dict()
         self._annotation = dict()
@@ -89,6 +97,11 @@ class Shell(object):
         """
         self._auth_method = auth_method
         self.select_auth_method(auth_method)
+
+    # This is becoming the new way of selecting a client
+    def set_interface(self, interface_type, **kwargs):
+        from manifold.clients.client import ManifoldClient
+        self.client = ManifoldClient(interface_type, **kwargs)
 
     @returns(bool)
     def is_interactive(self):
@@ -289,6 +302,10 @@ class Shell(object):
         """
         from manifold.clients.local import ManifoldLocalClient
         self.client = ManifoldLocalClient(username)
+
+    def authenticate_tcp(self, host, port):
+        from manifold.clients.tcp   import ManifoldTcpClient
+        self.client = ManifoldTcpClient(host, port)
 
     def authenticate_router(self, username):
         """

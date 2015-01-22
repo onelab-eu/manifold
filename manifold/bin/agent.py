@@ -28,6 +28,7 @@ from manifold.gateways.object           import ManifoldLocalCollection
 from manifold.util.daemon               import Daemon
 from manifold.util.filesystem           import hostname
 from manifold.util.log                  import Log
+from manifold.util.misc                 import async_sleep, async_wait
 from manifold.util.options              import Options
 from manifold.util.predicate            import Predicate
 from manifold.util.reactor_thread       import ReactorThread
@@ -63,17 +64,6 @@ AIRPORTS_CSV_CONFIG = {
         'key': 'iata_code',
     }
 }
-
-
-def async_sleep(secs):
-    d = defer.Deferred()
-    ReactorThread().callLater(secs, d.callback, None)
-    return d
-
-@defer.inlineCallbacks
-def async_wait(fun, interval = 1):
-    while not fun():
-        yield async_sleep(interval)
 
 class AgentDaemon(Daemon):
 
