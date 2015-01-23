@@ -111,3 +111,6 @@ manifold>>> select * from local:object where object_name == "ping"
                  [['source', '==', 'dryad.ipv6.lip6.fr']]],
   'platforms': ['987b481d-cd18-451b-97ee-681316801095', 'ping']}]
 --------------------------------------------------------------------------------
+
+
+- Spurious platform with second key 'about_id' in global:about messes up everything

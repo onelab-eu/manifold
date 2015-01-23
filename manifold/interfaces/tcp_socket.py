@@ -45,11 +45,11 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        #print "RECV packet", packet
+        Log.info("RECV packet %r on interface %r" % (packet, self))
         self.receive(packet)
 
     def send_packet(self, packet):
-        #print "SENT packet", packet
+        Log.info("SENT packet %r to interface %r" % (packet, self))
         self.sendString(packet.serialize())
 
     def connectionLost(self, reason):

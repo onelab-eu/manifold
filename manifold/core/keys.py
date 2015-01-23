@@ -112,7 +112,8 @@ class Keys(set):
         Returns:
             The first Key instance contained in this Keys instance.
         """
-        assert len(self) == 1, "Cannot call one() when not exactly 1 key (self = %s)" % self
+        if len(self) != 1:
+            Log.warning("one() called with more than one key (self = %s)" % self)
         # XXX Note we might need to prevent multiple key cases
         return iter(self).next()
 
