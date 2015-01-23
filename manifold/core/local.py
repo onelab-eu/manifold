@@ -116,6 +116,8 @@ class LocalAboutCollection(ManifoldCollection):
     class about {
         string hostname;
         string version;
+        CAPABILITY(retrieve);
+        KEY(hostname);
     };
     """
     def get(self, packet):
