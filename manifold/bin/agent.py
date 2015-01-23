@@ -97,7 +97,6 @@ class AgentDaemon(Daemon):
         my_host = hostname()
         supernodes = set()
         for supernode in received_supernodes:
-            print "supernode", supernode
             host = supernode['hostname'] 
             
             if host in [my_host, SERVER_SUPERNODE]:
@@ -238,11 +237,9 @@ class AgentDaemon(Daemon):
         yield async_wait(lambda : interface.is_up() or interface.is_error())
 
         if interface.is_up():
-            print "Interface is up"
             self._banned_supernodes = list()
             defer.returnValue(interface)
         else:
-            print "Interface is error"
             # Error... This is where should should take proper action on
             # non-working supernodes: unregistration, etc.
             self._banned_supernodes.append(host)
