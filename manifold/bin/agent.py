@@ -28,7 +28,7 @@ from manifold.gateways.object           import ManifoldLocalCollection
 from manifold.util.daemon               import Daemon
 from manifold.util.filesystem           import hostname
 from manifold.util.log                  import Log
-from manifold.util.misc                 import async_sleep, async_wait
+from manifold.util.async                import async_sleep, async_wait
 from manifold.util.options              import Options
 from manifold.util.predicate            import Predicate
 from manifold.util.reactor_thread       import ReactorThread
@@ -97,6 +97,7 @@ class AgentDaemon(Daemon):
         my_host = hostname()
         supernodes = set()
         for supernode in received_supernodes:
+            print "supernode", supernode
             host = supernode['hostname'] 
             
             if host in [my_host, SERVER_SUPERNODE]:

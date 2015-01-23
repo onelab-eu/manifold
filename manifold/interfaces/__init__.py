@@ -87,11 +87,11 @@ class Interface(object):
 
     # The interface is now up...
     def set_up(self, request_announces = True):
+        if request_announces:
+            self.request_announces()
         self._up = True
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
-        if request_announces:
-            self.request_announces()
         
     def down(self):
         self._up = False

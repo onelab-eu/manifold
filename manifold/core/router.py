@@ -137,15 +137,6 @@ class Router(object):
         """
         return self.allowed_capabilities
 
-# DEPRECATED BY FIB    @returns(DBGraph)
-# DEPRECATED BY FIB    def get_dbgraph(self):
-# DEPRECATED BY FIB        """
-# DEPRECATED BY FIB        Returns:
-# DEPRECATED BY FIB            The DBGraph related to all the Tables except those
-# DEPRECATED BY FIB            provided by the Manifold Storage.
-# DEPRECATED BY FIB        """
-# DEPRECATED BY FIB        return self._dbgraph
-
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
@@ -157,95 +148,11 @@ class Router(object):
         self.cache = dict()
         super(Router, self).boot()
 
-# DEPRECATED BY FIB    def rebuild_dbgraph(self):
-# DEPRECATED BY FIB        """
-# DEPRECATED BY FIB        Internal usage, should be called when self.announces is altered.
-# DEPRECATED BY FIB        Recompute the global DbGraph.
-# DEPRECATED BY FIB        """
-# DEPRECATED BY FIB        self._dbgraph = to_3nf(self.get_announces())
-# DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
-
     def register_local_collection(self, cls):
         self.get_interface('local').register_collection(cls, 'local')
 
     def register_collection(self, cls, namespace=None):
         self.get_interface('local').register_collection(cls, namespace)
-
-    #---------------------------------------------------------------------------
-    # Platform management
-    #---------------------------------------------------------------------------
-# DEPRECATED|
-# DEPRECATED|    # XXX TO DEPRECATE
-# DEPRECATED|    @returns(bool)
-# DEPRECATED|    def add_peer(self, platform_name, hostname, port = DEFAULT_PEER_PORT):
-# DEPRECATED|        """
-# DEPRECATED|        Connect this router to another Manifold Router and fetch the
-# DEPRECATED|        corresponding Announces.
-# DEPRECATED|        Args:
-# DEPRECATED|            platform_name: A String containing the platform_name (= namespace)
-# DEPRECATED|                corresponding to this peer.
-# DEPRECATED|            hostname: A String containing the IP address or the hostname
-# DEPRECATED|                of the Manifold peer.
-# DEPRECATED|            port: An integer value on which the Manifold peer listen for
-# DEPRECATED|                Manifold query. It typically runs a manifold-router process
-# DEPRECATED|                listening on this port.
-# DEPRECATED|        Returns:
-# DEPRECATED|            True iif successful.
-# DEPRECATED|        """
-# DEPRECATED|        assert isinstance(platform_name, StringTypes) and platform_name
-# DEPRECATED|        assert isinstance(hostname,      StringTypes) and hostname
-# DEPRECATED|        assert isinstance(port,          int)
-# DEPRECATED|
-# DEPRECATED|        print "add peer should use an interface... until this is merged with gateways"
-# DEPRECATED|
-# DEPRECATED|        url = DEFAULT_PEER_URL % locals()
-# DEPRECATED|        return self.add_platform(platform_name, "manifold", {"url" : url})
-
-# DEPRECATED|    # XXX TO DEPRECATE
-# DEPRECATED|    # This will be the only calls for manipulating router platforms
-# DEPRECATED|    @returns(Gateway)
-# DEPRECATED|    def add_platform(self, platform_name, gateway_type, platform_config = None):
-# DEPRECATED|        """
-# DEPRECATED|        Add a platform (register_platform + enable_platform) in this Router
-# DEPRECATED|        and fetch the corresponding Announces.
-# DEPRECATED|        Args:
-# DEPRECATED|            platform_name: A String containing the name of the Platform.
-# DEPRECATED|            gateway_type: A String containing the type of Gateway used for this Platform.
-# DEPRECATED|            platform_config: A dictionnary { String : instance } containing the
-# DEPRECATED|                configuration of this Platform.
-# DEPRECATED|        Returns:
-# DEPRECATED|            True iif successful.
-# DEPRECATED|        """
-# DEPRECATED|        if not platform_config:
-# DEPRECATED|            platform_config = dict()
-# DEPRECATED|
-# DEPRECATED|        try:
-# DEPRECATED|            Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
-# DEPRECATED|            if gateway_type == LOCAL_NAMESPACE:
-# DEPRECATED|                gateway = LocalGateway(router = self)
-# DEPRECATED|            else:
-# DEPRECATED|                gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-# DEPRECATED|
-# DEPRECATED|#DEPRECATED|            print "REQUESTING ANNOUNCES FOR PLATFORM", platform_name
-# DEPRECATED|#DEPRECATED|            # Retrieving announces from gateway, and populate the FIB
-# DEPRECATED|#DEPRECATED|            packet = GET()
-# DEPRECATED|#DEPRECATED|            packet.set_source(self.get_fib().get_address())
-# DEPRECATED|#DEPRECATED|            packet.set_destination(Destination('object', namespace='local'))
-# DEPRECATED|#DEPRECATED|            packet.set_receiver(self.get_fib())
-# DEPRECATED|#DEPRECATED|            gateway.send(packet)
-# DEPRECATED|
-# DEPRECATED|#DEPRECATED|            announces = gateway.get_announces()
-# DEPRECATED|#DEPRECATED|            for announce in announces:
-# DEPRECATED|#DEPRECATED|                self._fib.add(platform_name, announce)
-# DEPRECATED|
-# DEPRECATED|            #self._interfaces[platform_name] = gateway
-# DEPRECATED|
-# DEPRECATED|        except Exception, e:
-# DEPRECATED|            Log.warning(traceback.format_exc())
-# DEPRECATED|            Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
-# DEPRECATED|            return None
-# DEPRECATED|
-# DEPRECATED|        return gateway
 
     def register_interface(self, interface):
         self._interfaces[interface.get_platform_name()] = interface
@@ -672,13 +579,12 @@ class Router(object):
                 receiver.receive(record)
                 return
 
-            print "QUERY PLAN:"
-            print root_node.format_downtree() 
+            Log.info("QUERY PLAN:")
+            Log.info(root_node.format_downtree())
 
             receiver._set_child(root_node)
         except Exception, e:
-            print "E:", e
-            Log.tmp(e)
+            Log.error(e)
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,
@@ -739,8 +645,7 @@ class Router(object):
         try:
             root_node.send(packet)
         except Exception, e:
-            print "EEE:", e
-            traceback.print_exc()
+            Log.error(e)
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,

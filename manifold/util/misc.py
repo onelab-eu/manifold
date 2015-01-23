@@ -108,18 +108,7 @@ def strfdelta2(tdelta, fmt):
     t = DeltaTemplate(fmt)
     return t.substitute(**d)
 
-def async_sleep(secs):
-    d = defer.Deferred()
-    ReactorThread().callLater(secs, d.callback, None)
-    return d
-
 import time
-from twisted.internet                   import defer
-
-@defer.inlineCallbacks
-def async_wait(fun, interval = 1):
-    while not fun():
-        yield async_sleep(interval)
 
 def wait(fun, interval = 1):
     while not fun():
