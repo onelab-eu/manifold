@@ -97,8 +97,10 @@ class AgentDaemon(Daemon):
         my_host = hostname()
         supernodes = set()
         for supernode in received_supernodes:
-            host = supernode['hostname'] 
-            
+            host = supernode.get('hostname', None)
+
+            if not host:
+                continue
             if host in [my_host, SERVER_SUPERNODE]:
                 continue
             if host in self._banned_supernodes:
