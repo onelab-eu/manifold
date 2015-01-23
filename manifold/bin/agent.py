@@ -97,8 +97,10 @@ class AgentDaemon(Daemon):
         my_host = hostname()
         supernodes = set()
         for supernode in received_supernodes:
-            host = supernode['hostname'] 
-            
+            host = supernode.get('hostname', None)
+
+            if not host:
+                continue
             if host in [my_host, SERVER_SUPERNODE]:
                 continue
             if host in self._banned_supernodes:
@@ -179,18 +181,19 @@ class AgentDaemon(Daemon):
         # This function should only terminate when the interface is reconnected
         # for sure
 
+        Log.info("Trying to reconnect interface %r" % (interface,))
         interface.unset_error()
         interface.reconnect()
         yield async_wait(lambda : interface.is_up() or interface.is_error())
 
         if interface.is_error():
             self._router.set_keyvalue('agent_supernode_state', 'error')
-            Log.info("Waiting 10s before attempting reconnection for interface %r" % (interface,))
+            Log.info("Error connecting... Waiting 10s before re-attempting reconnection for interface %r" % (interface,))
             yield async_sleep(10)
             self.reconnect_interface(interface)
         else:
+            Log.info("Interfce %r is up again" % (interface,))
             self._router.set_keyvalue('agent_supernode_state', 'up')
-
 
         defer.returnValue(None)
         
