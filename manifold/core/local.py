@@ -108,7 +108,8 @@ class LocalInterfaceCollection(ManifoldCollection):
         router = self.get_gateway().get_router()
         data = packet.get_data()
         interface_type = data.pop('type')
-        router.add_interface(interface_type, **data)
+        interface = router.add_interface(interface_type, **data)
+        interface.up()
 
 class LocalAboutCollection(ManifoldCollection):
     # XXX Metadata will vary with time, how to refresh ?? how to describe ??

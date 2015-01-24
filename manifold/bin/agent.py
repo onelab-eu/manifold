@@ -75,84 +75,6 @@ class AgentDaemon(Daemon):
     # Supernode management
     ########################################################################### 
 
-    @defer.inlineCallbacks
-    def get_supernode(self, interface):
-        
-        # XXX supernodes = Supernode.get()
-        # XXX Supernode should be attached to an interface... or at the the
-        # router if we can route such requests.
-
-        d = DeferredReceiver() # SyncReceiver
-        interface.send(GET(),
-                destination = Destination('supernode', namespace='tdmi'),
-                receiver = d)
-        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
-        received_supernodes = rv.get_all()
-
-        if not received_supernodes:
-            defer.returnValue(None)
-        
-        # The agent might have previously registered as a supernode... avoid
-        # loops to self.
-        my_host = hostname()
-        supernodes = set()
-        for supernode in received_supernodes:
-            host = supernode.get('hostname', None)
-
-            if not host:
-                continue
-            if host in [my_host, SERVER_SUPERNODE]:
-                continue
-            if host in self._banned_supernodes:
-                continue
-            supernodes.add(host)
-
-        # Remove duplicates in supernodes. As it is the key, this should be enforced by the collection")
-        supernodes = list(supernodes)
-
-        if not supernodes:
-            defer.returnValue(None)
-
-        # BaseClass.set_options(deferred = True)
-        # supernodes = yield SuperNode.collection(deferred=True)
-
-        if not self._ping or len(supernodes) == 1:
-            # No ping tool available, or a single supernode, we pick the first
-            # one (what about choosing at random?)
-            defer.returnValue(supernodes[0])
-
-        # Let's ping supernodes
-        # XXX Such calls should be simplified
-        # XXX We send a single probe...
-        d = DeferredReceiver() 
-        self._ping.send(GET(), 
-                destination = Destination('ping',
-                    Filter().filter_by(Predicate('destination', 'included', supernodes)),
-                    FieldNames(['destination', 'delay'])),
-                receiver = d)
-        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
-        delays = rv.get_all()
-
-        # XXX ping: unknown host adreena
-        # XXX This should triggered unregistration of a supernode
-
-        # XXX syntax !
-        # delays = yield Ping(destination in supernodes, fields=destination, # delay)
-        # supernode = min(delays, key=operator.itemgetter('delay'))
-
-        if not delays:
-            defer.returnValue(None)
-
-        # Let's keep the supernode of min delay (we have no rename since we are
-        # not using the router Rename abilities
-        supernode = min(delays, key=lambda d: float(d['probes'][0]['delay']))
-
-        for delay in delays:
-            Log.info("DELAY TO %s = %s" % (delay['destination'], delay['probes'][0]['delay']))
-        Log.info("=> Selected %s" % (supernode['destination'],))
-
-        defer.returnValue(supernode['destination'] if supernode else None)
-
     #@defer.inlineCallbacks
     def register_as_supernode(self):
         sn = Supernode(hostname = hostname())
@@ -176,6 +98,47 @@ class AgentDaemon(Daemon):
     def withdrawn_as_supernode(self, interface):
         pass
 
+    def _up_callback(self, interface):
+        interface_id = "main" if interface == self._main_interface else "client"
+        Log.warning("Interface %s is up." % (interface_id,))
+
+    @defer.inlineCallbacks
+    def _down_callback(self, interface):
+        Log.warning("Overlay disconnected.")
+        self._router.set_keyvalue('agent_supernode_state', 'down')
+        self._router.set_keyvalue('agent_supernode_started', time.time())
+
+        self.connect_to_supernode()
+
+    @defer.inlineCallbacks
+    def connect_interface(self, host):
+        interface = self._router.add_interface('tcpclient', host=host)
+        yield self._connect_interface(interface)
+
+    def connect_interface_until_success(self, host):
+        interface = self._router.add_interface('tcpclient', host=host)
+        yield self.reconnect_interface(interface)
+
+    @defer.inlineCallbacks
+    def _connect_interface(self, interface):
+
+        interface.up()
+        Log.warning("Missing error handling: timeout, max_clients, rtt check, etc.")
+
+        # XXX We have a callback when the interface is up, can we use it ?
+        yield async_wait(lambda : interface.is_up() or interface.is_error())
+
+        if interface.is_up():
+            self._banned_supernodes = list()
+            defer.returnValue(interface)
+        else:
+            # Error... This is where should should take proper action on
+            # non-working supernodes: unregistration, etc.
+            self._banned_supernodes.append(host)
+            defer.returnValue(None)
+
+        # XXX sleep until the interface is connected ?
+
     @defer.inlineCallbacks
     def reconnect_interface(self, interface):
         # This function should only terminate when the interface is reconnected
@@ -197,106 +160,169 @@ class AgentDaemon(Daemon):
 
         defer.returnValue(None)
         
-    def _up_callback(self, interface):
-        interface_id = "main" if interface == self._main_interface else "client"
-        Log.warning("Interface %s is up." % (interface_id,))
+    @defer.inlineCallbacks
+    def get_supernodes_from_interface(self, interface):
+        """
+        Returns:
+            a list of hostnames
+        """
+        # XXX supernodes = Supernode.get()
+        # XXX Supernode should be attached to an interface... or at the the
+        # router if we can route such requests.
+
+        # BaseClass.set_options(deferred = True)
+        # supernodes = yield SuperNode.collection(deferred=True)
+
 
     @defer.inlineCallbacks
-    def _down_callback(self, interface):
-        if not self._main_interface:
-            print "I: Ignored down callback since main interface is None"
-            return
-        self._router.set_keyvalue('agent_supernode_state', 'down')
-        self._router.set_keyvalue('agent_supernode_started', time.time())
+    def get_supernode_delays(self):
+        """
+        Parameters:
+            supernodes : a list of hostnames
 
-        if interface == self._main_interface:
-            if self._reconnect_main:
-                # If we did not requested the interface to go down...
-                Log.warning("Main interface is down.")
-                self.reconnect_interface(self._main_interface)
+        Returns:
+            a dict { hostname : delay }
+        """
+
+        if not self._delays:
+            if not self._ping:
+                # No ping tool available, or a single supernode, we pick the first
+                # one (what about choosing at random?)
+                defer.returnValue(None)
+
+            # Let's ping supernodes
+            # XXX Such calls should be simplified
+            # XXX We send a single probe...
+            d = DeferredReceiver() 
+            self._ping.send(GET(), 
+                    destination = Destination('ping',
+                        Filter().filter_by(Predicate('destination', 'included', supernodes)),
+                        FieldNames(['destination', 'delay'])),
+                    receiver = d)
+            rv = yield d.get_deferred() # receiver.get_result_value().get_all()
+            delays = rv.get_all()
+
+            self._delays = dict( [(x['destination'], x['probes'][0]['delay']) for x in delays] )
+
+            # XXX ping: unknown host adreena
+            # XXX This should triggered unregistration of a supernode
+
+            # XXX syntax !
+            # delays = yield Ping(destination in supernodes, fields=destination, # delay)
+            # supernode = min(delays, key=operator.itemgetter('delay'))
+
+        defer.returnValue(self._delays)
+
+    @defer.inlineCallbacks
+    def get_best_supernode(self, supernodes):
+        if len(supernodes > 1):
+            # Try to get delays
+            delays = yield self.get_supernode_delays()
+            if not delays:
+                # Get the first of the set
+                first = iter(supernodes).next()
+                defer.returnValue(first)
+
+            # Let's keep the supernode of min delay (we have no rename since we are
+            # not using the router Rename abilities
+            best_supernode = None
+            best_delay     = None
+            for supernode in supernodes:
+                Log.info("DELAY TO %s = %s" % (supernode, delays[supernode]))
+                if not best_supernode or delays[supernode] < best_delay:
+                    best_supernode = supernode
+                    best_delay = delays[supernode]
+
+            Log.info("=> Selected %s" % (best_supernode,))
+            defer.returnValue(best_supernode)
+                    
         else:
-            Log.warning("Overlay disconnected.")
-            # to get supernodes. note that we could keep some in cache, or
-            # even connection to them.
-            if self._main_interface.is_down():
-                # We need to wait for the main interface to be up
-                yield self.reconnect_interface(self._main_interface)
-                # Old code:
-                #self._main_interface.up()
-                #yield async_wait(lambda : interface.is_up() or interface.is_error())
+            # Get the first of the set
+            first = iter(supernodes).next()
+            defer.returnValue(first)
 
-            # We do not yield since we expect this task to complete
-            self.connect_to_supernode()
+    def reset_supernode_info(self):
+        self._supernodes = None
+        self._delays     = None
 
     @defer.inlineCallbacks
-    def connect_interface(self, host):
-        interface = self._router.add_interface('tcpclient', host=host)
+    def get_supernodes(self):
+        """
+        Gets the full list of supernodes from the main server (except the main server itself).
 
-        interface.add_down_callback(self._down_callback)
+        Returns:
+            a set of hostnames
+        """
+        # Either connect to the main server, or tap into cache
+        # XXX Need to be sure they have not all been blacklisted
+        # XXX We could pre-sort them by ping
+        if not self._supernodes:
+            
+            Log.info("Connecting to main server...")
+            Log.warning("We should avoid exchanging routes")
+            interface = yield self.connect_interface_until_success(SERVER_SUPERNODE)
 
-        Log.warning("Missing error handling: timeout, max_clients, rtt check, etc.")
+            Log.info("Getting supernodes from main server...")
+            d = DeferredReceiver() # SyncReceiver
+            interface.send(GET(),
+                    destination = Destination('supernode', namespace='tdmi'),
+                    receiver = d)
+            rv = yield d.get_deferred() # receiver.get_result_value().get_all()
+            received_supernodes = rv.get_all()
 
-        # XXX We have a callback when the interface is up, can we use it ?
-        yield async_wait(lambda : interface.is_up() or interface.is_error())
+            interface.down()
 
-        if interface.is_up():
-            self._banned_supernodes = list()
-            defer.returnValue(interface)
-        else:
-            # Error... This is where should should take proper action on
-            # non-working supernodes: unregistration, etc.
-            self._banned_supernodes.append(host)
-            defer.returnValue(None)
+            self._supernodes = set()
+            if received_supernodes:
+                # Filter out spurious supernodes (eg. the agent might have
+                # previously registered as a supernode... avoid loops to self.)
+                my_host = hostname()
+                for supernode in received_supernodes:
+                    host = supernode.get('hostname', None)
+                    if not host:
+                        continue
+                    if host in [my_host, SERVER_SUPERNODE]:
+                        continue
+                    self._supernodes.add(host)
 
-        # XXX sleep until the interface is connected ?
-
-    @defer.inlineCallbacks
-    def bootstrap_overlay(self):
-
-        Log.info("Connecting to main server...")
-        self._banned_supernodes = list()
-        self._reconnect_main = True
-        self._main_interface = yield self.connect_interface(SERVER_SUPERNODE)
-        if not self._main_interface:
-            Log.warning("Failed to connect main interface... try again later")
-            Log.error("TODO")
-            return
-        Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
-        self._router.set_keyvalue('agent_supernode', SERVER_SUPERNODE)
-        self._router.set_keyvalue('agent_supernode_state', 'up')
-        self._router.set_keyvalue('agent_supernode_started', time.time())
-
-        self.connect_to_supernode()
+        defer.returnValue(self._supernodes)
 
     @defer.inlineCallbacks
     def connect_to_supernode(self):
 
-        Log.info("Getting supernodes...")
-        supernode = yield self.get_supernode(self._main_interface) # XXX Blocking ???
+        # Getting a set of supernode hostnames (eventually contacting the main server)
+        supernodes = yield self.get_supernodes()
+        if supernodes:
+            supernode = yield self.get_best_supernode(supernodes)
+        else:
+            supernode = SERVER_SUPERNODE
 
-        if supernode:
-            Log.info("Connecting to supernode: %s..." % (supernode,))
-            self._client_interface = yield self.connect_interface(supernode)
-            if not self._client_interface:
-                Log.warning("Failed to connect to supernode. Trying again")
-                Log.warning("We are requesting supernodes again... not very efficient")
-                Log.warning("We should fallback on periodically trying to contact the main server in the worst case")
+        #self._router.set_keyvalue('agent_supernode', SERVER_SUPERNODE)
+        #self._router.set_keyvalue('agent_supernode_state', 'up')
+        #self._router.set_keyvalue('agent_supernode_started', time.time())
+
+        Log.info("Connecting to supernode: %s..." % (supernode,))
+        interface = yield self.connect_interface(supernode)
+        if not interface:
+
+            if supernode == SERVER_SUPERNODE:
+                # Could not connect to main server as supernode... wait 10s and try the whole process again
+                Log.info("Could not connect to main server as supernode... Reattempting in 10s")
+                self.reset_supernode_info()
+                yield async_sleep(10)
+                yield self.connect_to_supernode()
+
+            else:
+                Log.info("Could not connect to supernode '%s'. Trying another one." % (supernode,))
+                self._supernodes.remove(supernode)
+                yield self.connect_to_supernode()
+            defer.returnValue(None)
                 
-                self.connect_to_supernode()
-                # This is ok since nobody should yield on self.connect_to_supernode()
-                defer.returnValue(None)
-
-            Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
-            self._router.set_keyvalue('agent_supernode', supernode)
-            self._router.set_keyvalue('agent_supernode_state', 'up')
-            self._router.set_keyvalue('agent_supernode_started', time.time())
-
-        if supernode:
-            # Finally once we are all set up, disconnect the interface to the
-            # server
-            self._reconnect_main = False
-            Log.info("Disconnecting from main server")
-            self._main_interface.down()
+        Log.info("Connected to supernode: %s. Interface=%s" % (supernode, interface,))
+        self._router.set_keyvalue('agent_supernode', supernode)
+        self._router.set_keyvalue('agent_supernode_state', 'up')
+        self._router.set_keyvalue('agent_supernode_started', time.time())
+        interface.add_down_callback(self._down_callback)
 
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")
@@ -314,28 +340,6 @@ class AgentDaemon(Daemon):
         # How to detect timeout
         # What is a valid result
         ping_result = receiver.get_result_value().get_all()
-
-    def on_interface_down(interface):
-        """
-        We lost the supernode/server
-        We lost a client
-        """
-        # Can we reconnect the interface ?
-        if False:
-            pass
-
-        # Can we change supernode ?
-        elif interface == self._client_interface:
-            # Mark the former supernode as unreachable
-            pass
-
-            # Remove announces from FIB (?)
-            # Is it optimal since we are connecting to an equivalent node
-            pass
-
-            # Get a new supernode
-            supernode = self.get_supernode()
-            self._client_interface.connect(supernode)
 
     ########################################################################### 
     # Main
@@ -390,18 +394,18 @@ class AgentDaemon(Daemon):
 
             self.register_as_supernode() 
 
-            #self._router.get_fib().dump()
 
         else:
             # The agent just builds the overlays and stays passive
-            self.bootstrap_overlay()
+            self._banned_supernodes = list()
+            self.connect_to_supernode()
 
             #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
             #self._bootstrap_overlay_task.start(0)
 
         # XXX We need to periodically check for connectivity
 
-        #self.daemon_loop()
+        #self._router.get_fib().dump()
         
 def main():
     AgentDaemon.init_options()

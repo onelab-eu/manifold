@@ -185,7 +185,6 @@ class Router(object):
 
         # Note the interface will register itself when initialized properlyb
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface
-        interface.up()
         return interface
 
     def is_interface_up(self, interface_name):
