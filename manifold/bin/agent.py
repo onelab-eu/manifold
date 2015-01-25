@@ -34,7 +34,6 @@ from manifold.util.predicate            import Predicate
 from manifold.util.reactor_thread       import ReactorThread
 
 SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
-SERVER_SUPERNODE = 'localhost'
 
 SUPERNODE_CLASS = """
 class supernode {
