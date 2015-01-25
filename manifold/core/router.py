@@ -167,7 +167,7 @@ class Router(object):
         if not interface_cls:
             Log.warning("Could not create a %(interface_type)s interface" % locals())
             return None
-
+        up = kwargs.pop('up', True)
         platform_name = kwargs.pop('name', None)
         request_announces = kwargs.pop('request_announces', None)
         platform_config = kwargs
@@ -185,6 +185,8 @@ class Router(object):
 
         # Note the interface will register itself when initialized properlyb
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface
+        if up:
+            interface.up()
         return interface
 
     def is_interface_up(self, interface_name):

@@ -34,6 +34,7 @@ from manifold.util.predicate            import Predicate
 from manifold.util.reactor_thread       import ReactorThread
 
 SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
+SERVER_SUPERNODE = 'localhost'
 
 SUPERNODE_CLASS = """
 class supernode {
@@ -99,8 +100,7 @@ class AgentDaemon(Daemon):
         pass
 
     def _up_callback(self, interface):
-        interface_id = "main" if interface == self._main_interface else "client"
-        Log.warning("Interface %s is up." % (interface_id,))
+        Log.warning("Interface is up.")
 
     @defer.inlineCallbacks
     def _down_callback(self, interface):
@@ -112,12 +112,15 @@ class AgentDaemon(Daemon):
 
     @defer.inlineCallbacks
     def connect_interface(self, host):
-        interface = self._router.add_interface('tcpclient', host=host)
+        interface = self._router.add_interface('tcpclient', host=host, up = False)
         yield self._connect_interface(interface)
+        defer.returnValue(interface)
 
+    @defer.inlineCallbacks
     def connect_interface_until_success(self, host):
-        interface = self._router.add_interface('tcpclient', host=host)
+        interface = self._router.add_interface('tcpclient', host=host, up = False)
         yield self.reconnect_interface(interface)
+        defer.returnValue(interface)
 
     @defer.inlineCallbacks
     def _connect_interface(self, interface):
@@ -264,6 +267,7 @@ class AgentDaemon(Daemon):
 
             Log.info("Getting supernodes from main server...")
             d = DeferredReceiver() # SyncReceiver
+            print interface
             interface.send(GET(),
                     destination = Destination('supernode', namespace='tdmi'),
                     receiver = d)
@@ -362,6 +366,8 @@ class AgentDaemon(Daemon):
         # Create a router instance
         self._router = Router()
 
+        self.reset_supernode_info()
+
         self._router.set_keyvalue('agent_started', time.time())
 
         # XXX We need some auto-detection for processes
@@ -381,8 +387,6 @@ class AgentDaemon(Daemon):
         supernode_collection = ManifoldLocalCollection(Supernode)
         self._router.register_collection(supernode_collection, namespace='tdmi')
         self._supernode_collection = supernode_collection
-
-        self._main_interface = None
 
         # Setup peer overlay
         if Options().server_mode:
