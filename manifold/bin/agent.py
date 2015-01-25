@@ -362,9 +362,10 @@ class AgentDaemon(Daemon):
         self._ping = self._router.add_interface("ping", name="ping")
         self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
         if not Options().server_mode:
+            print "Should not run fastping on server"
             # Is it because of a memory leak ?
             # Should we run fastping as a process instead of a thread ?
-            self._fastping = self._router.add_interface("fastping", name="fastping")
+        self._fastping = self._router.add_interface("fastping", name="fastping")
 
         # Setup interfaces
         self._ws_interface  = self._router.add_interface('websocketserver')

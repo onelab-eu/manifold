@@ -2,17 +2,16 @@
 
 # We need a base fastping class to import as a dependency, that does not
 # initialize anything
-import sys, urllib, threading
+import os, sys, urllib, threading
 
 from fastping                   import Fastping
 
 from manifold.core.packet       import Record, Records
 from manifold.gateways          import Gateway
 from manifold.gateways.object   import ManifoldCollection
-from manifold.util.filesystem   import hostname
 from manifold.util.log          import Log
 from manifold.util.misc         import url_exists
-from manifold.util.filesystem   import hostname
+from manifold.util.filesystem   import hostname, ensure_writable_directory
 
 TARGET_SITE = 'www.top-hat.info'
 TARGET_PATH = '/download/anycast-census/'
@@ -28,6 +27,8 @@ def ensure_dataset(dataset):
         return
     
     # Let's download dataset
+    ensure_writable_directory(CACHE_DIRECTORY)
+
     f = urllib.urlopen(DATASET_URLBASE + dataset)
     g = open(CACHE_DIRECTORY + dataset, 'w')
     g.write(f.read())
@@ -64,8 +65,8 @@ class FastPingCollection(ManifoldCollection):
         #filter = packet.get_destination().get_filter()
         #target = filter.get_eq('destination')
 
-        FTP_FIELDS = ['host', 'port', 'username', 'password', 'directory', 'passive']
-        FTP_FIELDS_MANDATORY = ['host', 'username', 'password']
+        FTP_FIELDS = ['ftp_hostname', 'ftp_port', 'ftp_username', 'ftp_password', 'ftp_directory', 'ftp_passive']
+        FTP_FIELDS_MANDATORY = ['ftp_hostname', 'ftp_username', 'ftp_password']
         FTP_DEFAULT_PORT = 21
         FTP_DEFAULT_PASSIVE = False
         FTP_DEFAULT_DIRECTORY = '.'
@@ -78,24 +79,23 @@ class FastPingCollection(ManifoldCollection):
             'saveQD'     : True,
             'saveSM'     : True,
             'saveST'     : True,
-            'upload'     : upload,
             'shuffle'    : True,
         }
 
         annotation = packet.get_annotation()
 
         # IP list: we are given a url
-        if not 'target' in annotation:
-            self.error('Missing target', packet)
+        if not 'destination' in annotation:
+            self.get_gateway().error('Missing target', packet)
             return
 
-        target = annotation.get('target')
+        target = annotation.get('destination')
         if target.startswith('dataset://'):
             target = target[10:]
             try:
                 ensure_dataset(target)
             except Exception, e:
-                self.error('Cannot retrieve dataset: %s' % e, packet)
+                self.get_gateway().error('Cannot retrieve dataset: %s' % e, packet)
                 return
             target = CACHE_DIRECTORY + target
 
@@ -110,24 +110,25 @@ class FastPingCollection(ManifoldCollection):
                 try:
                     ensure_dataset(blacklist)
                 except Exception, e:
-                    self.error('Cannot retrieve dataset: %s' % e, packet)
+                    self.get_gateway().error('Cannot retrieve dataset: %s' % e, packet)
                     return
                 blacklist = CACHE_DIRECTORY + blacklist
             opt['blacklist'] = blacklist
 
         # FTP
-        do_ftp = set(FTP_FIELDS) & set(annotation.get_keys())
+        do_ftp = set(FTP_FIELDS) & set(annotation.keys())
         if do_ftp:
             try:
-                hostname  = annotation.get('hostname')
-                username  = annotation.get('username')
-                password  = annotation.get('password')
-                port      = annotation.get('port', FTP_DEFAULT_PORT)
-                directory = annotation.get('directory', FTP_DEFAULT_DIRECTORY)
-                passive   = annotation.get('passive', FTP_DEFAULT_PASSIVE)
+                ftp_hostname  = annotation.get('ftp_hostname')
+                ftp_username  = annotation.get('ftp_username')
+                ftp_password  = annotation.get('ftp_password')
+                ftp_port      = annotation.get('ftp_port', FTP_DEFAULT_PORT)
+                ftp_directory = annotation.get('ftp_directory', FTP_DEFAULT_DIRECTORY)
+                ftp_passive   = annotation.get('ftp_passive', FTP_DEFAULT_PASSIVE)
             except Exception, e:
-                self.error('Missing mandatory field in annotation for FTP: %s' % e, packet)
-            opt['upload'] = [hostname, username, password, port, directory, passive]
+                self.get_gateway().error('Missing mandatory field in annotation for FTP: %s' % e, packet)
+                return
+            opt['upload'] = [ftp_hostname, ftp_username, ftp_password, ftp_port, ftp_directory, ftp_passive]
             
         Log.info("Initializing fastping with options: %r" % opt)
         fastping = Fastping(**opt)

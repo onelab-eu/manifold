@@ -888,7 +888,8 @@ class Record(CREATE):
         if len(args) > 0:
             assert isinstance(args[0], (CREATE, dict))
             self.update_data(args[0])
-        self.update_data(kwargs)
+        if kwargs:
+            self.update_data(kwargs)
 
 class Records(list):
     """
