@@ -177,7 +177,7 @@ class AgentDaemon(Daemon):
 
 
     @defer.inlineCallbacks
-    def get_supernode_delays(self):
+    def get_supernode_delays(self, supernodes):
         """
         Parameters:
             supernodes : a list of hostnames
@@ -186,40 +186,39 @@ class AgentDaemon(Daemon):
             a dict { hostname : delay }
         """
 
-        if not self._delays:
-            if not self._ping:
-                # No ping tool available, or a single supernode, we pick the first
-                # one (what about choosing at random?)
-                defer.returnValue(None)
+        if not self._ping:
+            # No ping tool available, or a single supernode, we pick the first
+            # one (what about choosing at random?)
+            defer.returnValue(None)
 
-            # Let's ping supernodes
-            # XXX Such calls should be simplified
-            # XXX We send a single probe...
-            d = DeferredReceiver() 
-            self._ping.send(GET(), 
-                    destination = Destination('ping',
-                        Filter().filter_by(Predicate('destination', 'included', supernodes)),
-                        FieldNames(['destination', 'delay'])),
-                    receiver = d)
-            rv = yield d.get_deferred() # receiver.get_result_value().get_all()
-            delays = rv.get_all()
+        # Let's ping supernodes
+        # XXX Such calls should be simplified
+        # XXX We send a single probe...
+        d = DeferredReceiver() 
+        self._ping.send(GET(), 
+                destination = Destination('ping',
+                    Filter().filter_by(Predicate('destination', 'included', list(supernodes))),
+                    FieldNames(['destination', 'delay'])),
+                receiver = d)
+        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
+        rv_delays = rv.get_all()
 
-            self._delays = dict( [(x['destination'], x['probes'][0]['delay']) for x in delays] )
+        delays = dict( [(x['destination'], x['probes'][0]['delay']) for x in rv_delays] )
 
-            # XXX ping: unknown host adreena
-            # XXX This should triggered unregistration of a supernode
+        # XXX ping: unknown host adreena
+        # XXX This should triggered unregistration of a supernode
 
-            # XXX syntax !
-            # delays = yield Ping(destination in supernodes, fields=destination, # delay)
-            # supernode = min(delays, key=operator.itemgetter('delay'))
+        # XXX syntax !
+        # delays = yield Ping(destination in supernodes, fields=destination, # delay)
+        # supernode = min(delays, key=operator.itemgetter('delay'))
 
-        defer.returnValue(self._delays)
+        defer.returnValue(delays)
 
     @defer.inlineCallbacks
     def get_best_supernode(self, supernodes):
-        if len(supernodes > 1):
+        if len(supernodes) > 1:
             # Try to get delays
-            delays = yield self.get_supernode_delays()
+            delays = yield self.get_supernode_delays(supernodes)
             if not delays:
                 # Get the first of the set
                 first = iter(supernodes).next()
@@ -243,10 +242,6 @@ class AgentDaemon(Daemon):
             first = iter(supernodes).next()
             defer.returnValue(first)
 
-    def reset_supernode_info(self):
-        self._supernodes = None
-        self._delays     = None
-
     @defer.inlineCallbacks
     def get_supernodes(self):
         """
@@ -258,37 +253,34 @@ class AgentDaemon(Daemon):
         # Either connect to the main server, or tap into cache
         # XXX Need to be sure they have not all been blacklisted
         # XXX We could pre-sort them by ping
-        if not self._supernodes:
-            
-            Log.info("Connecting to main server...")
-            Log.warning("We should avoid exchanging routes")
-            interface = yield self.connect_interface_until_success(SERVER_SUPERNODE)
+        Log.info("Connecting to main server...")
+        Log.warning("We should avoid exchanging routes")
+        interface = yield self.connect_interface_until_success(SERVER_SUPERNODE)
 
-            Log.info("Getting supernodes from main server...")
-            d = DeferredReceiver() # SyncReceiver
-            print interface
-            interface.send(GET(),
-                    destination = Destination('supernode', namespace='tdmi'),
-                    receiver = d)
-            rv = yield d.get_deferred() # receiver.get_result_value().get_all()
-            received_supernodes = rv.get_all()
+        Log.info("Getting supernodes from main server...")
+        d = DeferredReceiver() # SyncReceiver
+        interface.send(GET(),
+                destination = Destination('supernode', namespace='tdmi'),
+                receiver = d)
+        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
+        received_supernodes = rv.get_all()
 
-            interface.down()
+        interface.down()
 
-            self._supernodes = set()
-            if received_supernodes:
-                # Filter out spurious supernodes (eg. the agent might have
-                # previously registered as a supernode... avoid loops to self.)
-                my_host = hostname()
-                for supernode in received_supernodes:
-                    host = supernode.get('hostname', None)
-                    if not host:
-                        continue
-                    if host in [my_host, SERVER_SUPERNODE]:
-                        continue
-                    self._supernodes.add(host)
+        supernodes = set()
+        if received_supernodes:
+            # Filter out spurious supernodes (eg. the agent might have
+            # previously registered as a supernode... avoid loops to self.)
+            my_host = hostname()
+            for supernode in received_supernodes:
+                host = supernode.get('hostname', None)
+                if not host:
+                    continue
+                if host in [my_host, SERVER_SUPERNODE]:
+                    continue
+                supernodes.add(host)
 
-        defer.returnValue(self._supernodes)
+        defer.returnValue(supernodes)
 
     @defer.inlineCallbacks
     def connect_to_supernode(self):
@@ -311,7 +303,6 @@ class AgentDaemon(Daemon):
             if supernode == SERVER_SUPERNODE:
                 # Could not connect to main server as supernode... wait 10s and try the whole process again
                 Log.info("Could not connect to main server as supernode... Reattempting in 10s")
-                self.reset_supernode_info()
                 yield async_sleep(10)
                 yield self.connect_to_supernode()
 
@@ -364,8 +355,6 @@ class AgentDaemon(Daemon):
     def main(self):
         # Create a router instance
         self._router = Router()
-
-        self.reset_supernode_info()
 
         self._router.set_keyvalue('agent_started', time.time())
 
