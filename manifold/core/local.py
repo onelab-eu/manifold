@@ -170,6 +170,7 @@ class LocalGateway(Gateway):
 
         self.register_collection(LocalGatewayCollection(), 'local')
         self.register_collection(LocalInterfaceCollection(), 'local')
+        self.register_collection(LocalAboutCollection(), 'local')
         self.register_collection(LocalAboutCollection(), 'global')
 
 
