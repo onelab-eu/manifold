@@ -46,9 +46,17 @@ class site {
 
 class myplcuser {
     string email;
+    myplckey key_ids[];
     boolean enabled;
     CAPABILITY(retrieve,join,selection,projection);
     KEY(email);
+};
+
+class myplckey {
+    int key_id;
+    string key;
+    CAPABILITY(retrieve,join,selection,projection);
+    KEY(key_id);
 };
 
 class initscript {

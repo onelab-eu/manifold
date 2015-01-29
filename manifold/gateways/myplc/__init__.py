@@ -31,6 +31,7 @@ MAP_METHOD = {
     "node"      : "GetNodes",
     "site"      : "GetSites",
     "myplcuser" : "GetPersons",
+    "myplckey"  : "GetKeys",
     "tags"      : "GetSliceTags",
 }
 
