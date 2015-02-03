@@ -17,12 +17,7 @@ from twisted.internet                   import defer
 from twisted.internet.task              import LoopingCall
 
 from manifold.core.announce             import Announces
-from manifold.core.deferred_receiver    import DeferredReceiver
-from manifold.core.destination          import Destination
-from manifold.core.field_names          import FieldNames
-from manifold.core.filter               import Filter
 from manifold.core.object               import Object
-from manifold.core.packet               import GET, CREATE
 from manifold.core.router               import Router
 from manifold.gateways.object           import ManifoldLocalCollection
 from manifold.util.daemon               import Daemon
@@ -30,10 +25,19 @@ from manifold.util.filesystem           import hostname
 from manifold.util.log                  import Log
 from manifold.util.async                import async_sleep, async_wait
 from manifold.util.options              import Options
-from manifold.util.predicate            import Predicate
 from manifold.util.reactor_thread       import ReactorThread
+from manifold.bin.shell                 import Shell
+
+# XXX DELETE WHEN SHELL FULLY REPLACES PACKET SENDING
+from manifold.core.deferred_receiver    import DeferredReceiver
+from manifold.core.destination          import Destination
+from manifold.core.field_names          import FieldNames
+from manifold.core.filter               import Filter
+from manifold.core.packet               import GET
+from manifold.util.predicate            import Predicate
 
 SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
+#SERVER_SUPERNODE = 'localhost'
 
 SUPERNODE_CLASS = """
 class supernode {
@@ -80,21 +84,6 @@ class AgentDaemon(Daemon):
         sn = Supernode(hostname = hostname())
         self._supernode_collection.create(Supernode(hostname = hostname()))
 
-        # XXX We should install a hook to remove from supernodes agents that have disconnected
-
-        # Old version:
-        #
-        # As a server, we would do this to create a new object locally.
-        # Supernode(hostname = hostname()).insert()
-        # We now want to create a new object remotely at the server
-        # This should trigger an insert query directed towards the server
-        #d = DeferredReceiver()
-        #interface.send(CREATE(hostname = hostname()),
-        #        destination = Destination('supernode', namespace='tdmi'),
-        #        receiver = d)
-        #rv = yield d.get_deferred()
-        #Log.info("Supernode registration done. Success ? %r" % (rv.get_all(),))
-
     def withdrawn_as_supernode(self, interface):
         pass
 
@@ -136,7 +125,12 @@ class AgentDaemon(Daemon):
         else:
             # Error... This is where should should take proper action on
             # non-working supernodes: unregistration, etc.
-            self._banned_supernodes.append(host)
+
+            # Beware ! This only works for tcp interface
+            try:
+                host = interface.get_host()
+                self._banned_supernodes.append(interface.get_host())
+            except: pass
             defer.returnValue(None)
 
         # XXX sleep until the interface is connected ?
@@ -191,6 +185,8 @@ class AgentDaemon(Daemon):
             # one (what about choosing at random?)
             defer.returnValue(None)
 
+        # XXX SHELL !!!!!!!!!!!!!!!!
+
         # Let's ping supernodes
         # XXX Such calls should be simplified
         # XXX We send a single probe...
@@ -202,6 +198,12 @@ class AgentDaemon(Daemon):
                 receiver = d)
         rv = yield d.get_deferred() # receiver.get_result_value().get_all()
         rv_delays = rv.get_all()
+
+        # XXX Need a shell where we pass an existing interface
+        #QUERY_DELAYS = 'SELECT destination, delay FROM ping WHERE destination INCLUDED %r' % list(supernodes)
+        #shell = Shell(self._ping)
+        #rv_delays = yield shell.deferred_evaluate2(QUERY_DELAYS, deferred = True)
+        #shell.terminate()
 
         delays = dict( [(x['destination'], x['probes'][0]['delay']) for x in rv_delays] )
 
@@ -229,10 +231,17 @@ class AgentDaemon(Daemon):
             best_supernode = None
             best_delay     = None
             for supernode in supernodes:
-                Log.info("DELAY TO %s = %s" % (supernode, delays[supernode]))
-                if not best_supernode or delays[supernode] < best_delay:
+                supernode_delay = delays.get(supernode)
+                Log.info("DELAY TO %s = %s" % (supernode, supernode_delay))
+
+                # Handle the None delay case: take the first supernode
+                if not supernode_delay and not best_supernode:
                     best_supernode = supernode
-                    best_delay = delays[supernode]
+                    continue
+
+                if not best_supernode or supernode_delay < best_delay:
+                    best_supernode = supernode
+                    best_delay = supernode_delay
 
             Log.info("=> Selected %s" % (best_supernode,))
             defer.returnValue(best_supernode)
@@ -254,18 +263,13 @@ class AgentDaemon(Daemon):
         # XXX Need to be sure they have not all been blacklisted
         # XXX We could pre-sort them by ping
         Log.info("Connecting to main server...")
-        Log.warning("We should avoid exchanging routes")
-        interface = yield self.connect_interface_until_success(SERVER_SUPERNODE)
 
-        Log.info("Getting supernodes from main server...")
-        d = DeferredReceiver() # SyncReceiver
-        interface.send(GET(),
-                destination = Destination('supernode', namespace='tdmi'),
-                receiver = d)
-        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
-        received_supernodes = rv.get_all()
+        QUERY_SUPERNODES = 'select * from tdmi:supernode'
+        shell = Shell('tcpclient', host=SERVER_SUPERNODE)
+        received_supernodes = yield shell.deferred_evaluate2(QUERY_SUPERNODES)
+        shell.terminate()
 
-        interface.down()
+        print "received supernodes", received_supernodes
 
         supernodes = set()
         if received_supernodes:
@@ -280,6 +284,14 @@ class AgentDaemon(Daemon):
                     continue
                 supernodes.add(host)
 
+        # Reset supernode list if none is possible
+        # XXX need other criterion
+        if (supernodes - self._supernode_blacklist):
+            supernodes -= self._supernode_blacklist
+        else:
+            self._supernode_blacklist.clear()
+
+        print "supernodes", supernodes
         defer.returnValue(supernodes)
 
     @defer.inlineCallbacks
@@ -291,6 +303,8 @@ class AgentDaemon(Daemon):
             supernode = yield self.get_best_supernode(supernodes)
         else:
             supernode = SERVER_SUPERNODE
+
+        print "best supernode", supernode
 
         #self._router.set_keyvalue('agent_supernode', SERVER_SUPERNODE)
         #self._router.set_keyvalue('agent_supernode_state', 'up')
@@ -308,7 +322,7 @@ class AgentDaemon(Daemon):
 
             else:
                 Log.info("Could not connect to supernode '%s'. Trying another one." % (supernode,))
-                self._supernodes.remove(supernode)
+                self._supernode_blacklist.add(supernode)
                 yield self.connect_to_supernode()
             defer.returnValue(None)
                 
@@ -358,13 +372,12 @@ class AgentDaemon(Daemon):
 
         self._router.set_keyvalue('agent_started', time.time())
 
-        # XXX We need some auto-detection for processes
-        self._ping = self._router.add_interface("ping", name="ping")
-        self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
         if not Options().server_mode:
+            self._ping = self._router.add_interface("ping", name="ping")
+            self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
+            self._fastping = self._router.add_interface("fastping", name="fastping")
             # Is it because of a memory leak ?
             # Should we run fastping as a process instead of a thread ?
-            self._fastping = self._router.add_interface("fastping", name="fastping")
 
         # Setup interfaces
         self._ws_interface  = self._router.add_interface('websocketserver')
@@ -375,6 +388,8 @@ class AgentDaemon(Daemon):
         supernode_collection = ManifoldLocalCollection(Supernode)
         self._router.register_collection(supernode_collection, namespace='tdmi')
         self._supernode_collection = supernode_collection
+
+        self._supernode_blacklist = set()
 
         # Setup peer overlay
         if Options().server_mode:

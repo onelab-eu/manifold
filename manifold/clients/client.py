@@ -14,6 +14,7 @@ from types                          import StringTypes
 from manifold.core.packet           import Packet
 from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
+from manifold.core.deferred_receiver import DeferredReceiver
 from manifold.interfaces            import Interface
 from manifold.util.log              import Log
 from manifold.util.misc             import wait
@@ -50,8 +51,8 @@ class ManifoldClient(object):
         if self._interface:
             self._interface.terminate()
 
-    def make_receiver(self):
-        receiver = SyncReceiver()
+    def make_receiver(self, deferred = False):
+        receiver = DeferredReceiver() if deferred else SyncReceiver()
         receiver.register_interface = lambda x : None
         receiver.up_interface       = lambda x : None
         receiver.down_interface     = lambda x : None
@@ -80,8 +81,9 @@ class ManifoldClient(object):
         """
         raise Exception, "Authentication not supported yet!"
 
-    @returns(ResultValue)
-    def forward(self, query, annotation = None):
+    #does not work with deferred
+    #@returns(ResultValue)
+    def forward(self, query, annotation = None, deferred = False):
         """
         Send a Query to the nested Manifold Router.
         Args:
@@ -91,7 +93,7 @@ class ManifoldClient(object):
         Results:
             The ResultValue resulting from this Query.
         """
-        r = self.make_receiver()
+        r = self.make_receiver(deferred = deferred)
 
         packet = Packet()
         packet.set_protocol(query.get_protocol())
@@ -110,8 +112,12 @@ class ManifoldClient(object):
 
         self._interface.send(packet)
 
-        # This code is blocking
-        result_value = r.get_result_value()
-        assert isinstance(result_value, ResultValue),\
-            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
-        return result_value
+        if not deferred:
+            # This code is blocking
+            result_value = r.get_result_value()
+            assert isinstance(result_value, ResultValue),\
+                "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+            return result_value
+        else:
+            return r.get_deferred()
+

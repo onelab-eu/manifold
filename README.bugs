@@ -114,3 +114,19 @@ manifold>>> select * from local:object where object_name == "ping"
 
 
 - Spurious platform with second key 'about_id' in global:about messes up everything
+
+
+- non existing objects
+
+ERROR 'fastping' 
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.124-py2.7.egg/manifold/core/router.py", line 574, in receive
+    root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = exclude_interfaces)
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.124-py2.7.egg/manifold/core/operator_graph.py", line 93, in build_query_plan
+    return query_plan.build(destination, self.get_router(), set(), user, exclude_interfaces = exclude_interfaces)
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.124-py2.7.egg/manifold/core/query_plan.py", line 124, in build
+    root_table = router.get_fib().get_object(object_name, namespace)
+  File "/usr/local/lib/python2.7/dist-packages/manifold-2.0.124-py2.7.egg/manifold/core/fib.py", line 76, in get_object
+    return self._objects_by_namespace[namespace][object_name]
+KeyError: 'fastping'
+

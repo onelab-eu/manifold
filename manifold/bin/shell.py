@@ -17,6 +17,8 @@ from socket                         import gethostname
 from traceback                      import format_exc
 from types                          import StringTypes
 
+from twisted.internet               import defer
+
 # XXX Those imports may fail for xmlrpc calls
 #from manifold.auth                  import Auth
 from manifold.core.annotation       import Annotation
@@ -32,7 +34,9 @@ from manifold.util.options          import Options
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
 
+from manifold.clients.client        import ManifoldClient
 from manifold.interfaces            import Interface
+
 # This could be moved outside of the Shell
 DEFAULT_USER      = "demo"
 DEFAULT_PASSWORD  = "demo"
@@ -66,7 +70,6 @@ class Shell(object):
         self._interactive = interactive
         self.client       = None
         if interface_type:
-            from manifold.interfaces import Interface
             Interface.register_all()
             self.set_interface(interface_type, **kwargs)
         else:
@@ -100,7 +103,6 @@ class Shell(object):
 
     # This is becoming the new way of selecting a client
     def set_interface(self, interface_type, **kwargs):
-        from manifold.clients.client import ManifoldClient
         self.client = ManifoldClient(interface_type, **kwargs)
 
     @returns(bool)
@@ -499,8 +501,6 @@ class Shell(object):
         annotation.update(dic.pop('annotation', dict()))
 
         query = Query.from_dict(dic)
-#DEPRECATED|        if "*" in query.get_select():
-#DEPRECATED|            query.fields = None
 
         return self.execute(query, annotation)
 
@@ -511,6 +511,71 @@ class Shell(object):
             #dicts = [record.to_dict() for record in records]
             records = result_value.get_all().to_dict_list()
             return records
+        else:
+            raise Exception, result_value['description']
+
+    @defer.inlineCallbacks
+    def deferred_execute(self, query, annotation = None, receiver = None):
+        """
+        Execute a Query (used if the Shell is run with option "-e").
+        Args:
+            query: The Query typed by the user.
+        Returns:
+            The ResultValue resulting from this Query.
+        """
+
+        try:
+            result_value = yield self.client.forward(query, annotation, deferred = True)
+            if result_value.is_success():
+                variable = query.get_variable()
+                if variable and result_value.is_success():
+                    Log.info("Storing the result into %s" % variable)
+                    self.environment_store(variable, result_value.get_all().to_dict_list())
+        except Exception, e:
+            Log.error(traceback.format_exc())
+            message = "Exception raised while performing this query:\n\n\t%s\n\n\t%s" % (query, e)
+            Log.error(message)
+            result_value = ResultValue.error(message)
+        defer.returnValue(result_value)
+
+    @defer.inlineCallbacks
+    def deferred_evaluate(self, command, annotation = None):
+        """
+        Parse a command type by the User, and run the corresponding Query.
+        Args:
+            command: A String instance containing the command typed by the user.
+        Returns:
+            The ResultValue resulting from the Query
+        """
+        updated_command = self.environment_evaluate(command)
+        if command != updated_command:
+            command = updated_command
+            Log.info("Running:\n%s" % command)
+
+        dic = SQLParser().parse(command)
+        if not dic:
+            raise RuntimeError("Can't parse input command: %s" % command)
+
+        if not annotation:
+            annotation = Annotation()
+        receiver = dic.pop('receiver', None)
+        if receiver:
+            annotation['receiver'] = receiver
+        annotation.update(dic.pop('annotation', dict()))
+
+        query = Query.from_dict(dic)
+
+        result_value = yield self.deferred_execute(query, annotation)
+        defer.returnValue(result_value)
+
+    @defer.inlineCallbacks
+    def deferred_evaluate2(self, command, annotation = None):
+        result_value = yield self.deferred_evaluate(command, annotation)
+        if result_value.is_success() or result_value.is_warning():
+            #records = result_value["value"]
+            #dicts = [record.to_dict() for record in records]
+            records = result_value.get_all().to_dict_list()
+            defer.returnValue(records)
         else:
             raise Exception, result_value['description']
 

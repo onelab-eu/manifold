@@ -113,3 +113,12 @@ import time
 def wait(fun, interval = 1):
     while not fun():
         time.sleep(interval)
+
+# http://stackoverflow.com/questions/1630320/what-is-the-pythonic-way-to-detect-the-last-element-in-a-python-for-loop
+def lookahead(iterable):
+    it = iter(iterable)
+    last = it.next() # next(it) in Python 3
+    for val in it:
+        yield last, False
+        last = val
+    yield last, True

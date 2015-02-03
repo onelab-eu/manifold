@@ -227,6 +227,9 @@ class TCPClientInterface(TCPClientSocketFactory):
     def __repr__(self):
         return "<%s %s %s:%d>" % (self.__class__.__name__, self.get_platform_name(), self._host, self._port)
 
+    def get_host(self):
+        return self._host
+
     def reconnect(self, host = None, port = DEFAULT_PORT):
         if self._client:
             self.down()

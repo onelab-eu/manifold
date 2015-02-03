@@ -17,7 +17,7 @@ from manifold.core.code             import CORE, ERROR, GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.query            import Query
-from manifold.core.record           import Record, Records
+from manifold.core.record           import Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.gateways.object       import ManifoldCollection
@@ -459,119 +459,11 @@ class Gateway(Interface, Node): # XXX Node needed ?
         """
         return self.get_router().execute_local_query(query)
 
-    def record(self, record, packet):
-
-        """
-        Helper used in Gateway when a has to send an ERROR Packet.
-        See also Gateway::records() instead.
-        Args:
-            packet: The QUERY Packet instance which has triggered
-                the call to this method.
-            record: A Record or a dict instance. If this is the only
-                Packet that must be returned, turn on the LAST_RECORD
-                flag otherwise the Gateway will freeze.
-                Example:
-                    my_record = Record({"field" : "value"})
-                    my_record.set_last(True)
-                    self.record(my_record)
-        """
-        if not isinstance(record, Record):
-            record = Record.from_dict(record)
-        record.set_source(packet.get_destination())
-        record.set_destination(packet.get_source())
-        record._ingress = self.get_address()
-
-        packet.get_receiver().receive(record)
-
-    # XXX It is important that the packet is the second argument for
-    # deferred callbacks
-    def records(self, records, packet):
-        """
-        Helper used in Gateway when a has to send several RECORDS Packet.
-        Args:
-            packet: The QUERY Packet instance which has triggered
-                the call to this method.
-            record: A Records or a list of instances that may be
-                casted in Record (e.g. Record or dict instances).
-        """
-        #socket = self.get_socket(Query.from_packet(packet))
-
-        # Print debugging information
-        # TODO refer properly pending Socket of each Gateway because
-        # that's why we do not simply run socket.get_producer().format_uptree()
-        #Log.debug(
-        #    "UP-TREE:\n--------\n%s\n%s" % (
-        #        socket.get_producer().format_node(),
-        #        socket.format_uptree()
-        #    )
-        #)
-
-        # Sometimes records is a generator (eg. MaxMind), we cannot directly
-        # test the boolean value of a generator
-        records = Records(records)
-
-        if records:
-            prev_record = None
-            for record in records:
-                if prev_record:
-                    self.record(prev_record, packet)
-                prev_record = record
-
-            if prev_record:
-                if isinstance(prev_record, dict):
-                    prev_record = Record(prev_record, last = True)
-                else:
-                    prev_record.set_last()
-                self.record(prev_record, packet)
-# >>
-        else:
-            self.last(packet)
-            
-    def last(self, packet):
-        self.record(Record(last = True), packet)
-
-    def warning(self, packet, description):
-        """
-        Helper used in Gateway when a has to send an ERROR Packet
-        carrying an Warning. See also Gateway::error()
-        Args:
-            packet: The QUERY Packet instance which has triggered
-                the call to this method.
-            description: The corresponding warning message (String) or
-                Exception.
-        """
-        self.error(packet, description, False)
+    # Use of the two following functions ? -- jordan
 
     def handle_failure(self, failure, query_packet):
         e = failure.trap(Exception)
         self.error(query_packet, str(e))
-
-    def error(self, packet, description, is_fatal = True):
-        """
-        Helper used in Gateway when a has to send an ERROR Packet
-        carrying an Error. See also Gateway::warning()
-        Args:
-            packet: The QUERY Packet instance which has triggered
-                the call to this method.
-            description: The corresponding error message (String) or
-                Exception.
-            is_fatal: Set to True if this ERROR Packet must stops
-                the Record retrieval. Pass True if the Gateway won't
-                send back more Packet for the current Query, False
-                otherwise.
-        """
-        self.check_query_packet(packet)
-        if issubclass(type(description), Exception):
-            description = "%s" % description
-        assert isinstance(description, StringTypes),\
-            "Invalid description = %s (%s)" % (description, type(description))
-        assert isinstance(is_fatal, bool),\
-            "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
-
-        # Could be factorized with Operator::error() by defining Producer::error()
-        #socket = self.get_socket(Query.from_packet(packet))
-        error_packet = self.make_error(GATEWAY, description, is_fatal)
-        packet.get_receiver().receive(error_packet)
 
     @returns(bool)
     def handle_query_object(self, packet):
