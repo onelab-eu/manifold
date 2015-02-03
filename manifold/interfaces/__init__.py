@@ -4,10 +4,12 @@ from manifold.core.annotation       import Annotation
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ChildSlotMixin
-from manifold.core.packet           import GET
+from manifold.core.packet           import GET # to deprecate
+from manifold.core.packet           import Record, Records
 from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.predicate        import Predicate
+from manifold.util.misc             import lookahead
 
 #from manifold.interfaces.tcp_socket     import TCPSocketInterface
 #from manifold.interfaces.unix_socket    import UNIXSocketInterface
@@ -183,6 +185,15 @@ class Interface(object):
         For packets received from the remote server."
         """
         #print "[ IN]", self, packet
+
+        # For interfaces not exchanging announces, prevent it
+        # XXX should add a self._answer_announces parameter instead
+        if not self._request_announces:
+            destination = packet.get_destination()
+            if destination and destination.get_namespace() == 'local' and destination.get_object() == 'object':
+                self.last(packet)
+                return
+
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         packet._ingress = self.get_address()
@@ -205,3 +216,79 @@ class Interface(object):
             # Existing flows rely on the state defined in the router... XXX
             packet.set_receiver(receiver)
             receiver.receive(packet)
+
+    #---------------------------------------------------------------------------
+    # Helper functions
+    #---------------------------------------------------------------------------
+
+    def record(self, record, packet, last = None):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet.
+        See also Gateway::records() instead.
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            record: A Record or a dict instance. If this is the only
+                Packet that must be returned, turn on the LAST_RECORD
+                flag otherwise the Gateway will freeze.
+                Example:
+                    my_record = Record({"field" : "value"})
+                    my_record.set_last(True)
+                    self.record(my_record)
+        """
+        if not isinstance(record, Record):
+            record = Record.from_dict(record)
+        if last is not None:
+            record.set_last(last)
+
+        record.set_source(packet.get_destination())
+        record.set_destination(packet.get_source())
+        record._ingress = self.get_address()
+
+        packet.get_receiver().receive(record)
+
+    # XXX It is important that the packet is the second argument for
+    # deferred callbacks
+    def records(self, records, packet):
+        """
+        Helper used in Gateway when a has to send several RECORDS Packet.
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            record: A Records or a list of instances that may be
+                casted in Record (e.g. Record or dict instances).
+        """
+        #socket = self.get_socket(Query.from_packet(packet))
+
+        # Print debugging information
+        # TODO refer properly pending Socket of each Gateway because
+        # that's why we do not simply run socket.get_producer().format_uptree()
+        #Log.debug(
+        #    "UP-TREE:\n--------\n%s\n%s" % (
+        #        socket.get_producer().format_node(),
+        #        socket.format_uptree()
+        #    )
+        #)
+
+        if not records:
+            self.last(packet)
+            return
+
+        for record, last in lookahead(records):
+            self.record(record, packet, last=last)
+            
+    def last(self, packet):
+        self.record(Record(last = True), packet)
+
+    def warning(self, packet, description):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet
+        carrying an Warning. See also Gateway::error()
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            description: The corresponding warning message (String) or
+                Exception.
+        """
+        self.error(packet, description, False)
+
