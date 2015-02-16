@@ -49,6 +49,10 @@ class Policy(object):
             self.rules.append(Rule.from_dict(json.loads(rule['policy_json'])))
 
     def filter(self, query, record, annotations, is_query = True):
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
         for rule in self.rules:
             if not rule.match(query, annotations):
                 continue

@@ -51,7 +51,7 @@ from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser, FitNit
 from manifold.gateways.sfa.rspecs.ofelia_ocf    import OfeliaOcfParser
 from manifold.gateways.sfa.rspecs.ofelia_vt     import OfeliaVTAMParser
 
-from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, VirtualWallParser, IoTLABParser, LaboraParser 
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
 ################################################################################
@@ -207,6 +207,8 @@ class SFAGateway(Gateway):
         elif server_hrn.startswith('wilab2'):
             server_hrn = "wilab2.ilabt.iminds.be"
             parser = WiLabtParser
+        elif 'wall2' in server_hrn:
+            parser = VirtualWallParser
         elif ('ofelia' in server_hrn) or ('openflow' in server_hrn) or ('ofam' in server_hrn):
             parser = OfeliaOcfParser
         elif ('vtam' in server_hrn) or ('virtualization' in server_hrn):
@@ -1020,6 +1022,8 @@ class SFAGateway(Gateway):
         object_hrns = make_list(filters.get_op('%s_hrn' % object, [eq, included]))
         object_urns = make_list(filters.get_op('%s_urn' % object, [eq, included]))
 
+        contains_object_hrns = make_list(filters.get_op('%s_hrn' % object, contains))
+
         for urn in object_urns:
             hrn, _ = hrn_to_urn(urn, object)
             object_hrns.append(hrn)
@@ -1070,6 +1074,9 @@ class SFAGateway(Gateway):
             resolve   = False
             recursive = True if object != 'authority' else False
             stack = [interface_hrn]
+            if contains_object_hrns:
+                recursive = True 
+                stack = contains_object_hrns
         
         # All queries will involve user credentials
         cred = self._get_cred('user')
@@ -1414,7 +1421,7 @@ class SFAGateway(Gateway):
 
         if slice_hrn:
             Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
-        if parser in [WiLabtParser]:
+        if parser in [WiLabtParser, VirtualWallParser]:
             rsrc_slice = parser.parse_manifest(rspec_string, rspec_version, slice_urn)
         else:
             rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
@@ -1901,7 +1908,7 @@ class SFAGateway(Gateway):
             # XXX This will take 10 to 15 minutes to perform...
             #     How to Manage this in the Web Interface of MySlice ???
             #     How to Update the Sliver without Deleting it ???
-            #if parser in [WiLabtParser]:
+            #if parser in [WiLabtParser, VirtualWallParser]:
             #    result = yield self.sliceapi.DeleteSliver(slice_urn, [slice_cred], api_options)
 
             api_options['sfa_users'] = sfa_users
@@ -1910,6 +1917,12 @@ class SFAGateway(Gateway):
             # XXX Hardcoded struct_credential geni_version 3
             struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 3, 'geni_value': slice_cred}
             # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
+
+            if parser in [WiLabtParser, VirtualWallParser]:
+                print "iMinds Delete slivers before Allocate %s" % slice_urn
+                #result = yield self.sliceapi.Delete(slice_urn, [slice_cred], api_options)
+                #print result
+
             if parser in [IoTLABParser]: # XXX This should be handled by _get_cred
                 print "IOTLAB, using slice_cred"
                 result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
@@ -2016,7 +2029,7 @@ class SFAGateway(Gateway):
 
         parser = yield self.get_parser()
 
-        if parser in [WiLabtParser]:
+        if parser in [WiLabtParser, VirtualWallParser]:
             # start_time is defined in the leases
             rsrc_slice = parser.parse_manifest(manifest_rspec, rspec_version, slice_urn, start_time)
         else:
@@ -2040,7 +2053,7 @@ class SFAGateway(Gateway):
 
         # XXX TODO: After starting the node, we need to monitor the status and inform the user when it's ready
         # This is required for WiLab !!!
-        if parser in [WiLabtParser]:
+        if parser in [WiLabtParser, VirtualWallParser]:
             perform_action = yield self.sliceapi.PerformOperationalAction([slice_urn], [struct_credential], 'geni_start' , api_options)
             start_result = ReturnValue.get_value(perform_action)
             Log.warning("%s: PerformOperationalAction geni_start Result = %r" % (self.platform, perform_action))

@@ -21,14 +21,14 @@ class Rule(object):
     def from_dict(rule_dict):
         # XXX missing input/output interfaces, match module, etc.
         rule = Rule()
-        rule.object  = rule_dict['object']     if 'object'  in rule_dict else None
+        rule.object = rule_dict['object']      if 'object' in rule_dict else None
         rule.fields = set(rule_dict['fields']) if 'fields' in rule_dict else None 
         rule.access = rule_dict['access']      if 'access' in rule_dict else None 
         rule.target = rule_dict['target']      if 'target' in rule_dict else None
         return rule
 
     def __init__(self):
-        self.object  = None
+        self.object = None
         self.fields = None
         self.access = None
 
@@ -37,9 +37,9 @@ class Rule(object):
     def to_dict(self):
         return {
             'object' : self.object,
-            'fields': list(self.fields),
-            'access': self.access,
-            'target': self.target
+            'fields' : list(self.fields),
+            'access' : self.access,
+            'target' : self.target
         }
     
     def match(self, query, annotations):
@@ -48,10 +48,21 @@ class Rule(object):
         """
         # XXX Note that we are not inspecting 'action' 
 
-        if self.object != '*' and not query.object == self.object:
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
+        # The object without namespace to compare with the rule
+        if ':' in query.object:
+            obj = query.object.split(':')[-1] 
+        else:
+            obj = query.object
+
+        # Test if the object of the Query matches the object of the Rule
+        if self.object != '*' and not str(self.object) == str(obj):
             return False
 
-
+        print "rule.match between these objects: self.object = %s - query.object %s" % (self.object,obj)
         query_fields_R   = set()
         query_fields_R  |= query.get_select()
         query_fields_R  |= query.get_where().get_field_names()
@@ -64,8 +75,11 @@ class Rule(object):
         query_fields_RW |= query_fields_W
 
         if self.access == 'R':
+            print ('*' in self.fields and query_fields_R) or query_fields_R.intersection(self.fields)
             return ('*' in self.fields and query_fields_R) or query_fields_R.intersection(self.fields)
         elif self.access == 'W':
+            print ('*' in self.fields and query_fields_W) or query_fields_W.intersection(self.fields)
             return ('*' in self.fields and query_fields_W) or query_fields_W.intersection(self.fields)
         elif self.access == 'RW':
+            print ('*' in self.fields and query_fields_RW) or query_fields_RW.intersection(self.fields)
             return ('*' in self.fields and query_fields_RW) or query_fields_RW.intersection(self.fields)

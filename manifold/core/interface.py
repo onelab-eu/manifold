@@ -321,7 +321,7 @@ class Interface(object):
                     output = [{'name': name} for name in Gateway.list().keys()]
                 qp = QueryPlan()
                 qp.ast.from_table(query, output, key=None).selection(query.get_where()).projection(query.get_select())
-                return self.execute_query_plan(query, annotations, qp, is_deferred)
+                return self.execute_query_plan(namespace, query, annotations, qp, is_deferred)
                 
             else:
                 q = query.copy()
@@ -344,7 +344,7 @@ class Interface(object):
 
                 qp = QueryPlan()
                 qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
-                return self.execute_query_plan(query, annotations, qp, is_deferred)
+                return self.execute_query_plan(namespace, query, annotations, qp, is_deferred)
 
                 #output = ResultValue.get_success(output)
                 #if not d:

@@ -129,6 +129,10 @@ class Router(Interface):
         """
         Log.info("Router::forward: %s" % query)
 
+        # TMP CACHE DEBUG
+        #import pdb
+        #pdb.set_trace()
+
         user = annotations['user'] if annotations and 'user' in annotations else None
 
         ret = super(Router, self).forward(query, annotations, is_deferred, execute)
@@ -157,6 +161,10 @@ class Router(Interface):
         # - ERROR
 
         (decision, data) = self.policy.filter(query, None, annotations)
+
+        # TMP CACHE DEBUG
+        #pdb.set_trace()
+
         if decision == Policy.ACCEPT:
             pass
         elif decision == Policy.REWRITE:
@@ -178,6 +186,8 @@ class Router(Interface):
         else:
             raise Exception, "Unknown QUERY decision from policy engine: %s" % Policy.map_decision[decision]
         
+        # TMP CACHE DEBUG
+        #pdb.set_trace()
 
         # We suppose we have no namespace from here
         if not execute: 
@@ -214,24 +224,32 @@ class Router(Interface):
         # This might be a deferred, we cannot put any hook here...
 
         try:
-            if query_plan:
-                return self.execute_query_plan(query, annotations, query_plan, is_deferred, policy = False)
+            # Namespace and table are splited if prefix is used in the query
+            # namespace is passed as a parameter 
+            # Then namespace and table are back together in process_qp_results
+            # in order to send the results in the right Cache entry 
+            if ":" in query.get_from():
+                namespace, table_name = query.get_from().rsplit(":", 2)
+                query.object = table_name
             else:
-                return self.execute_query(query, annotations, is_deferred)
+                namespace = None
+
+            if query_plan:
+                return self.execute_query_plan(namespace, query, annotations, query_plan, is_deferred, policy = False)
+            else:
+                return self.execute_query(namespace, query, annotations, is_deferred)
         except Exception, e:
             return ResultValue.get_error(e, traceback.format_exc())
 
-    def process_qp_results(self, query, records, annotations, query_plan, policy = True):
-
-        # Implements common functionalities = local queries, etc.
-        namespace = None
+    def process_qp_results(self, namespace, query, records, annotations, query_plan, policy = True):
+        # namespace and table are back together in process_qp_results
+        # in order to send the results in the right Cache entry 
+        if namespace is not None:
+            query.object = namespace + ':' + query.object
 
         # Handling internal queries
-        if ":" in query.get_from():
-            namespace, table_name = query.get_from().rsplit(":", 2)
-
         is_local = (namespace == self.LOCAL_NAMESPACE)
-        is_metadata = (namespace and table_name == "object")
+        is_metadata = (namespace and query.object == "object")
         if policy and not is_local and not is_metadata:
             # XXX What to do in case of errors, and records is []
             for record in records:
@@ -260,25 +278,25 @@ class Router(Interface):
 
         return ResultValue.get_result_value(records, description)
 
-    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False, policy = True):
+    def execute_query_plan(self, namespace, query, annotations, query_plan, is_deferred = False, policy = True):
+        Log.tmp(query)
+        Log.tmp(namespace)
         records = query_plan.execute(is_deferred)
         if is_deferred:
             # results is a deferred
-            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan, policy))
+            records.addCallback(lambda records: self.process_qp_results(namespace, query, records, annotations, query_plan, policy))
             return records # will be a result_value after the callback
         else:
-            return self.process_qp_results(query, records, annotations, query_plan)
+            return self.process_qp_results(namespace, query, records, annotations, query_plan)
 
-    def execute_query(self, query, annotations, is_deferred=False):
+    def execute_query(self, namespace, query, annotations, is_deferred=False):
         if annotations:
             user = annotations.get('user', None)
         else:
             user = None
 
         # Code duplication with Interface() class
-        if ':' in query.get_from():
-            namespace, table = query.get_from().rsplit(':', 2)
-            query.object = table
+        if namespace is not None:
             allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
         else:
             allowed_platforms = [p['platform'] for p in self.platforms]
@@ -291,4 +309,4 @@ class Router(Interface):
         self.instanciate_gateways(qp, user)
         Log.info("QUERY PLAN:\n%s" % (qp.dump()))
 
-        return self.execute_query_plan(query, annotations, qp, is_deferred)
+        return self.execute_query_plan(namespace, query, annotations, qp, is_deferred)
