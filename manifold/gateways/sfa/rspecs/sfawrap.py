@@ -6,6 +6,8 @@ from manifold.util.log                  import Log
 from sfa.rspecs.rspec                   import RSpec
 from types                              import StringTypes
 
+from repoze.lru import lru_cache
+
 import dateutil.parser
 import calendar
 
@@ -952,28 +954,51 @@ class IoTLABParser(SFAWrapParser):
 
     @classmethod
     def get_resource_testbed_name(cls, urn):
-        if 'devgrenoble' in urn:
-            return 'Grenoble (dev)'
-        elif 'grenoble' in urn:
-            return 'Grenoble'
+        t_urn = urn.split('+')
+        testbed = t_urn[3].split('.')[1]
+        return testbed.title()
 
-        elif 'devrocquencourt' in urn:
-            return 'Rocquencourt (dev)'
-        elif 'rocquencourt' in urn:
-            return 'Rocquencourt'
+    @classmethod
+    def _process_resource(cls, resource):
+        """
+        Postprocess resources read from the RSpec. This applies to nodes, channels and links.
+        In particular, it sets the urn, hrn, network_hrn, facility_name and testbed_name fields.
+        """
+        urn = resource['component_id']
+        hrn, type = urn_to_hrn(resource['component_id'])
 
-        elif 'devstras' in urn:
-            return 'Strasbourg (dev)'
-        elif 'stras' in urn:
-            return 'Strasbourg'
+        resource['urn'] = urn
+        resource['hrn'] = hrn
 
-        elif 'devlille' in urn:
-            return 'Lille (dev)'
-        elif 'lille' in urn:
-            return 'Lille'
+        resource['network_hrn'] = Xrn(resource['component_id']).authority[0] # network ? XXX
 
-        else:
-            return 'N/A'
+        # We also add 'facility' and 'testbed' fields
+        resource['facility_name'] = cls.get_resource_facility_name(urn)
+        resource['testbed_name']  = cls.get_resource_testbed_name(urn)
+
+        #if 'location' in node:
+        #    if node['location']:
+        #        node['latitude'] = node['location']['latitude']
+        #        node['longitude'] = node['location']['longitude']
+        #    del node['location']
+        #else:
+        # if the location is not provided, aproximate it from the city
+        t_urn = resource['urn'].split('+')
+        city = t_urn[3].split('.')[1]
+        location = cls.get_location(city)
+        if location is not None:
+            resource['latitude'] = str(location.latitude)
+            resource['longitude'] = str(location.longitude)
+
+        return resource
+
+    @classmethod
+    @lru_cache(100)
+    def get_location(cls, city):
+        from geopy.geocoders import Nominatim
+        geolocator = Nominatim()
+        location = geolocator.geocode(city)
+        return location
 
     @classmethod
     def on_build_resource_hook(cls, resource):
