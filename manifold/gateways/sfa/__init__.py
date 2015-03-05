@@ -1083,7 +1083,11 @@ class SFAGateway(Gateway):
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
-            _results  = yield self.registry.Resolve(stack, cred, {'details': details})
+            try:
+                _results  = yield self.registry.Resolve(stack, cred, {'details': details})
+            except Exception,e:
+                Log.error("Error during Resolve call", e)
+                defer.returnValue({})
 
             output = []
 
@@ -2584,7 +2588,7 @@ class SFAGateway(Gateway):
         # create an SFA connexion to Registry, using user config
         registry_proxy = self.make_user_proxy(platform_config['registry'], config, 'sscert', timeout=platform_config.get('timeout', DEFAULT_TIMEOUT))
         if need_user_credential and SFAGateway.credentials_needed('user_credential', config):
-            Log.debug("Requesting user credential for user %s" % user_email)
+            Log.debug("Requesting user credential for user %s toward Registry %s" % (user_email, platform_config['registry']))
             try:
                 config['user_credential'] = yield registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
             except:
