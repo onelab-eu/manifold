@@ -1497,6 +1497,67 @@ class SFAGateway(Gateway):
             traceback.print_exc()
             defer.returnValue(list())
 
+    @defer.inlineCallbacks
+    def get_req_rspec(self, filters, params, fields):
+
+        # If No AM return
+        if not self.sliceapi:
+            defer.returnValue({})
+
+        try:
+            rspec = {}
+            resources = list()
+            leases = list()
+            flowspaces = list()
+
+            slice_urn = filters.get_eq('slice')
+            if slice_urn is None:
+                raise "slice == 'slice_urn' is required"
+
+            all_resources = filters.get_eq('resource')
+            if all_resources is None:
+                raise "resource == ['resource_urn', 'resource_urn'] is required"
+
+            all_leases = filters.get_eq('lease')
+            if all_leases is None:
+                all_leases = list()
+
+            interface_hrn = yield self.get_interface_hrn(self.sliceapi)
+
+            # Need to filter resources from each testbed
+            for resource in all_resources:
+                hrn = urn_to_hrn(resource)[0]
+                if not hrn.startswith(interface_hrn):
+                    #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
+                    continue
+                resources.append(resource)
+
+            for lease in all_leases:
+                hrn = urn_to_hrn(lease['resource'])[0]
+                if not hrn.startswith(interface_hrn):
+                    #print "FILTER LEASE expected auth", interface_hrn, ":", hrn
+                    continue
+                leases.append(lease)
+
+            if 'rspec_type' and 'rspec_version' in self.config:
+                rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+            else:
+                rspec_version = 'GENI 3'
+            # extend rspec version with "content_type"
+            rspec_version += ' request'
+
+            parser = yield self.get_parser()
+            xml = parser.build_rspec(slice_urn, resources, leases, flowspaces, rspec_version)
+            rspec['xml'] = xml
+            rspec['resource'] = all_resources
+            rspec['lease'] = all_leases
+            rspec['slice'] = slice_urn
+            defer.returnValue([rspec])
+        except Exception, e: # TIMEOUT
+            Log.warning("Exception in get_req_rspec: %s" % e)
+            traceback.print_exc()
+            defer.returnValue(list())
+
     #--------------------------------------------------------------------------- 
     # Update
     #--------------------------------------------------------------------------- 
@@ -2326,7 +2387,6 @@ class SFAGateway(Gateway):
             Log.debug("SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields)
 
             records = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
-
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
 
