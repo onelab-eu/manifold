@@ -1,3 +1,21 @@
+/* Get a Request RSpec based on a list of resources and leases */
+class req_rspec {
+    const string    xml;
+    resource        resource[];
+    lease           lease[];
+    slice           slice;
+    KEY(xml);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
+/* Get an Advertisement RSpec about a slice */
+class ad_rspec {
+    const string ad_xml;
+    slice slice;
+    KEY(ad_xml);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
 class slice {
     const string slice_urn;             /**< Slice Unique Resource Name */
     const string slice_hrn;             /**< Slice Human Readable name */
@@ -132,15 +150,18 @@ class resource {
     const string          hostname;
     const string          component_manager_id;
     const string          component_id;
-    const bool          exclusive;
+    const bool            exclusive;
     const string          component_name;
-    const hardware_type hardware_types[];
-    const location      location;
-    const interface     interfaces[];
+    const hardware_type   hardware_types[];
+    const location        location;
+    const interface       interfaces[];
     const string          boot_state;
     const string          country;
     const string          longitude;
     const string          latitude;
+
+# For Nitos and iMinds
+    const bool            available;
 
 #   only in nitos
     const string granularity;

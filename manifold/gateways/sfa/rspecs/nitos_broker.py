@@ -59,6 +59,7 @@ class NITOSBrokerParser(RSpecParser):
             'position_3d.y': 'y',
             'position_3d.z': 'z',
             'granularity.grain': 'granularity', # harmonize between ple and nitos
+            'available.now': 'available',
         },
         'channel': {
         }
