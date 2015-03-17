@@ -997,8 +997,13 @@ class IoTLABParser(SFAWrapParser):
     def get_location(cls, city):
         location = None
         try:
-            from geopy.geocoders import Nominatim
-            geolocator = Nominatim()
+            #from geopy.geocoders import Nominatim
+            #geolocator = Nominatim()
+            #from geopy.geocoders import GeoNames
+            #geolocator = GeoNames()
+            from geopy.geocoders import GoogleV3
+            geolocator = GoogleV3()
+          
             location = geolocator.geocode(city)
         except Exception, e:
             Log.warning("geopy.geocoders failed to get coordinates for city = ",city)
