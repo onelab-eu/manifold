@@ -1,3 +1,21 @@
+/* Get a Request RSpec based on a list of resources and leases */
+class req_rspec {
+    const string    xml;
+    resource        resource[];
+    lease           lease[];
+    slice           slice;
+    KEY(xml);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
+/* Get an Advertisement RSpec about a slice */
+class ad_rspec {
+    const string ad_xml;
+    slice slice;
+    KEY(ad_xml);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
 class slice {
     const string slice_urn;             /**< Slice Unique Resource Name */
     const string slice_hrn;             /**< Slice Human Readable name */

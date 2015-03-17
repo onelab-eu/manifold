@@ -20,6 +20,7 @@ from manifold.operators.rename          import Rename, do_rename
 from manifold.gateways                  import Gateway
 #from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy
+#from manifold.gateways.sfa.rspecs       import RSpecParser
 from manifold.util.callback             import Callback
 from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
@@ -194,7 +195,7 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']):
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode','gaia','omf.gaia','snu','omf.snu']):
             parser = NITOSBrokerParser
         elif ('paris' in server_hrn):
             parser = FitNitosParis
@@ -1497,6 +1498,104 @@ class SFAGateway(Gateway):
             traceback.print_exc()
             defer.returnValue(list())
 
+    def resource_match_am(self, urn, interface_hrn):
+        hrn = urn_to_hrn(urn)[0]
+        if hrn.startswith(interface_hrn):
+            return True
+        else:
+            return False
+
+    @defer.inlineCallbacks
+    def get_req_rspec(self, filters, params, fields):
+
+        # If No AM return
+        if not self.sliceapi:
+            defer.returnValue({})
+
+        try:
+            rspec = {}
+            resources = list()
+            leases = list()
+            flowspaces = list()
+
+            if 'rspec_type' and 'rspec_version' in self.config:
+                rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+            else:
+                rspec_version = 'GENI 3'
+            # extend rspec version with "content_type"
+            rspec_version += ' request'
+
+            parser = yield self.get_parser()
+            interface_hrn = yield self.get_interface_hrn(self.sliceapi)
+
+            slice_urn = filters.get_eq('slice')
+            if slice_urn is None:
+                raise "slice == 'slice_urn' is required"
+
+            xml = filters.get_eq('xml')
+
+            # We request the xml RSpec for a set of resources and leases (build_rspec)
+            if xml is None:
+
+                all_resources = filters.get_eq('resource')
+                if all_resources is None:
+                    raise "resource == ['resource_urn', 'resource_urn'] is required"
+
+                all_leases = filters.get_eq('lease')
+                if all_leases is None:
+                    all_leases = list()
+
+                # Need to filter resources from each testbed
+                for resource in all_resources:
+                    hrn = urn_to_hrn(resource)[0]
+                    if not hrn.startswith(interface_hrn):
+                        #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
+                        continue
+                    resources.append(resource)
+
+                for lease in all_leases:
+                    hrn = urn_to_hrn(lease['resource'])[0]
+                    if not hrn.startswith(interface_hrn):
+                        #print "FILTER LEASE expected auth", interface_hrn, ":", hrn
+                        continue
+                    leases.append(lease)
+
+                xml = parser.build_rspec(slice_urn, resources, leases, flowspaces, rspec_version)
+                rspec['resource'] = all_resources
+                rspec['lease'] = all_leases
+
+            # We want the resources and leases for a given RSpec (parse)
+            else:
+                Log.tmp(interface_hrn)
+                #RSpecParser.__namespace_map__ = {interface_hrn:None}
+                #RSpecParser.__actions__ = {}
+                #x = RSpecParser.parse(xml, rspec_version, slice_urn)
+                #Log.tmp(x)
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(xml)
+                namespace = root.tag.strip('rspec')
+                nodes = root.iterfind(namespace + 'node')
+                links = root.iterfind(namespace + 'link')
+                channels = root.iterfind(namespace + 'channel')
+                leases = root.iterfind(namespace + 'lease')
+                resources = itertools.chain(nodes,links,channels)
+                for r in resources:
+                    if self.resource_match_am(r.attrib['component_id'], interface_hrn):
+                        continue
+                    else:
+                        Log.warning("this resource %s is not for this AM %s" % (r.attrib['component_id'], interface_hrn))
+                        defer.returnValue(list())
+                rspec = parser.parse(xml, rspec_version, slice_urn)
+                Log.warning(rspec)
+
+            rspec['xml'] = xml
+            rspec['slice'] = slice_urn
+            defer.returnValue([rspec])
+        except Exception, e: # TIMEOUT
+            Log.warning("Exception in get_req_rspec: %s" % e)
+            traceback.print_exc()
+            defer.returnValue(list())
+
     #--------------------------------------------------------------------------- 
     # Update
     #--------------------------------------------------------------------------- 
@@ -2326,7 +2425,6 @@ class SFAGateway(Gateway):
             Log.debug("SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields)
 
             records = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
-
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
 
