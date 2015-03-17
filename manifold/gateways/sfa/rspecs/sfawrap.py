@@ -995,9 +995,14 @@ class IoTLABParser(SFAWrapParser):
     @classmethod
     @lru_cache(100)
     def get_location(cls, city):
-        from geopy.geocoders import Nominatim
-        geolocator = Nominatim()
-        location = geolocator.geocode(city)
+        location = None
+        try:
+            from geopy.geocoders import Nominatim
+            geolocator = Nominatim()
+            location = geolocator.geocode(city)
+        except Exception, e:
+            Log.warning("geopy.geocoders failed to get coordinates for city = ",city)
+            Log.warning(e)
         return location
 
     @classmethod
