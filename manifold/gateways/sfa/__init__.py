@@ -1208,16 +1208,17 @@ class SFAGateway(Gateway):
                 def cb(records):
                     for record in records:
                         record['login'] = []
-                        for r in record['resource']:
-                            Log.tmp(r['hostname'])
-                            r_id = r['urn']
-                            if 'login' in r:
-                                r_login = r['login']
-                            else:
-                                r_login = None
-                            record['login'].append({r_id:r_login})
-                        Log.tmp(record['login'])
-                        self.callback(Record(record))
+                        if 'resource' in record:
+                            for r in record['resource']:
+                                Log.tmp(r['hostname'])
+                                r_id = r['urn']
+                                if 'login' in r:
+                                    r_login = r['login']
+                                else:
+                                    r_login = None
+                                record['login'].append({r_id:r_login})
+                            Log.tmp(record['login'])
+                            self.callback(Record(record))
                     self.callback(LastRecord())
                 
                 d = _self.get_resource_lease(self._filters, None, fields_am, list_resources = True, list_leases = True)
