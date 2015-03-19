@@ -60,7 +60,7 @@ from manifold.gateways.sfa.rspecs.loose         import LooseParser
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
 
-AM_SLICE_FIELDS = set(['resource', 'lease', 'flowspace', 'vms'])
+AM_SLICE_FIELDS = set(['resource', 'lease', 'flowspace', 'vms', 'username'])
 SLICE_KEY = 'slice_urn'
 
 class TimeOutException(Exception):
@@ -1207,6 +1207,16 @@ class SFAGateway(Gateway):
             def start(self):
                 def cb(records):
                     for record in records:
+                        record['login'] = []
+                        for r in record['resource']:
+                            Log.tmp(r['hostname'])
+                            r_id = r['urn']
+                            if 'login' in r:
+                                r_login = r['login']
+                            else:
+                                r_login = None
+                            record['login'].append({r_id:r_login})
+                        Log.tmp(record['login'])
                         self.callback(Record(record))
                     self.callback(LastRecord())
                 

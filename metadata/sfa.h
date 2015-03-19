@@ -22,7 +22,7 @@ class slice {
     const string slice_type;
     user        users[];                /**< List of users associated to the slice */
     user        pi_users[];             /**< List of users associated to the slice */
-
+    
     const string slice_date_created;
     const string slice_expires;
     const string slice_last_updated;
@@ -34,6 +34,8 @@ class slice {
 #    const string slice_description;    /**< MyPLC field slice_description >**/
 
     geni_slivers sliver[];
+
+    const string login[];
 
 	resource resource[];
 	lease lease[];                      /**< List of leases associated to the slice */
@@ -166,9 +168,11 @@ class resource {
 #   only in nitos
     const string granularity;
 
-    const string          x;
-    const string          y;
-    const string          z;
+#   const string        username;      /** PB only available in Describe slice, not in ListResources <services> <login authentication hostname port username> </services> */
+
+    const string        x;
+    const string        y;
+    const string        z;
     initscript          initscripts[];         
     tag                 tags[];  
     slice               slice[];
@@ -179,6 +183,16 @@ class resource {
     KEY(urn);
     CAPABILITY(retrieve, join, fullquery);
 };
+
+# <services><login authentication="ssh-keys" hostname="n097-08b.wall2.ilabt.iminds.be" port="22" username="u6ab1e97"/></services>
+#class login {
+#    const string authentication;
+#    const string host;
+#    const int    port;
+#    const string username;
+#    KEY(username);
+#    CAPABILITY(retrieve, join, fullquery);
+#};
 
 
 class network {

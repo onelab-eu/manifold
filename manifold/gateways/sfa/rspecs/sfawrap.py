@@ -264,6 +264,17 @@ class SFAWrapParser(RSpecParser):
                 for tag in node['tags']:
                     node[tag['tagname']] = tag['value']
             del node['tags']
+        
+        if 'services' in node:
+            if node['services']:
+                node['login'] = {}
+                node['login']['username'] = node['services'][0]['login'][0]['username']
+                node['login']['hostname'] = node['services'][0]['login'][0]['hostname']
+                del node['services']
+        #    else:
+        #        node['username'] = "toto"
+        #else:
+        #    node['username'] = "titi"
         return node
 
     @classmethod

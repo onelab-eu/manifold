@@ -221,6 +221,11 @@ class NITOSBrokerParser(RSpecParser):
                         resource['country']   = 'France'
                 else:
                     resource['testbed_name'] = 'Nitos'
+
+                if 'services.login.username' in resource:
+                    if resource['services.login.username']:
+                        resource['login'] = {'username':resource['services.login.username'],'hostname':resource['services.login.hostname']}
+
                 resources.append(resource)
 
                 # Leases
