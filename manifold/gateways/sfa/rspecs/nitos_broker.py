@@ -191,7 +191,7 @@ class NITOSBrokerParser(RSpecParser):
                 if 'omf' in hrn:
                     t_hrn = hrn.split('.')
                     if t_hrn[1] == 'nitos':
-                        resource['testbed_name'] = 'NITOS Volos'
+                        resource['testbed_name'] = 'NITOS-Volos'
                         resource['country']   = 'Greece'
                         resource['latitude']  = '39.3666667'
                         resource['longitude'] = '22.9458333'
