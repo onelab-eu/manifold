@@ -1911,7 +1911,7 @@ class SFAGateway(Gateway):
             #if parser in [WiLabtParser, VirtualWallParser]:
             #    result = yield self.sliceapi.DeleteSliver(slice_urn, [slice_cred], api_options)
 
-            api_options['sfa_users'] = sfa_users
+            api_options['sfa_users'] = users
             api_options['geni_users'] = users
 
             # XXX Hardcoded struct_credential geni_version 3
@@ -2578,6 +2578,7 @@ class SFAGateway(Gateway):
             self_signed = Certificate(subject = config['user_hrn'])
             self_signed.set_pubkey(keypair)
             self_signed.set_issuer(keypair, subject=config['user_hrn'].encode('latin1'))
+            self_signed.set_data('email:'+user_email, 'subjectAltName')
             self_signed.sign()
             config['sscert'] = self_signed.save_to_string()
 
