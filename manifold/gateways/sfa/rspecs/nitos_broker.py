@@ -59,6 +59,7 @@ class NITOSBrokerParser(RSpecParser):
             'position_3d.y': 'y',
             'position_3d.z': 'z',
             'granularity.grain': 'granularity', # harmonize between ple and nitos
+            'available.now': 'available',
         },
         'channel': {
         }
@@ -190,7 +191,7 @@ class NITOSBrokerParser(RSpecParser):
                 if 'omf' in hrn:
                     t_hrn = hrn.split('.')
                     if t_hrn[1] == 'nitos':
-                        resource['testbed_name'] = 'NITOS Volos'
+                        resource['testbed_name'] = 'NITOS-Volos'
                         resource['country']   = 'Greece'
                         resource['latitude']  = '39.3666667'
                         resource['longitude'] = '22.9458333'
@@ -199,6 +200,16 @@ class NITOSBrokerParser(RSpecParser):
                         resource['country']   = 'Greece'
                         resource['latitude']  = '37.978377'
                         resource['longitude'] = '23.782707'
+                    elif t_hrn[1] == 'gaia':
+                        resource['testbed_name'] = 'UMU'
+                        resource['country']   = 'Spain'
+                        resource['latitude']  = '38.023681'
+                        resource['longitude'] = '-1.174462'
+                    elif t_hrn[1] == 'snu':
+                        resource['testbed_name'] = 'SNU'
+                        resource['country']   = 'South Korea'
+                        resource['latitude']  = '37.460263'
+                        resource['longitude'] = '126.953598'
                     elif 'paris' in hrn:
                         resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
                         # XXX Hardcoded for Paris @ UPMC
@@ -210,6 +221,11 @@ class NITOSBrokerParser(RSpecParser):
                         resource['country']   = 'France'
                 else:
                     resource['testbed_name'] = 'Nitos'
+
+                if 'services.login.username' in resource:
+                    if resource['services.login.username']:
+                        resource['login'] = {'username':resource['services.login.username'],'hostname':resource['services.login.hostname']}
+
                 resources.append(resource)
 
                 # Leases

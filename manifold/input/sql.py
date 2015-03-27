@@ -47,9 +47,9 @@ class SQLParser(object):
         OPERATOR_RX = "(?i)%s" % '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
 
         # predicate
-        field      = pp.Word(pp.alphanums + '_' + '.')
+        field      = pp.Word(pp.alphanums + '_' + '.' + '-')
         operator   = pp.Regex(OPERATOR_RX).setName("operator")
-        variable   = pp.Literal('$').suppress() + pp.Word(pp.alphanums + '_' + '.').setParseAction(lambda t: "$%s" % t[0])
+        variable   = pp.Literal('$').suppress() + pp.Word(pp.alphanums + '_' + '.' + '-').setParseAction(lambda t: "$%s" % t[0])
 
         obj        = pp.Forward()
         value      = obj | pp.QuotedString('"') | pp.QuotedString("'") | kw_true | kw_false | integer | variable

@@ -1,10 +1,28 @@
+/* Get a Request RSpec based on a list of resources and leases */
+class req_rspec {
+    const string    xml;
+    resource        resource[];
+    lease           lease[];
+    slice           slice;
+    KEY(xml);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
+/* Get an Advertisement RSpec about a slice */
+class ad_rspec {
+    const string ad_xml;
+    slice slice;
+    KEY(ad_xml);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
 class slice {
     const string slice_urn;             /**< Slice Unique Resource Name */
     const string slice_hrn;             /**< Slice Human Readable name */
     const string slice_type;
     user        users[];                /**< List of users associated to the slice */
     user        pi_users[];             /**< List of users associated to the slice */
-
+    
     const string slice_date_created;
     const string slice_expires;
     const string slice_last_updated;
@@ -16,6 +34,8 @@ class slice {
 #    const string slice_description;    /**< MyPLC field slice_description >**/
 
     geni_slivers sliver[];
+
+    const string login[];
 
 	resource resource[];
 	lease lease[];                      /**< List of leases associated to the slice */
@@ -132,22 +152,27 @@ class resource {
     const string          hostname;
     const string          component_manager_id;
     const string          component_id;
-    const bool          exclusive;
+    const bool            exclusive;
     const string          component_name;
-    const hardware_type hardware_types[];
-    const location      location;
-    const interface     interfaces[];
+    const hardware_type   hardware_types[];
+    const location        location;
+    const interface       interfaces[];
     const string          boot_state;
     const string          country;
     const string          longitude;
     const string          latitude;
 
+# For Nitos and iMinds
+    const bool            available;
+
 #   only in nitos
     const string granularity;
 
-    const string          x;
-    const string          y;
-    const string          z;
+#   const string        username;      /** PB only available in Describe slice, not in ListResources <services> <login authentication hostname port username> </services> */
+
+    const string        x;
+    const string        y;
+    const string        z;
     initscript          initscripts[];         
     tag                 tags[];  
     slice               slice[];
@@ -158,6 +183,16 @@ class resource {
     KEY(urn);
     CAPABILITY(retrieve, join, fullquery);
 };
+
+# <services><login authentication="ssh-keys" hostname="n097-08b.wall2.ilabt.iminds.be" port="22" username="u6ab1e97"/></services>
+#class login {
+#    const string authentication;
+#    const string host;
+#    const int    port;
+#    const string username;
+#    KEY(username);
+#    CAPABILITY(retrieve, join, fullquery);
+#};
 
 
 class network {
