@@ -65,6 +65,7 @@ class SFA_AMGateway(SFAGatewayCommon):
     def get_rm_names(self):
         """
         """
+        Log.tmp(self.get_config())
         return self.get_config().get('rm_platforms', [])
 
     @returns(GeneratorType)
@@ -75,6 +76,7 @@ class SFA_AMGateway(SFAGatewayCommon):
             related to this AM.
         """
         platform_names = self.get_rm_names()
+        Log.tmp(platform_names)
 
         # Check whether this AM refers to at least one RM.
         # XXX Pourquoi, avec mon changement fait plus haut -- jordan

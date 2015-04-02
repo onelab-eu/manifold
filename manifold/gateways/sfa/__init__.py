@@ -40,8 +40,8 @@ MAX_RETRIES     = 3
 # code written in am/__init__.py and rm/__init__.py
 
 # XXX Gateway
-USER_KEY = 'email'
-PLATFORM_KEY = 'platform'
+USER_KEY = 'user_id'
+PLATFORM_KEY = 'platform_id'
 
 class SFAGatewayCommon(Gateway):
 
@@ -74,6 +74,8 @@ class SFAGatewayCommon(Gateway):
         # timeout = The maximum delay (in seconds) before considering that we wont get an answer.
         if not "timeout" in platform_config:
             platform_config["timeout"] = DEFAULT_TIMEOUT
+
+        self.platform = platform
 
         ReactorThread().start_reactor()
 
@@ -128,6 +130,33 @@ class SFAGatewayCommon(Gateway):
         """
         raise Exception, "This method must be overloaded"
 
+    @returns(int)
+    def get_user_id(self, user_email):
+        query = Query.get('user')                    \
+            .filter_by('email', eq, user_email)    \
+            .select('user_id')
+        try:
+            users = self._router.execute_local_query(query)
+            Log.tmp(users)
+        except Exception, e:
+            print "EEE", e
+            exception_class = NoAdminAccountException if user_email == ADMIN_USER_EMAIL else NoAccountException
+            raise exception_class("No account found for User %s" % (user_email))
+        return users[0]['user_id']
+
+    @returns(int)
+    def get_platform_id(self, platform):
+        query = Query.get('platform')                    \
+            .filter_by('platform', eq, platform)    \
+            .select('platform_id')
+        try:
+            platforms = self._router.execute_local_query(query)
+            Log.tmp(platforms)
+        except Exception, e:
+            print "EEE", e
+            raise Exception("No platform found for %s" % (platform))
+        return platforms[0]['platform_id']
+
     # XXX This should be common to all gateways
     @returns(dict)
     def get_account(self, user_email, platform_name = None):
@@ -152,10 +181,12 @@ class SFAGatewayCommon(Gateway):
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
+        user_id = self.get_user_id(user_email)
+        platform_id = self.get_platform_id(platform_name)
         # We need to add the select() clause since those *-query are not # well-managed yet
         query = Query.get('account')                    \
-            .filter_by(USER_KEY,     eq, user_email)    \
-            .filter_by(PLATFORM_KEY, eq, platform_name) \
+            .filter_by(USER_KEY,     eq, user_id)    \
+            .filter_by(PLATFORM_KEY, eq, platform_id) \
             .select('auth_type', 'config')
         try:
             accounts = self._router.execute_local_query(query)
@@ -190,10 +221,12 @@ class SFAGatewayCommon(Gateway):
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
+        user_id = self.get_user_id(user_email)
+        platform_id = self.get_platform_id(platform_name)
         query = Query.update('account')                  \
             .set({'config': json.dumps(account_config)}) \
-            .filter_by(USER_KEY,     eq, user_email)     \
-            .filter_by(PLATFORM_KEY, eq, platform_name)
+            .filter_by(USER_KEY,     eq, user_id)     \
+            .filter_by(PLATFORM_KEY, eq, platform_id)
 
         # Update the Storage consequently
         self._router.execute_local_query(query)
