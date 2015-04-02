@@ -70,7 +70,13 @@ class Log(object):
         Args:
             name: A String identifying the logger (not yet supported).
         """
-        self.log = None # logging.getLogger(name)
+
+	# stdout logs
+        #self.log = None
+
+	# file logs
+        self.log = logging.getLogger(name)
+
         self.files_to_keep = list()
         self.init_log()
         self.color = True
