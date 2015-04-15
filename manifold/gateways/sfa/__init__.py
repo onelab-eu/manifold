@@ -60,7 +60,7 @@ from manifold.gateways.sfa.rspecs.loose         import LooseParser
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
 
-AM_SLICE_FIELDS = set(['resource', 'lease', 'flowspace', 'vms', 'username'])
+AM_SLICE_FIELDS = set(['resource', 'lease', 'flowspace', 'vms', 'username', 'sliver'])
 SLICE_KEY = 'slice_urn'
 
 class TimeOutException(Exception):
@@ -1445,6 +1445,12 @@ class SFAGateway(Gateway):
         # Make records
         rsrc_slice['resource'] = Records(rsrc_slice['resource'])
         rsrc_slice['lease'] = Records(rsrc_slice['lease'])
+        rsrc_slice['sliver'] = []
+        #print "Describe rsrc = ", rsrc_slice
+        for r in rsrc_slice['resource']:
+            if 'sliver_id' in r:
+                #print 'sliver_id  ===== ', r['sliver_id']
+                rsrc_slice['sliver'].append(r['sliver_id'])
 
         # flowspace is the openflow:sliver returned in the manifest RSpec
         # this corresponds to the request RSpec sent by the experimenter
