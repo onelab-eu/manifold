@@ -104,10 +104,11 @@ class Router(Interface):
     def delete_cache(self, annotations=None):
          try:
             Log.tmp("----------> DELETE CACHE PER USER <------------")
-            #Log.tmp(annotations)
-            user_id = annotations['user']['user_id']
-            if user_id in self._cache_user:
-                del self._cache_user[user_id]
+            Log.tmp(annotations)
+            if annotations is not None:
+                user_id = annotations['user']['user_id']
+                if user_id in self._cache_user:
+                    del self._cache_user[user_id]
          except:
             import traceback
             traceback.print_exc()
@@ -132,8 +133,14 @@ class Router(Interface):
         # TMP CACHE DEBUG
         #import pdb
         #pdb.set_trace()
+        
+        # INVALIDATE CACHE - should be per object?
+        if query.get_action() != 'get':
+            self.delete_cache(annotations)
 
         user = annotations['user'] if annotations and 'user' in annotations else None
+        if annotations is None:
+            annotations = {}
 
         ret = super(Router, self).forward(query, annotations, is_deferred, execute)
         if ret: 
