@@ -1671,7 +1671,7 @@ class SFAGateway(Gateway):
                 auth_cred = self._get_cred('authority', object_auth_hrn)
         else:
             Log.tmp("Need an authority credential to update: %s" % object_hrn)
-            auth_cred = self._get_cred('authority', object_auth_hrn)
+            auth_cred = self._get_cred('authority', object_hrn)
         try:
             object_gid = yield self.registry.Update(params, auth_cred)
         except Exception, e:
