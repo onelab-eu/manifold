@@ -25,12 +25,10 @@ class Cache(object):
         self.add_entry(query, Entry())
     
     def add_entry(self, query, entry):
-        Log.tmp(query,entry)
         self._lattice.add(query, entry)
 
     def last_record(self, query):
         entry = self.get_entry(query)
-        Log.tmp(query, entry)
         if not entry:
             if not create:
                 raise Exception, "Query not found in cache: %r" % query
@@ -39,7 +37,6 @@ class Cache(object):
 
     def append_records(self, query, records, create=False):
         entry = self.get_entry(query)
-        Log.tmp(query, entry)
         if not entry:
             if not create:
                 raise Exception, "Query not found in cache: %r" % query
@@ -52,7 +49,6 @@ class Cache(object):
         #pdb.set_trace()
 
         entry = self.get_entry(query)
-        Log.tmp(query, entry)
         if not entry:
             if not create:
                 return

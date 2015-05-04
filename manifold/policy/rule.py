@@ -62,7 +62,7 @@ class Rule(object):
         if self.object != '*' and not str(self.object) == str(obj):
             return False
 
-        print "rule.match between these objects: self.object = %s - query.object %s" % (self.object,obj)
+        #print "rule.match between these objects: self.object = %s - query.object %s" % (self.object,obj)
         query_fields_R   = set()
         query_fields_R  |= query.get_select()
         query_fields_R  |= query.get_where().get_field_names()

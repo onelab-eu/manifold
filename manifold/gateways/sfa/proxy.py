@@ -499,7 +499,6 @@ if __name__ == '__main__':
                         self._callback()
                 def __call__(self, result):
                     #print len(result), "results"
-                    print result
                     self.dec()
 
             cb = Callback(terminate)

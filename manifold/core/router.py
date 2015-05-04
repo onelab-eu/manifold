@@ -286,8 +286,6 @@ class Router(Interface):
         return ResultValue.get_result_value(records, description)
 
     def execute_query_plan(self, namespace, query, annotations, query_plan, is_deferred = False, policy = True):
-        Log.tmp(query)
-        Log.tmp(namespace)
         records = query_plan.execute(is_deferred)
         if is_deferred:
             # results is a deferred

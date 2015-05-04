@@ -18,6 +18,7 @@ def usage():
     print "Add a user to MySlice"
     print "    EMAIL: email address that identifies the user"
     print '    CONFIG: "{\\"firstname\\": \\"xxx\\", \\"lastname\\": \\"xxx\\", \\"authority\\": \\"ple.upmc\\"}"'
+    print '    STATUS: 0 | 1 | 2'
 
 def main():
     argc = len(sys.argv)
@@ -27,6 +28,7 @@ def main():
 
     email = sys.argv[1]
     config = sys.argv[2]
+    status = sys.argv[3]
     password = getpass.getpass("Password: ")
 
     magic = "$1$"
@@ -42,7 +44,8 @@ def main():
     user_params = {
         'email'   : email,
         'password': password,
-        'config'  : config
+        'config'  : config,
+        'status'  : status,
     }
     query = Query(action='create', object='local:user', params=user_params)
 
