@@ -2199,11 +2199,6 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def delete_object(self, filters, params, fields):
 
-        # If No Registry RM return
-        if not self.registry:
-            defer.returnValue([])
-
-
         aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
 
@@ -2223,15 +2218,37 @@ class SFAGateway(Gateway):
         else:
             object_hrn = dict_filters['hrn']
 
+
         object_type = self.query.object
-        object_auth_hrn = get_authority(object_hrn)
-        auth_cred = self._get_cred('authority', object_auth_hrn)
+
+        # If No Registry RM - Delete slivers at the AM        
+        if object_type == 'slice' and not self.registry:
+            if filters.has(self.query.object+'_urn'):
+                object_urn = dict_filters[self.query.object+'_urn']
+            else:
+                object_urn = hrn_to_urn(object_hrn, 'slice')
+
+            slice_cred = self._get_cred('slice', object_hrn)
+            try:
+                # XXX LOIC What does this call returns?
+                object_gid = yield self.sliceapi.Delete([object_urn], [slice_cred], {})
+            except Exception, e:
+                raise Exception, 'Failed to Remove object: %s' % e
+            defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
+
+        else:
+            # If No Registry RM and Not slice - return
+            if not self.registry:
+                defer.returnValue([])
+
+            object_auth_hrn = get_authority(object_hrn)
+            auth_cred = self._get_cred('authority', object_auth_hrn)
        
-        try:
-            object_gid = yield self.registry.Remove(object_hrn, auth_cred, object_type)
-        except Exception, e:
-            raise Exception, 'Failed to Remove object: %s' % e
-        defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
+            try:
+                object_gid = yield self.registry.Remove(object_hrn, auth_cred, object_type)
+            except Exception, e:
+                raise Exception, 'Failed to Remove object: %s' % e
+            defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
 
     delete_user      = delete_object
     delete_slice     = delete_object
