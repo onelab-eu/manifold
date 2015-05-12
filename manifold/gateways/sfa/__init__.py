@@ -199,7 +199,7 @@ class SFAGateway(Gateway):
             parser = NITOSBrokerParser
         elif ('paris' in server_hrn):
             parser = FitNitosParis
-        elif server_hrn == 'iotlab':
+        elif server_hrn == 'iotlab' or server_hrn == 'iii':
             parser = IoTLABParser
         elif server_hrn == 'ple':
             parser = PLEParser
