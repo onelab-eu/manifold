@@ -967,7 +967,11 @@ class IoTLABParser(SFAWrapParser):
     def get_resource_testbed_name(cls, urn):
         t_urn = urn.split('+')
         testbed = t_urn[3].split('.')[1]
-        return testbed.title()
+        # XXX Ugly hack for the moment
+        if testbed == 'iii':
+            return 'iii.org.tw'
+        else:
+            return testbed.title()
 
     @classmethod
     def _process_resource(cls, resource):
@@ -996,6 +1000,11 @@ class IoTLABParser(SFAWrapParser):
         # if the location is not provided, aproximate it from the city
         t_urn = resource['urn'].split('+')
         city = t_urn[3].split('.')[1]
+        if city == 'iii':
+            city = 'Institute for Information Industry, Taïwan 106'
+            resource['country'] = 'Taiwan'
+        else:
+            resource['country'] = 'France'
         location = cls.get_location(city)
         if location is not None:
             resource['latitude'] = str(location.latitude)
