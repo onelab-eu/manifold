@@ -75,11 +75,8 @@ class Rule(object):
         query_fields_RW |= query_fields_W
 
         if self.access == 'R':
-            print ('*' in self.fields and query_fields_R) or query_fields_R.intersection(self.fields)
             return ('*' in self.fields and query_fields_R) or query_fields_R.intersection(self.fields)
         elif self.access == 'W':
-            print ('*' in self.fields and query_fields_W) or query_fields_W.intersection(self.fields)
             return ('*' in self.fields and query_fields_W) or query_fields_W.intersection(self.fields)
         elif self.access == 'RW':
-            print ('*' in self.fields and query_fields_RW) or query_fields_RW.intersection(self.fields)
             return ('*' in self.fields and query_fields_RW) or query_fields_RW.intersection(self.fields)
