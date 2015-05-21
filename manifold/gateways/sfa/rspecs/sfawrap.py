@@ -11,6 +11,38 @@ from repoze.lru import lru_cache
 import dateutil.parser
 import calendar
 
+def set_status(node):
+    if 'boot_state' in node:
+        #Log.tmp('1 - boot_state = %s' % node['boot_state'])
+        if node['boot_state'] == 'disabled':
+            node['available'] = 'false'
+        elif node['boot_state'] == 'boot':
+            node['available'] = 'true'
+        else:
+            if 'available' in node:
+                #Log.tmp('2 - available = %s' % node['available'])
+                if node['available'] == 'true':
+                    node['boot_state'] = 'available'
+                else:
+                    node['boot_state'] = 'disabled'
+            else:
+                #Log.tmp('3 - No available')
+                node['boot_state'] = 'available'
+            node['available'] = 'true'
+    else:
+        if 'available' in node:
+            #Log.tmp('4 - available = %s' % node['available'])
+            if node['available'] == 'true':
+                node['boot_state'] = 'available'
+            else:
+                node['boot_state'] = 'disabled'
+        else:
+            #Log.tmp('5 - available = %s' % node['available'])
+            node['boot_state'] = 'available'
+            node['available'] = 'true'
+
+    return node
+
 class SFAWrapParser(RSpecParser):
 
     #---------------------------------------------------------------------------
@@ -271,10 +303,9 @@ class SFAWrapParser(RSpecParser):
                 node['login']['username'] = node['services'][0]['login'][0]['username']
                 node['login']['hostname'] = node['services'][0]['login'][0]['hostname']
                 del node['services']
-        #    else:
-        #        node['username'] = "toto"
-        #else:
-        #    node['username'] = "titi"
+
+        # boot_state and available = true/false
+        node = set_status(node)
         return node
 
     @classmethod

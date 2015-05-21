@@ -4,6 +4,7 @@
 import sys, time, copy, uuid
 from types import StringTypes
 from manifold.gateways.sfa.rspecs import RSpecParser
+from manifold.gateways.sfa.rspecs.sfawrap import set_status
 import dateutil.parser
 import calendar
 from datetime import datetime, timedelta
@@ -225,6 +226,8 @@ class NITOSBrokerParser(RSpecParser):
                 if 'services.login.username' in resource:
                     if resource['services.login.username']:
                         resource['login'] = {'username':resource['services.login.username'],'hostname':resource['services.login.hostname']}
+
+                resource = set_status(resource)
 
                 resources.append(resource)
 

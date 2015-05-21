@@ -153,14 +153,20 @@ class resource {
     const string          component_manager_id;
     const string          component_id;
     const bool            exclusive;
-    const string          component_name;
+#   const string          component_name;
     const hardware_type   hardware_types[];
-    const location        location;
-    const interface       interfaces[];
+#   const location        location;
+#   const interface       interfaces[];
     const string          boot_state;
     const string          country;
     const string          longitude;
     const string          latitude;
+
+# PLE properties
+    const string          fcdistro;
+    const string          arch;
+    const string          asnumber;
+    const string          astype;
 
 # For Nitos and iMinds
     const bool            available;
@@ -173,9 +179,9 @@ class resource {
     const string        x;
     const string        y;
     const string        z;
-    initscript          initscripts[];         
-    tag                 tags[];  
-    slice               slice[];
+#   initscript          initscripts[];         
+#   tag                 tags[];  
+#   slice               slice[];
 #   sliver              slivers[];
 #   service             services[];
 #   position            position;
