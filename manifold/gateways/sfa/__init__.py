@@ -195,7 +195,7 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode','gaia','omf.gaia','snu','omf.snu']):
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode','gaia','omf.gaia','snu','omf.snu', 'faraday']):
             parser = NITOSBrokerParser
         elif ('paris' in server_hrn):
             parser = FitNitosParis
@@ -508,17 +508,25 @@ class SFAGateway(Gateway):
     def get_interface_hrn(self, server):
         server_version = yield self.get_cached_server_version(server)    
         # Avoid inconsistent hrn in GetVersion - ROUTERV2
-        hrn = urn_to_hrn(server_version['urn'])
-        auth = Xrn(server_version['urn'])
+        if 'urn' in server_version:
+            hrn = urn_to_hrn(server_version['urn'])
+            if isinstance(hrn, tuple):
+                hrn = str(hrn[0])
+        elif 'hrn' in server_version:
+            hrn = server_version['hrn']
+        else:
+            hrn = self.platform
+
+        defer.returnValue(hrn)
         #Log.tmp(auth)
         #Log.tmp(server_version['urn'])
         #Log.tmp(hrn)
 
         # XXX TMP FIX while URN from ple is 'urn:publicid:IDN++ple' instead of 'urn:publicid:IDN+authority+ple'
-        if hrn[0] =='' and 'hrn' in server_version:
-            defer.returnValue(server_version['hrn'])
-        else:
-            defer.returnValue(hrn[0])
+        #if hrn[0] =='' and 'hrn' in server_version:
+        #    defer.returnValue(server_version['hrn'])
+        #else:
+        #    defer.returnValue(hrn[0])
         
     ### resurrect this temporarily so we can support V1 aggregates for a while
     @defer.inlineCallbacks
