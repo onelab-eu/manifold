@@ -790,7 +790,7 @@ class WiLabtParser(SFAWrapParser):
         authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in node) or (node['component_manager_id'] != authority):
             Log.warning("Authority is not WiLab - Ignore node = ",node)
-            return None
+            #return None
         return super(WiLabtParser, cls)._process_node(node) 
 
     # link uses component_manager
@@ -800,7 +800,7 @@ class WiLabtParser(SFAWrapParser):
         authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager' in link) or (link['component_manager'] != authority):
             Log.warning("Authority is not WiLab - Ignore link = ",link)
-            return None
+            #return None
         return super(WiLabtParser, cls)._process_link(link) 
 
     @classmethod
@@ -808,7 +808,7 @@ class WiLabtParser(SFAWrapParser):
         authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in channel) or (channel['component_manager_id'] != authority):
             Log.warning("Authority is not WiLab - Ignore channel = ",channel)
-            return None
+            #return None
         return super(WiLabtParser, cls)._process_channel(channel) 
 
     @classmethod
@@ -818,7 +818,7 @@ class WiLabtParser(SFAWrapParser):
         authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in lease) or (lease['component_manager_id'] != authority):
             Log.warning("Authority is not WiLab - Ignore lease = ",lease)
-            return None
+            #return None
         new_lease['resource'] = lease.pop('component_id')
         new_lease['lease_id'] = None
         new_lease['slice']    = lease.pop('slice_urn')
@@ -956,8 +956,8 @@ class VirtualWallParser(WiLabtParser):
     def _process_node(cls, node):
         authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in node) or (node['component_manager_id'] != authority):
-            Log.warning("Authority is not WiLab - Ignore node = ",node)
-            return None
+            Log.warning("Authority is not wall2 - Ignore node = ",node)
+            #return None
         return super(WiLabtParser, cls)._process_node(node) 
 
     # link uses component_manager
@@ -967,7 +967,7 @@ class VirtualWallParser(WiLabtParser):
         authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager' in link) or (link['component_manager'] != authority):
             Log.warning("Authority is not wall2 - Ignore link = ",link)
-            return None
+            #return None
         return super(WiLabtParser, cls)._process_link(link) 
 
     @classmethod
@@ -975,7 +975,7 @@ class VirtualWallParser(WiLabtParser):
         authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in channel) or (channel['component_manager_id'] != authority):
             Log.warning("Authority is not wall2 - Ignore channel = ",channel)
-            return None
+            #return None
         return super(WiLabtParser, cls)._process_channel(channel) 
 
     @classmethod
@@ -985,8 +985,7 @@ class VirtualWallParser(WiLabtParser):
         authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in lease) or (lease['component_manager_id'] != authority):
             Log.warning("Authority is not wall2 - Ignore lease = ",lease)
-            return None
-
+            #return None
 
 class IoTLABParser(SFAWrapParser):
 
