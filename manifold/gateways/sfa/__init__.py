@@ -195,7 +195,7 @@ class SFAGateway(Gateway):
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hostname = server_version.get('hostname')
         
-        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode','gaia','omf.gaia','snu','omf.snu', 'faraday']):
+        if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode','gaia','omf.gaia','snu','omf.snu','r2lab','omf.r2lab','faraday','omf.faraday']):
             parser = NITOSBrokerParser
         elif ('paris' in server_hrn):
             parser = FitNitosParis
@@ -2051,6 +2051,8 @@ class SFAGateway(Gateway):
                 #result = yield self.sliceapi.Delete(slice_urn, [slice_cred], api_options)
                 #print result
 
+            Log.warning("Allocate REQUEST RSPEC = %s" %rspec)
+            api_options['append'] = True
             if parser in [IoTLABParser]: # XXX This should be handled by _get_cred
                 print "IOTLAB, using slice_cred"
                 result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
