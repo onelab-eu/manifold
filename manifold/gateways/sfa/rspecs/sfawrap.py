@@ -12,6 +12,8 @@ import dateutil.parser
 import calendar
 
 def set_status(node):
+    # XXX boot_state is defined in sfa.rspecs.elements.versions
+    # It can be present after parsing even if it's not in the RSpec
     if 'boot_state' in node:
         #Log.tmp('1 - boot_state = %s' % node['boot_state'])
         if node['boot_state'] == 'disabled':
@@ -419,9 +421,12 @@ class SFAWrapParser(RSpecParser):
                 if duration < min_duration:
                     raise Exception, 'duration < min_duration'
                 sfa_lease['duration'] = duration
-            elif 'duration' in lease:
+            elif 'duration' in lease and 'start_time' in lease and lease['start_time']!=0:
                 sfa_lease['duration'] = lease['duration']
                 sfa_lease['end_time'] = lease['start_time'] + lease['duration']
+            elif 'duration' in lease and lease['start_time']==0:
+                # asap mode
+                sfa_lease['duration'] = lease['duration']
             else:
                 raise Exception, 'Lease not specifying neither end_time nor duration'
             sfa_leases.append(sfa_lease)
@@ -522,9 +527,13 @@ class PLEParser(SFAWrapParser):
                 if duration < min_duration:
                     raise Exception, 'duration < min_duration'
                 sfa_lease['duration'] = duration
-            elif 'duration' in lease:
+            elif 'duration' in lease and 'start_time' in lease and lease['start_time']!=0:
                 sfa_lease['duration'] = lease['duration']
                 sfa_lease['end_time'] = lease['start_time'] + lease['duration']
+            elif 'duration' in lease and lease['start_time']==0:
+                # asap mode
+                sfa_lease['duration'] = lease['duration']
+                sfa_lease['start_time'] = lease['start_time']
             else:
                 raise Exception, 'Lease not specifying neither end_time nor duration'
             sfa_leases.append(sfa_lease)
