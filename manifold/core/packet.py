@@ -886,6 +886,8 @@ class Record(CREATE):
         CREATE.__init__(self, receiver=receiver, last=last)
         assert len(args) in [0,1]
         if len(args) > 0:
+            if not  isinstance(args[0], (CREATE, dict)):
+                import pdb; pdb.set_trace()
             assert isinstance(args[0], (CREATE, dict))
             self.update_data(args[0])
         if kwargs:

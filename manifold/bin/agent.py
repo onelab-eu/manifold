@@ -372,8 +372,8 @@ class AgentDaemon(Daemon):
 
         self._router.set_keyvalue('agent_started', time.time())
 
+        self._ping = self._router.add_interface("ping", name="ping")
         if not Options().server_mode:
-            self._ping = self._router.add_interface("ping", name="ping")
             self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
             self._fastping = self._router.add_interface("fastping", name="fastping")
             # Is it because of a memory leak ?
