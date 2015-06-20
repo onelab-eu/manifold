@@ -375,7 +375,10 @@ class AgentDaemon(Daemon):
         self._ping = self._router.add_interface("ping", name="ping")
         if not Options().server_mode:
             self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
-            self._fastping = self._router.add_interface("fastping", name="fastping")
+            
+            # XXX fastping messes up metadata and interferes with ping
+            # self._fastping = self._router.add_interface("fastping", name="fastping")
+            
             # Is it because of a memory leak ?
             # Should we run fastping as a process instead of a thread ?
 
