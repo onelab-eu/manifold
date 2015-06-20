@@ -120,6 +120,7 @@ class FIB(ChildSlotMixin):
             keys            = table.get_keys()
             fields          = table.get_fields()
             capabilities    = table.get_capabilities()
+
             #obj.add_capabilities(partitions)
             #obj.add_platform_capabilities(platform_name, partitions)
 
@@ -199,6 +200,8 @@ class FIB(ChildSlotMixin):
                     obj.set_platform_object_name(platform_name, object_name)
 
                 obj.add_key(key)
+                # XXX what the capability for the joined object ?
+                obj.set_capabilities(capabilities)
 
                 # New relations ?
                 # FD: x -> a

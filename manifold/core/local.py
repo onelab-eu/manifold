@@ -108,7 +108,11 @@ class LocalInterfaceCollection(ManifoldCollection):
         router = self.get_gateway().get_router()
         data = packet.get_data()
         interface_type = data.pop('type')
-        interface = router.add_interface(interface_type, **data)
+        try:
+            interface = router.add_interface(interface_type, **data)
+        except Exception, e:
+            print "TODO: send error packet", e
+            return
         interface.up()
 
 class LocalAboutCollection(ManifoldCollection):

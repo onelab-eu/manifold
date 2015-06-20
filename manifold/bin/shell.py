@@ -69,6 +69,7 @@ class Shell(object):
         self._auth_method = auth_method
         self._interactive = interactive
         self.client       = None
+        self.terminated_clients = list()
         if interface_type:
             Interface.register_all()
             self.set_interface(interface_type, **kwargs)
@@ -85,8 +86,17 @@ class Shell(object):
         """
         Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
         """
+        # Workaround to avoid terminating reactor thread...
+        for client in self.terminated_clients:
+            client.terminate()
+
         if self.client: # In case of error, the self.client might be equal to None
             self.client.terminate()
+
+    def terminate_client(self, client):
+        if not client:
+            return
+        self.terminated_clients.append(client)
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -103,6 +113,7 @@ class Shell(object):
 
     # This is becoming the new way of selecting a client
     def set_interface(self, interface_type, **kwargs):
+        self.terminate_client(self.client)
         self.client = ManifoldClient(interface_type, **kwargs)
 
     @returns(bool)
@@ -303,11 +314,14 @@ class Shell(object):
             username: A String containing the user's email address.
         """
         from manifold.clients.local import ManifoldLocalClient
+        self.terminate_client(self.client)
         self.client = ManifoldLocalClient(username)
 
     def authenticate_tcp(self, host, port):
         from manifold.clients.tcp   import ManifoldTcpClient
+        self.terminate_client(self.client)
         self.client = ManifoldTcpClient(host, port)
+
 
     def authenticate_router(self, username):
         """
@@ -316,6 +330,7 @@ class Shell(object):
             username: A String containing the user's email address.
         """
         from manifold.clients.router import ManifoldRouterClient
+        self.terminate_client(self.client)
         self.client = ManifoldRouterClient(username)
 
     def authenticate_xmlrpc_password(self, url, username, password):
@@ -329,6 +344,7 @@ class Shell(object):
             password: A String containing the user's password.
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
+        self.terminate_client(self.client)
         self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
 
     def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
@@ -346,6 +362,7 @@ class Shell(object):
                 Example: "/etc/manifold/keys/client.cert"
         """
         from manifold.clients.xmlrpc_ssl_gid import ManifoldXMLRPCClientSSLGID
+        self.terminate_client(self.client)
         self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
 
     def authenticate_xmlrpc_anonymous(self, url):
@@ -357,6 +374,7 @@ class Shell(object):
                 Example: DEFAULT_API_URL
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
+        self.terminate_client(self.client)
         self.client = ManifoldXMLRPCClientSSLPassword(url)
 
     def select_auth_method(self, auth_method):

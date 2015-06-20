@@ -180,8 +180,7 @@ class Router(object):
             else:
                 interface = interface_cls(*router_args)
         except Exception, e:
-            Log.warning("Cannot create interface %s of type %s with parameters %r: %s" % (platform_name, interface_type, kwargs, e))
-            return None
+            raise Exception, "Cannot create interface %s of type %s with parameters %r: %s" % (platform_name, interface_type, kwargs, e)
 
         # Note the interface will register itself when initialized properlyb
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface

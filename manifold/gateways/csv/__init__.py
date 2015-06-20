@@ -219,7 +219,7 @@ class CSVCollection(ManifoldCollection):
             The corresponding Record instance.
         """
         for value, name, type in izip(row, field_names, field_types):
-            return Record([(name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
+            return Record(dict([(name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)]))
 
     def get(self, packet):
         # packet is not used since we do not support filters neither fields
