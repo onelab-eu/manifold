@@ -36,7 +36,7 @@ from manifold.core.filter               import Filter
 from manifold.core.packet               import GET
 from manifold.util.predicate            import Predicate
 
-SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
+SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
 #SERVER_SUPERNODE = 'localhost'
 
 SUPERNODE_CLASS = """
