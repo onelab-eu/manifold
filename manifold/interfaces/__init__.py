@@ -258,6 +258,7 @@ class Interface(object):
         self._state = self.STATE_DOWN
         # Trigger callbacks to inform interface is down
         for cb, args, kwargs in self._down_callbacks:
+            print "callback down", cb, args, kwargs
             cb(self, *args, **kwargs)
         if self.is_error() and self._reconnecting:
             Log.info("Platform %s/%s: attempting to set it up againt in %d s." %

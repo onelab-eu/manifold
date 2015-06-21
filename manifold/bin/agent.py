@@ -37,6 +37,7 @@ from manifold.core.packet               import GET
 from manifold.util.predicate            import Predicate
 
 SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
+MAIN_RECONNECT_DELAY = 60
 #SERVER_SUPERNODE = 'localhost'
 
 SUPERNODE_CLASS = """
@@ -272,14 +273,14 @@ class AgentDaemon(Daemon):
         defer.returnValue(supernodes)
 
     @defer.inlineCallbacks
-    def on_supernode_down(self, interface, supernode):
+    def _on_supernode_down(self, interface, supernode):
         self._router.set_keyvalue('agent_supernode_state', 'down')
         self._router.set_keyvalue('agent_supernode_started', time.time())
 
         if supernode == SERVER_SUPERNODE:
             # Could not connect to main server as supernode... wait 10s and try the whole process again
             Log.info("Could not connect to main server as supernode... Reattempting in 10s")
-            yield async_sleep(10)
+            yield async_sleep(MAIN_RECONNECT_DELAY)
             self.connect_to_supernode()
 
         else:
@@ -288,8 +289,7 @@ class AgentDaemon(Daemon):
             yield self.connect_to_supernode()
 
     @defer.inlineCallbacks
-    def on_supernode_up(self, interface, supernode):
-
+    def _on_supernode_up(self, interface, supernode):
         Log.info("Connected to supernode: %s. Interface=%s" % (supernode, interface,))
         self._router.set_keyvalue('agent_supernode', supernode)
         self._router.set_keyvalue('agent_supernode_state', 'up')
@@ -298,8 +298,6 @@ class AgentDaemon(Daemon):
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")
         yield self.register_as_supernode()
-
-
 
     @defer.inlineCallbacks
     def connect_to_supernode(self):
@@ -321,7 +319,7 @@ class AgentDaemon(Daemon):
 
         interface = self._router.add_interface('tcpclient', host=supernode, up = False)
         interface.set_reconnecting(False)
-        interface.add_up_callback(self.on_supernode_up, supernode)
+        interface.add_up_callback(self._on_supernode_up, supernode)
         interface.add_down_callback(self._on_supernode_down, supernode)
         interface.set_up()
 
