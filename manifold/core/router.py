@@ -664,6 +664,7 @@ class Router(object):
                 #message   = "Unable to execute Query Plan (destination = %s): %s" % (destination, e),
                 traceback = traceback.format_exc()
             )
+            error_packet.set_destination(packet.get_source())
             receiver.receive(error_packet)
 
     @returns(list)
