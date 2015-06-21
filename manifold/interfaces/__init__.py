@@ -15,7 +15,7 @@ from manifold.util.misc             import lookahead
 from twisted.internet               import defer
 from manifold.util.reactor_thread   import ReactorThread
 
-DEFAULT_TIMEOUT = 2
+DEFAULT_TIMEOUT = 10
 TIMEOUT_PER_TTL = 0.25
 RECONNECTION_DELAY = 10
 
@@ -59,13 +59,14 @@ class FlowMap(object):
         if timeout < TIMEOUT_PER_TTL:
             timeout = TIMEOUT_PER_TTL
 
-        self._map[packet.get_flow().get_reverse()] = FlowEntry(receiver, now, timeout)
+        flow = packet.get_flow().get_reverse()
+
+        self._map[flow] = FlowEntry(receiver, now, timeout)
 
         # With a default timeout, we always push back new entries, and no need
         # to reschedule
         if not self._list:
             self._set_timer(timeout)
-        flow = packet.get_flow()
 
         expiry = now + timeout
         if not flow in self._list:
