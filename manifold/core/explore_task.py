@@ -92,7 +92,6 @@ class ExploreTask(Deferred):
         print "DEFAULT ERRBACK", failure
 
     def cancel(self):
-        Log.warning("ExploreTask::cancel() - task has been canceled = %s" % self)
         self.callback((None, dict()))
 
     def explore(self, stack, missing_field_names, fib, namespace, allowed_platforms, allowed_capabilities, user, seen_set, query_plan, exclude_interfaces = None):

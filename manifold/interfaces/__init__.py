@@ -1,4 +1,4 @@
-import sys, uuid as uuid_module
+import sys, time, uuid as uuid_module
 
 from manifold.core.annotation       import Annotation
 from manifold.core.destination      import Destination
@@ -13,11 +13,106 @@ from manifold.util.predicate        import Predicate
 from manifold.util.misc             import lookahead
 
 from twisted.internet               import defer
+from manifold.util.reactor_thread   import ReactorThread
+
+DEFAULT_TIMEOUT = 2
 
 #from manifold.interfaces.tcp_socket     import TCPSocketInterface
 #from manifold.interfaces.unix_socket    import UNIXSocketInterface
 
 # XXX We need to keep track of clients to propagate announces
+
+class FlowEntry(object):
+    def __init__(self, receiver, timestamp, timeout):
+        self._receiver  = receiver
+        self._timestamp = timestamp
+        self._timeout   = timeout
+
+    def get_receiver(self):
+        return self._receiver
+
+    def get_timestamp(self):
+        return self._timestamp
+
+    def get_timeout(self):
+        return self._timeout
+
+class FlowMap(object):
+    def __init__(self, interface):
+        self._interface = interface
+
+        self._map  = dict()  # hash by flow
+        self._list = list()  # sort by expiry time
+
+        self._timer_id = None
+        self._stop = False
+        self._on_tick()
+
+    def terminate(self):
+        self._stop_timer()
+
+    def add_receiver(self, packet, receiver):
+        self._map[packet.get_flow()] = FlowEntry(receiver, time.time(), DEFAULT_TIMEOUT)
+        # With a default timeout, we always push back new entries, and no need
+        # to reschedule
+        self._list.append(packet.get_flow())
+
+    def get_receiver(self, packet):
+        flow = packet.get_flow()
+
+        flow_entry = self._map.get(flow)
+        if not flow_entry:
+            return None
+
+        receiver = flow_entry.get_receiver()
+
+        if packet.is_last():
+            del self._map[flow]
+            if flow == self._list[0]:
+                del self._list[0]
+                self._reschedule()
+            else:
+                # The flow was not the next to expire, no need to reschedule
+                self._list.remove(flow)
+
+        return receiver
+
+    def _expire_flow(self, flow):
+        record = Record(last = True)
+        record.set_source(flow.get_destination())
+        record.set_destination(flow.get_source())
+        record._ingress = self.get_interfacce().get_address()
+
+        receiver = self._map[flow].get_receiver()
+        del self._map[flow]
+
+        receiver.receive(record)
+
+    def _expire_flows(self):
+        for flow in self._list:
+            flow_entry = self._map[flow]
+            delay = flow_entry.get_timeout() - time.time() + flow_entry.get_timestamp()
+            if delay < 0:
+                del self._list[0]
+                self._expire_flow(flow)
+            else:
+                return delay
+        return 0 # no more flows
+
+    def _reschedule(self):
+        self._timer.cancel()
+        self._on_tick()
+
+    def _on_tick(self):
+        delay = self._expire_flows()
+        if delay:
+            self._timer_id = ReactorThread().callLater(delay, self._on_tick, None)
+
+    def _stop_timer(self):
+        self._stop = True
+        if self._timer:
+            self._timer.cancel()
+        
 
 class Interface(object):
 
@@ -67,7 +162,7 @@ class Interface(object):
         # queries to the interface directly without going through the router.
         # It is thus necessary to send the resulting packets back to the
         # requesting instances, and not to the router.
-        self._flow_map = dict()
+        self._flow_map = FlowMap(self)
 
         router.register_interface(self)
 
@@ -219,7 +314,8 @@ class Interface(object):
         #except: pass
 
         if receiver:
-            self._flow_map[packet.get_flow()] = receiver
+            self._flow_map.add_receiver(packet, receiver)
+
 
         #print "[OUT]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
@@ -251,8 +347,7 @@ class Interface(object):
         # - announces are
         # - supernodes are not (they could eventually pass through the router)
 
-        flow = packet.get_flow()
-        receiver = self._flow_map.get(flow)
+        receiver = self._flow_map.get_receiver(packet)
 
         #print "send flow", flow
         #try:
