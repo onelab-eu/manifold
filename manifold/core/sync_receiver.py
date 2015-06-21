@@ -72,6 +72,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet) # .get_exception()
         elif packet.get_protocol() in Packet.PROTOCOL_QUERY:
+            # This can be caused by an announce request packet
             return
         else:
             Log.warning(
