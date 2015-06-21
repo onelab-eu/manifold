@@ -126,21 +126,9 @@ class Union(Operator, ChildrenSlotMixin):
 
     def receive_impl(self, packet, slot_id = None):
         record = packet
-        #is_last = record.is_last()
-        #record.unset_last()
-        do_send = True
 
-        if record.is_last():
-            self._remaining_children -= 1
-
-            if self._remaining_children == 0:
-                # We send all stored records before processing the current one
-                for prev_record in self._records_by_key.values():
-                    self.forward_upstream(prev_record)
-                self.forward_upstream(record)
-                return
-
-            record.unset_last()
+        is_last = record.is_last()
+        record.unset_last()
 
         # We need to keep all records until the UNION has completed
         # since they might all be completed by records coming from othr
@@ -171,6 +159,17 @@ class Union(Operator, ChildrenSlotMixin):
                 # self._records_by_key[key_value].update(record)
             else:
                 self._records_by_key[key_value] = record
+
+        if is_last:
+            self._remaining_children -= 1
+
+            if self._remaining_children == 0:
+                # We send all stored records before processing the current one
+                records = self._records_by_key.values()
+                records[-1].set_last()
+                for record in records:
+                    self.forward_upstream(record)
+
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization
