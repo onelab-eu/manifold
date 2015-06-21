@@ -157,6 +157,8 @@ class Router(object):
 
     def register_interface(self, interface):
         self._interfaces[interface.get_platform_name()] = interface
+        interface.add_up_callback(self.on_interface_up)
+        interface.add_down_callback(self.on_interface_down)
 
     def unregister_interface(self, interface):
         platform_name = interface.get_platform_name()
@@ -192,8 +194,6 @@ class Router(object):
         # Note the interface will register itself when initialized properly
         # This is needed to have interfaces dynamically created by TCPServerSocketInterface
         if up:
-            interface.add_up_callback(self.on_interface_up)
-            interface.add_down_callback(self.on_interface_down)
             interface.set_up()
         return interface
 

@@ -20,6 +20,7 @@ from manifold.core.table            import Table
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns 
 
+# XXX This should become manifold.core.collection
 
 class ManifoldCollection(set):
 

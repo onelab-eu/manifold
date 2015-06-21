@@ -384,6 +384,17 @@ class Object(Record):
         relation.set_uuid()
         cls.__relations__[other_object_name].add(relation)
 
+    def __eq__(self, other):
+        Log.critical("Object equality not implemented yet.")
+        # XXX rely on equality of keys
+        return self == other 
+
+    def __hash__(self):
+        Log.critical("Object hash not implemented yet.")
+        # XXX hash on keys needed without order, see Key class
+        return hash(self)
+        
+
 def ObjectFactory(name): 
     def __init__(self, **kwargs):
         Object.__init__(self, **kwargs)
