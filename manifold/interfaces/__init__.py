@@ -15,7 +15,7 @@ from manifold.util.misc             import lookahead
 from twisted.internet               import defer
 from manifold.util.reactor_thread   import ReactorThread
 
-DEFAULT_TIMEOUT = 10
+DEFAULT_TIMEOUT = 2
 TIMEOUT_PER_TTL = 0.25
 RECONNECTION_DELAY = 10
 
