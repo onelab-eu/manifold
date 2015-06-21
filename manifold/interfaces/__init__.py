@@ -17,6 +17,7 @@ from manifold.util.reactor_thread   import ReactorThread
 
 DEFAULT_TIMEOUT = 2
 TIMEOUT_PER_TTL = 0.25
+RECONNECTION_DELAY = 10
 
 #from manifold.interfaces.tcp_socket     import TCPSocketInterface
 #from manifold.interfaces.unix_socket    import UNIXSocketInterface
@@ -177,7 +178,7 @@ class Interface(object):
         self._down_callbacks = list()
 
         self._reconnecting = True
-        self._reconnection_delay = 10
+        self._reconnection_delay = RECONNECTION_DELAY
 
         # We use a flow map since at the moment, many receivers can ask for
         # queries to the interface directly without going through the router.
@@ -189,6 +190,9 @@ class Interface(object):
 
     def terminate(self):
         self.set_down()
+
+    def set_reconnecting(self, reconnecting):
+        self._reconnecting = reconnecting
 
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.get_platform_name())

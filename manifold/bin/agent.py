@@ -87,28 +87,6 @@ class AgentDaemon(Daemon):
     def withdrawn_as_supernode(self, interface):
         pass
 
-    def _up_callback(self, interface):
-        Log.warning("Interface is up.")
-
-    def _down_callback(self, interface):
-        Log.warning("Overlay disconnected.")
-        self._router.set_keyvalue('agent_supernode_state', 'down')
-        self._router.set_keyvalue('agent_supernode_started', time.time())
-
-        self.connect_to_supernode()
-
-    @defer.inlineCallbacks
-    def connect_interface(self, host):
-        interface = self._router.add_interface('tcpclient', host=host, up = False)
-        yield self._connect_interface(interface)
-        defer.returnValue(interface)
-
-    @defer.inlineCallbacks
-    def connect_interface_until_success(self, host):
-        interface = self._router.add_interface('tcpclient', host=host, up = False)
-        yield self.reconnect_interface(interface)
-        defer.returnValue(interface)
-
     @defer.inlineCallbacks
     def _connect_interface(self, interface):
 
@@ -146,8 +124,8 @@ class AgentDaemon(Daemon):
 
         if interface.is_error():
             self._router.set_keyvalue('agent_supernode_state', 'error')
-            Log.info("Error connecting... Waiting 10s before re-attempting reconnection for interface %r" % (interface,))
-            yield async_sleep(10)
+            Log.info("Error connecting... Waiting 60s before re-attempting reconnection for interface %r" % (interface,))
+            yield async_sleep(60)
             self.reconnect_interface(interface)
         else:
             Log.info("Interfce %r is up again" % (interface,))
@@ -294,6 +272,36 @@ class AgentDaemon(Daemon):
         defer.returnValue(supernodes)
 
     @defer.inlineCallbacks
+    def on_supernode_down(self, interface, supernode):
+        self._router.set_keyvalue('agent_supernode_state', 'down')
+        self._router.set_keyvalue('agent_supernode_started', time.time())
+
+        if supernode == SERVER_SUPERNODE:
+            # Could not connect to main server as supernode... wait 10s and try the whole process again
+            Log.info("Could not connect to main server as supernode... Reattempting in 10s")
+            yield async_sleep(10)
+            self.connect_to_supernode()
+
+        else:
+            Log.info("Could not connect to supernode '%s'. Trying another one." % (supernode,))
+            self._supernode_blacklist.add(supernode)
+            yield self.connect_to_supernode()
+
+    @defer.inlineCallbacks
+    def on_supernode_up(self, interface, supernode):
+
+        Log.info("Connected to supernode: %s. Interface=%s" % (supernode, interface,))
+        self._router.set_keyvalue('agent_supernode', supernode)
+        self._router.set_keyvalue('agent_supernode_state', 'up')
+        self._router.set_keyvalue('agent_supernode_started', time.time())
+
+        # Register as a supernode on the main server
+        Log.info("Registering as supernode...")
+        yield self.register_as_supernode()
+
+
+
+    @defer.inlineCallbacks
     def connect_to_supernode(self):
 
         # Getting a set of supernode hostnames (eventually contacting the main server)
@@ -310,30 +318,12 @@ class AgentDaemon(Daemon):
         #self._router.set_keyvalue('agent_supernode_started', time.time())
 
         Log.info("Connecting to supernode: %s..." % (supernode,))
-        interface = yield self.connect_interface(supernode)
-        if not interface:
 
-            if supernode == SERVER_SUPERNODE:
-                # Could not connect to main server as supernode... wait 10s and try the whole process again
-                Log.info("Could not connect to main server as supernode... Reattempting in 10s")
-                yield async_sleep(10)
-                yield self.connect_to_supernode()
-
-            else:
-                Log.info("Could not connect to supernode '%s'. Trying another one." % (supernode,))
-                self._supernode_blacklist.add(supernode)
-                yield self.connect_to_supernode()
-            defer.returnValue(None)
-                
-        Log.info("Connected to supernode: %s. Interface=%s" % (supernode, interface,))
-        self._router.set_keyvalue('agent_supernode', supernode)
-        self._router.set_keyvalue('agent_supernode_state', 'up')
-        self._router.set_keyvalue('agent_supernode_started', time.time())
-        interface.add_down_callback(self._down_callback)
-
-        # Register as a supernode on the main server
-        Log.info("Registering as supernode...")
-        yield self.register_as_supernode()
+        interface = self._router.add_interface('tcpclient', host=supernode, up = False)
+        interface.set_reconnecting(False)
+        interface.add_up_callback(self.on_supernode_up, supernode)
+        interface.add_down_callback(self._on_supernode_down, supernode)
+        interface.set_up()
 
     ########################################################################### 
     # Misc. unused
