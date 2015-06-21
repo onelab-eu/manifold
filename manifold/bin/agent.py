@@ -90,7 +90,6 @@ class AgentDaemon(Daemon):
     def _up_callback(self, interface):
         Log.warning("Interface is up.")
 
-    @defer.inlineCallbacks
     def _down_callback(self, interface):
         Log.warning("Overlay disconnected.")
         self._router.set_keyvalue('agent_supernode_state', 'down')
@@ -113,7 +112,7 @@ class AgentDaemon(Daemon):
     @defer.inlineCallbacks
     def _connect_interface(self, interface):
 
-        interface.up()
+        interface.set_up()
         Log.warning("Missing error handling: timeout, max_clients, rtt check, etc.")
 
         # XXX We have a callback when the interface is up, can we use it ?
@@ -372,9 +371,9 @@ class AgentDaemon(Daemon):
 
         self._router.set_keyvalue('agent_started', time.time())
 
-        self._ping = self._router.add_interface("ping", name="ping")
+        self._ping = self._router.add_interface("ping", interface_name="ping")
         if not Options().server_mode:
-            self._paristraceroute = self._router.add_interface("paristraceroute", name="paristraceroute")
+            self._paristraceroute = self._router.add_interface("paristraceroute", interface_name="paristraceroute")
             
             # XXX fastping messes up metadata and interferes with ping
             # self._fastping = self._router.add_interface("fastping", name="fastping")

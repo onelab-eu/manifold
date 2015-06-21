@@ -113,7 +113,7 @@ class LocalInterfaceCollection(ManifoldCollection):
         except Exception, e:
             print "TODO: send error packet", e
             return
-        interface.up()
+        interface.set_up()
 
 class LocalAboutCollection(ManifoldCollection):
     # XXX Metadata will vary with time, how to refresh ?? how to describe ??
@@ -152,7 +152,7 @@ class LocalGateway(Gateway):
     Handle queries related to local:object, local:gateway, local:platform, etc.
     """
 
-    def __init__(self, router = None, platform_name = 'local', platform_config = None):
+    def __init__(self, router = None, platform_name = 'local', **platform_config):
         """
         Constructor.
         Args:
@@ -166,7 +166,7 @@ class LocalGateway(Gateway):
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
 
-        super(LocalGateway, self).__init__(router, platform_name, platform_config)
+        super(LocalGateway, self).__init__(router, platform_name, **platform_config)
 
         # Overwrite default collections
         self.register_collection(OLocalObject(), 'local')

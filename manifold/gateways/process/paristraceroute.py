@@ -337,8 +337,8 @@ class TracerouteCollection(ProcessCollection):
 class ParisTracerouteGateway(ProcessGateway):
     __gateway_name__ = 'paristraceroute'
 
-    def __init__(self, router = None, platform_name = None, platform_config = None):
-        ProcessGateway.__init__(self, router, platform_name, platform_config)
+    def __init__(self, router = None, platform_name = None, **platform_config):
+        ProcessGateway.__init__(self, router, platform_name, **platform_config)
 
         self.register_collection(ProbeCollection())
         self.register_collection(HopCollection())

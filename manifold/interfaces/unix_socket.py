@@ -18,29 +18,32 @@ from manifold.core.packet           import Packet
 from manifold.util.filesystem       import ensure_writable_directory
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
-from manifold.interfaces.tcp_socket import TCPClientSocketFactory, TCPServerSocketFactory
+from manifold.interfaces.tcp_socket import TCPClientInterface, TCPServerSocketFactory
 
 DEFAULT_FILENAME = '/var/run/manifold/manifold.sock'
+DEFAULT_TIMEOUT = 10
 
-class UNIXClientInterface(TCPClientSocketFactory):
+class UNIXClientInterface(TCPClientInterface):
 
-    __interface_tyfpe__ = 'unixclient'
+    __interface_type__ = 'unixclient'
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
+    ############################################################################
+    # Constructor
+
+    def __init__(self, router, platform_name = None, **platform_config):
         if not platform_config:
             platform_config = dict()
-        filename = platform_config.get('filename', DEFAULT_FILENAME)
 
         ensure_writable_directory(os.path.dirname(DEFAULT_FILENAME))
         self._connector = None
-        self._filename = filename
-        self._timeout = timeout
-        TCPClientSocketFactory.__init__(self, router, platform_name, platform_config, request_announces)
+        TCPClientSocketFactory.__init__(self, router, platform_name, **platform_config)
 
-    def reconnect(self, filename = DEFAULT_FILENAME):
-        self.down()
-        self._filename = filename
-        self.up()
+    def parse_platform_config(self, platform_config):
+        self._filename = platform_config.get('filename', DEFAULT_FILENAME)
+        self._timeout = platform_config.get('timeout', DEFAULT_TIMEOUT)
+
+    ############################################################################
+    # State implementation 
 
     def down_impl(self):
         # Disconnect from the server
@@ -48,30 +51,30 @@ class UNIXClientInterface(TCPClientSocketFactory):
             self._connector.disconnect()
 
     def up_impl(self):
-        self._connector = ReactorThread().connectUNIX(self._filename, self)#, timeout=self._timeout)
+        self._connector = ReactorThread().connectUNIX(self._filename, self, timeout=self._timeout)
 
 # This interface will spawn other interfaces
 class UNIXServerInterface(Interface):
 
     __interface_type__ = 'unixserver'
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
+    ############################################################################
+    # Constructor / Destructor
 
-        if not platform_config:
-            platform_config = dict()
-        filename = platform_config.get('filename', DEFAULT_FILENAME)
+    def __init__(self, router, platform_name = None, **platform_config):
 
-        ensure_writable_directory(os.path.dirname(filename))
-        if os.path.exists(filename):
-            Log.info("Removed existing socket file: %s" % (filename,))
-            os.unlink(filename)
+        self.parse_platform_config(platform_config)
+
+        ensure_writable_directory(os.path.dirname(self._filename))
+        if os.path.exists(self._filename):
+            Log.info("Removed existing socket file: %s" % (self._filename,))
+            os.unlink(self._filename)
 
         ReactorThread().start_reactor()
         self._router    = router
-
-        self._filename  = filename
         self._connector = None
-        Interface.__init__(self, router, platform_name, platform_config, request_announces)
+
+        Interface.__init__(self, router, platform_name, **platform_config)
 
     def terminate(self):
         Interface.terminate(self)
@@ -79,16 +82,24 @@ class UNIXServerInterface(Interface):
         if os.path.exists(self._filename):
             os.unlink(self._filename)
 
+    ############################################################################
+    # Helpers
+
+    def parse_platform_config(self, platform_config):
+        self._filename = platform_config.get('filename', DEFAULT_FILENAME)
+
+    ############################################################################
+    # State implementation
+
     def up_impl(self):
-        self._connector = ReactorThread().listenUNIX(self._filename,
-        TCPServerSocketFactory(self._router, self._platform_name, self._platform_config))
+        self._connector = ReactorThread().listenUNIX(self._filename, TCPServerSocketFactory(self._router))
         # XXX How to wait for the server to be effectively listening
-        self.set_up(request_announces = False)
+        self.on_up()
 
     def down_impl(self):
         # Stop listening to connections
         ret = self._connector.stopListening()
         yield defer.maybeDeferred(ret)
-        self.set_down()
+        self.on_down()
 
     # We should be able to end all connected clients

@@ -40,9 +40,14 @@ class ManifoldClient(object):
 
         self._receiver = self.make_receiver()
 
-        self._interface = interface_cls(self._receiver, 'shell_interface', kwargs, request_announces = False)
-        self._interface.up()
-        wait(lambda : self._interface.is_up() or self._interface.is_error())
+        self._interface = interface_cls(self._receiver, 'shell_interface', **kwargs)
+        self._interface.set_up()
+        #Log.info("BEGIN WAIT UP OR ERROR")
+        #wait(lambda : self._interface.is_up() or self._interface.is_error())
+        #Log.info("END WAIT")
+
+    def is_connected(self):
+        return self._interface and self._interface.is_up()
 
     def terminate(self):
         """

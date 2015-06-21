@@ -96,6 +96,7 @@ class Router(object):
         # XXX add_platform
         #self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
         dummy = LocalGateway(router = self)
+        dummy.set_up()
 
         # Anything can be stored in this key/value store. It will be used by local:about
         self._keyvalue_store = dict()
@@ -162,30 +163,38 @@ class Router(object):
         del self._interfaces[platform_name]
         self.get_fib().remove_platform(platform_name)
 
-    def add_interface(self, interface_type, **kwargs):
+    def on_interface_up(self, interface):
+        """
+        This callback is triggered when an interface becomes up. The router will
+        request metadata.
+        """
+        fib = self.get_fib()
+        interface.send(GET(), 
+                source      = fib.get_address(), 
+                destination = Destination('object', namespace='local'), 
+                receiver    = fib)
+
+    def on_interface_down(self, interface):
+        Log.warning("Router interface is now down. We need to remove corresponding FIB entries")
+
+    def add_interface(self, interface_type, interface_name=None, **platform_config):
         interface_cls = Interface.factory_get(interface_type)
         if not interface_cls:
             Log.warning("Could not create a %(interface_type)s interface" % locals())
             return None
-        up = kwargs.pop('up', True)
-        platform_name = kwargs.pop('name', None)
-        request_announces = kwargs.pop('request_announces', None)
-        platform_config = kwargs
+        up = platform_config.pop('up', True)
 
-        Log.warning("What about mandatory config?")
-        router_args = (self, platform_name, platform_config)
         try:
-            if request_announces:
-                interface = interface_cls(*router_args, request_announces = request_announces)
-            else:
-                interface = interface_cls(*router_args)
+            interface = interface_cls(self, interface_name, **platform_config)
         except Exception, e:
-            raise Exception, "Cannot create interface %s of type %s with parameters %r: %s" % (platform_name, interface_type, kwargs, e)
+            raise Exception, "Cannot create interface %s of type %s with parameters %r: %s" % (interface_name, interface_type, platform_config, e)
 
-        # Note the interface will register itself when initialized properlyb
-        # This is needed to have interfaces dynamically created by # TCPServerSocketInterface
+        # Note the interface will register itself when initialized properly
+        # This is needed to have interfaces dynamically created by TCPServerSocketInterface
         if up:
-            interface.up()
+            interface.add_up_callback(self.on_interface_up)
+            interface.add_down_callback(self.on_interface_down)
+            interface.set_up()
         return interface
 
     def is_interface_up(self, interface_name):

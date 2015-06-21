@@ -253,7 +253,7 @@ class ProbePingCollection(ProcessCollection):
 
 class PingGateway(ProcessGateway):
     __gateway_name__ = 'ping'
-    def __init__(self, router = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = None, **platform_config):
         """
         Constructor
 
@@ -262,7 +262,7 @@ class PingGateway(ProcessGateway):
             platform: A StringValue. You may pass u"dummy" for example
             platform_config: A dictionnary containing information to connect to the postgresql server
         """
-        ProcessGateway.__init__(self, router, platform_name, platform_config)
+        ProcessGateway.__init__(self, router, platform_name, **platform_config)
 
         self.register_collection(PingCollection())
         self.register_collection(ProbePingCollection())

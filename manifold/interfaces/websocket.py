@@ -27,6 +27,8 @@ from autobahn.twisted.websocket import WebSocketServerProtocol, \
 from manifold.core.packet           import GET
 from manifold.core.query            import Query
 
+DEFAULT_PORT = 9000
+
 # http://stackoverflow.com/questions/3768895/python-how-to-make-a-class-json-serializable
 class ManifoldJSONEncoder(JSONEncoder):
     def default(self, o):
@@ -42,8 +44,8 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
 
     __interface_type__ = 'websocket'
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
-        Interface.__init__(self, router, platform_name, platform_config, request_announces)
+    def __init__(self, router, platform_name = None, **platform_config):
+        Interface.__init__(self, router, platform_name, **platform_config)
         self._client = None
 
         # Received packets are sent back to the client
@@ -64,7 +66,8 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
         self.sendMessage(msg.encode(), False)
 
     def on_client_connected(self):
-        self.set_up(request_announces = False)
+        print "On client connected... is onConnect called ?"
+        self.on_up()
 
     def up_impl(self):
         # Cannot do much  here...
@@ -75,14 +78,16 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
         # should trigger on_client_disconnected
 
     def on_client_disconnected(self, reason):
-        self.get_down()
+        print "on_client_disconnected"
+        self.on_down()
         self.get_router().unregister_interface(self)
 
     # -----
 
     def onConnect(self, request):
+        print "onConnect... is on_client_connected called ?"
         print("Client connecting: {0}".format(request.peer))
-        self.set_up()
+        self.on_up()
 
     def onOpen(self):
         print("WebSocket connection open.")
@@ -105,14 +110,10 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
 
-DEFAULT_PORT = 9000
-
 class ManifoldWebSocketServerFactory(WebSocketServerFactory):
     protocol = ManifoldWebSocketServerProtocol
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = True):
-        if not platform_config:
-            platform_config = dict()
+    def __init__(self, router, platform_name = None, **platform_config):
         port = platform_config.get('port', DEFAULT_PORT)
 
         WebSocketServerFactory.__init__(self, "ws://localhost:%s" % port, debug = False)
@@ -123,75 +124,48 @@ class ManifoldWebSocketServerFactory(WebSocketServerFactory):
         p.factory = self
         return p
 
-#    def on_client_ready(self, client):
-#        print "FACTORY on client ready", client
-#        _self = self
-
-#        self._client = client
-#        self.is_up()
-#
-#        # Received packets are sent back to the client
-#        class MyReceiver(ChildSlotMixin):
-#            def receive(self, packet, slot_id = None):
-#                _self.send(packet)
-#
-#        self._receiver = MyReceiver()
-#
-#        while self._tx_buffer:
-#            full_packet = self._tx_buffer.pop()
-#            self._client.send_packet(full_packet)
-#
-#    def send_impl(self, packet):
-#        print "send impl", packet
-#        if not self._client:
-#            print "not client"
-#            self._tx_buffer.append(packet)
-#        else:
-#            print "client", self._client
-#            self._client.send_packet(packet)
-#
-#    # We really are a gateway !!! A gateway is a specialized Interface that
-#    # answers instead of transmitting.
-#    # 
-#    # And a client, a Router are also Interface's, cf LocalClient
-#
-#    # from protocol
-#    # = when we receive a packet from outside
-#    def receive(self, packet):
-#        print "receive", packet
-#        packet.set_receiver(self._receiver)
-#        Interface.receive(self, packet)
-
 class ManifoldWebSocketServerInterface(Interface):
     """
     """
     __interface_type__ = 'websocketserver'
 
-    def __init__(self, router, platform_name = None, platform_config = None):
-        Interface.__init__(self, router, platform_name, platform_config)
+    ############################################################################
+    # Constructor / Destructor
 
-        if not platform_config:
-            platform_config = dict()
-        port = platform_config.get('port', DEFAULT_PORT)
-
-        self._port = port
+    def __init__(self, router, platform_name = None, **platform_config):
+        self.parse_platform_config(platform_config)
         ReactorThread().start_reactor()
+        Interface.__init__(self, router, platform_name, **platform_config)
 
     def terminate(self):
         Interface.terminate(self)
         ReactorThread().stop_reactor()
 
+    ############################################################################
+    # Helpers
+
+    def parse_platform_config(self, platform_config):
+        self._port = platform_config.get('port', DEFAULT_PORT)
+
+    def get_description(self):
+        if self.is_up():
+            return 'Listening on %s' % (self._port,)
+        else:
+            return 'Not listening'
+
+    ############################################################################
+    # State implementation
+
     def up_impl(self):
         factory = ManifoldWebSocketServerFactory(self._router, self._port)
         ReactorThread().listenTCP(self._port, factory)
         # XXX How to wait for the server to be effectively listening
-        self.set_up(request_announces = False)
+        self.on_up()
 
     @defer.inlineCallbacks
     def down_impl(self):
         # Stop listening to connections
         ret = self.transport.loseConnection()
         yield defer.maybeDeferred(ret)
-        self.set_down()
-        # XXX We should be able to end all connected clients and stop listening
-        # to connections
+        self.on_down()
+        # XXX We should be able to end all connected clients

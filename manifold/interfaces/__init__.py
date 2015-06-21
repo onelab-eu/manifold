@@ -6,10 +6,13 @@ from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import GET # to deprecate
 from manifold.core.packet           import Record, Records
+from manifold.util.async            import async_sleep
 from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.predicate        import Predicate
 from manifold.util.misc             import lookahead
+
+from twisted.internet               import defer
 
 #from manifold.interfaces.tcp_socket     import TCPSocketInterface
 #from manifold.interfaces.unix_socket    import UNIXSocketInterface
@@ -20,6 +23,11 @@ class Interface(object):
 
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__interface_type__'
+
+    STATE_DOWN = 0
+    STATE_PENDING_UP = 1
+    STATE_UP = 2
+    STATE_PENDING_DOWN = 3
 
     # XXX This should be in PluginFactory
     @staticmethod
@@ -35,17 +43,25 @@ class Interface(object):
         Log.info("Registering interface")
         current_module = sys.modules[__name__]
         PluginFactory.register(current_module)
-        Log.info("Registered interface are: {%s}" % ", ".join(sorted(Interface.factory_list().keys())))
+        Log.info("Registered interfaces are: {%s}" % ", ".join(sorted(Interface.factory_list().keys())))
 
-    def __init__(self, router, platform_name = None, platform_config = None, request_announces = False):
+    # XXX Replace router by packet_callback
+    # XXX Register interface elsewhere
+    def __init__(self, router, platform_name = None, **platform_config):
         self._router   = router
         self._platform_name     = platform_name if platform_name else str(uuid_module.uuid4())
         self._platform_config   = platform_config
-        self._request_announces = request_announces
-        self._up       = False
+
+        self._tx_buffer = list()
+
+        self._state    = self.STATE_DOWN
         self._error    = None # Interface has encountered an error
-        self._up_callbacks = list()
+
+        self._up_callbacks   = list()
         self._down_callbacks = list()
+
+        self._reconnecting = True
+        self._reconnection_delay = 10
 
         # We use a flow map since at the moment, many receivers can ask for
         # queries to the interface directly without going through the router.
@@ -56,7 +72,7 @@ class Interface(object):
         router.register_interface(self)
 
     def terminate(self):
-        self.down()
+        self.set_down()
 
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.get_platform_name())
@@ -80,47 +96,80 @@ class Interface(object):
         return 'UP' if self.is_up() else 'ERROR' if self.is_error() else 'DOWN'
 
     # Request the interface to be up...
-    def up(self):
+    def set_up(self):
+        self._state = self.STATE_PENDING_UP
         self.up_impl()
 
-    # Overload this in children interfaces
     def up_impl(self):
-        self.set_up()
+        # Nothing to do, overload this in children interfaces
+        self.on_up()
 
     # The interface is now up...
-    def set_up(self, request_announces = True):
-        if request_announces:
-            self.request_announces()
-        self._up = True
+    def on_up(self):
+        Log.info("Platform %s/%s: new state UP." % 
+                (self.get_interface_type(), self._platform_name,))
+        self._state = self.STATE_UP
+
+        # Send buffered packets
+        if self._tx_buffer:
+            Log.info("Platform %s/%s: sending %d buffered packets." %
+                    (self.get_interface_type(), self._platform_name, len(self._tx_buffer)))
+        while self._tx_buffer:
+            full_packet = self._tx_buffer.pop()
+            self.send(full_packet)
+
+        # Trigger callbacks to inform interface is up
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
         
-    def down(self):
-        self._up = False
+    def set_down(self):
+        self._state = self.STATE_PENDING_DOWN
         self.down_impl()
 
     def down_impl(self):
-        self.set_down()
+        # Nothing to do, overload this in children interfaces
+        self.on_down()
 
-    def set_down(self):
-        self._up = False
+    @defer.inlineCallbacks
+    def on_down(self):
+        Log.info("Platform %s/%s: new state DOWN." % (self.get_interface_type(), self._platform_name,))
+        self._state = self.STATE_DOWN
+        # Trigger callbacks to inform interface is down
         for cb, args, kwargs in self._down_callbacks:
             cb(self, *args, **kwargs)
+        if self._reconnecting:
+            Log.info("Platform %s/%s: attempting to set it up againt in %d s." %
+                    (self.get_interface_type(), self._platform_name, self._reconnection_delay))
+            yield async_sleep(self._reconnection_delay)
+            Log.info("Platform %s/%s: attempting reinit." %
+                    (self.get_interface_type(), self._platform_name,))
+            self.set_up()
 
     def set_error(self, reason):
+        Log.info("Platform %s/%s: error [%s]." % (self.get_interface_type(), self._platform_name, reason))
         self._error = reason
+        self.on_down()
 
     def unset_error(self):
         self._error = None
 
     def is_up(self):
-        return self._up
+        return self._state in [self.STATE_UP, self.STATE_PENDING_DOWN]
 
     def is_down(self):
-        return not self.is_up()
+        return self._state in [self.STATE_DOWN, self.STATE_PENDING_UP]
 
     def is_error(self):
-        return self._error is not None
+        return self.is_down() and self._error is not None
+
+    def reinit_impl(self):
+        pass
+
+    def reinit(self, **platform_config):
+        self.set_down()
+        if platform_config:
+            self.reconnect_impl(self, **platform_config)
+        self.set_up()
 
     def add_up_callback(self, callback, *args, **kwargs):
         cb_tuple = (callback, args, kwargs)
@@ -136,13 +185,10 @@ class Interface(object):
     def del_down_callback(self, callback):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
-    def request_announces(self):
-        fib = self._router.get_fib()
-        if fib:
-            self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)
-
     def send_impl(self, packet):
-        raise NotImplemented
+        Log.error("Platform %s/%s : packet discarded %r" %
+                (self.get_interface_type(), self._platform_name, packet))
+        pass
 
     def send(self, packet, source = None, destination = None, receiver = None):
         """
@@ -178,7 +224,10 @@ class Interface(object):
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         
-        self.send_impl(packet)
+        if self.is_up():
+            self.send_impl(packet)
+        else:
+            self._tx_buffer.append(packet)
 
     def receive(self, packet, slot_id = None):
         """
@@ -188,11 +237,11 @@ class Interface(object):
 
         # For interfaces not exchanging announces, prevent it
         # XXX should add a self._answer_announces parameter instead
-        if not self._request_announces:
-            destination = packet.get_destination()
-            if destination and destination.get_namespace() == 'local' and destination.get_object() == 'object':
-                self.last(packet)
-                return
+        #destination = packet.get_destination()
+        #if destination and destination.get_namespace() == 'local' and destination.get_object() == 'object':
+        #    Log.info("Ignore incoming local query.")
+        #    self.last(packet)
+        #    return
 
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"

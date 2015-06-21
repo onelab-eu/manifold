@@ -73,6 +73,7 @@ class Shell(object):
         if interface_type:
             Interface.register_all()
             self.set_interface(interface_type, **kwargs)
+            # XXX Note that the interface can fail to connect
         else:
             # Old method
             self.bootstrap()
@@ -123,6 +124,9 @@ class Shell(object):
             True iif this Shell is interactive (i.e. if it parses command-line).
         """
         return self._interactive
+
+    def is_connected(self):
+        return self.client and self.client.is_connected()
 
     #---------------------------------------------------------------------------
     # Initialization
