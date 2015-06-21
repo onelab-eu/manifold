@@ -387,13 +387,12 @@ class Object(Record):
     def __eq__(self, other):
         Log.critical("Object equality not implemented yet.")
         # XXX rely on equality of keys
-        return self == other 
+        return object.__eq__(self, other)
 
     def __hash__(self):
         Log.critical("Object hash not implemented yet.")
         # XXX hash on keys needed without order, see Key class
-        return hash(self)
-        
+        return object.__hash__(self)
 
 def ObjectFactory(name): 
     def __init__(self, **kwargs):
