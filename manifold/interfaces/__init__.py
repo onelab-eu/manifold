@@ -16,6 +16,7 @@ from twisted.internet               import defer
 from manifold.util.reactor_thread   import ReactorThread
 
 DEFAULT_TIMEOUT = 2
+TIMEOUT_PER_TTL = 0.25
 
 #from manifold.interfaces.tcp_socket     import TCPSocketInterface
 #from manifold.interfaces.unix_socket    import UNIXSocketInterface
@@ -45,17 +46,34 @@ class FlowMap(object):
         self._list = list()  # sort by expiry time
 
         self._timer_id = None
-        self._stop = False
         self._on_tick()
 
     def terminate(self):
         self._stop_timer()
 
     def add_receiver(self, packet, receiver):
-        self._map[packet.get_flow()] = FlowEntry(receiver, time.time(), DEFAULT_TIMEOUT)
+        now = time.time()
+
+        timeout = DEFAULT_TIMEOUT - packet.get_ttl() * TIMEOUT_PER_TTL
+        if timeout < TIMEOUT_PER_TTL:
+            timeout = TIMEOUT_PER_TTL
+
+        self._map[packet.get_flow().get_reverse()] = FlowEntry(receiver, now, timeout)
+
         # With a default timeout, we always push back new entries, and no need
         # to reschedule
-        self._list.append(packet.get_flow())
+        if not self._list:
+            self._set_timer(timeout)
+        flow = packet.get_flow()
+
+        expiry = now + timeout
+        if not flow in self._list:
+            for pos, cur_flow in enumerate(self._list):
+                cur_entry = self._map[cur_flow]
+                if cur_entry.get_timestamp() + cur_entry.get_timeout() > expiry:
+                    self._list.insert(pos, flow)
+                    return
+            self._list.append(flow)
 
     def get_receiver(self, packet):
         flow = packet.get_flow()
@@ -68,24 +86,23 @@ class FlowMap(object):
 
         if packet.is_last():
             del self._map[flow]
-            if flow == self._list[0]:
-                del self._list[0]
-                self._reschedule()
-            else:
-                # The flow was not the next to expire, no need to reschedule
-                self._list.remove(flow)
+            self._list.remove(flow)
+            # If the flow was not the first, maybe no need to reschedule
+            self._reschedule()
 
         return receiver
 
     def _expire_flow(self, flow):
+        print "expire flow", flow
         record = Record(last = True)
-        record.set_source(flow.get_destination())
-        record.set_destination(flow.get_source())
-        record._ingress = self.get_interfacce().get_address()
+        record.set_source(flow.get_source())
+        record.set_destination(flow.get_destination())
+        record._ingress = self._interface.get_address()
 
         receiver = self._map[flow].get_receiver()
         del self._map[flow]
 
+        print "sending expiration last record", record
         receiver.receive(record)
 
     def _expire_flows(self):
@@ -96,23 +113,27 @@ class FlowMap(object):
                 del self._list[0]
                 self._expire_flow(flow)
             else:
+                print "next expiration in", delay, "for flow", flow
                 return delay
         return 0 # no more flows
 
     def _reschedule(self):
-        self._timer.cancel()
+        self._stop_timer()
         self._on_tick()
 
-    def _on_tick(self):
+    def _on_tick(self, *args, **kwargs):
+        #print "tick!", args, kwargs
         delay = self._expire_flows()
-        if delay:
-            self._timer_id = ReactorThread().callLater(delay, self._on_tick, None)
+        if delay > 0:
+            self._set_timer(delay)
+
+    def _set_timer(self, delay):
+        print "setting timer in", delay, "s"
+        self._timer_id = ReactorThread().callLater(delay, self._on_tick, None)
 
     def _stop_timer(self):
-        self._stop = True
-        if self._timer:
-            self._timer.cancel()
-        
+        if self._timer_id:
+            self._timer_id.cancel()
 
 class Interface(object):
 
@@ -321,6 +342,8 @@ class Interface(object):
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         
+        packet.inc_ttl()
+
         if self.is_up():
             self.send_impl(packet)
         else:

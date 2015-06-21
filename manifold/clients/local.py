@@ -137,8 +137,6 @@ class ManifoldLocalClient(ManifoldClient):
             packet.update_annotation(annotation)
         packet.set_receiver(r)
 
-        self._interface._flow_map[packet.get_flow().get_reverse()] = r
-
         self._interface.send(packet)
 
         # This code is blocking

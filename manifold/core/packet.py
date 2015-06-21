@@ -127,6 +127,8 @@ class Packet(object):
         self._protocol      = None
         self._annotation    = Annotation()
 
+        self._ttl           = 0
+
         # Flags
         self._last          = last
 
@@ -188,6 +190,16 @@ class Packet(object):
 
     def update_annotation(self, annotation):
         self._annotation.update(annotation)
+
+    
+    def get_ttl(self):
+        return self._ttl
+
+    def set_ttl(self, ttl):
+        self._ttl = ttl
+
+    def inc_ttl(self):
+        self._ttl += 1
 
     # Compatibility
     def set_query(self, query):
