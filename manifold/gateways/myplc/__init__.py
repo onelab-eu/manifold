@@ -284,7 +284,7 @@ class MyPLCGateway(Gateway):
 
     __gateway_name__ = "myplc"
 
-    def __init__(self, router, platform, platform_config):
+    def __init__(self, router, platform, **platform_config):
         """
         Constructor
         Args:
@@ -306,7 +306,7 @@ class MyPLCGateway(Gateway):
                         ...
                     }
         """
-        super(MyPLCGateway, self).__init__(router, platform, platform_config)
+        super(MyPLCGateway, self).__init__(router, platform, **platform_config)
 
         self.register_collection(MyPLCNodeCollection())
         self.register_collection(MyPLCSiteCollection())

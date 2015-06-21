@@ -49,7 +49,7 @@ class SFAGatewayCommon(Gateway):
     # Constructor
     #--------------------------------------------------------------------------
 
-    def __init__(self, router, platform, platform_config):
+    def __init__(self, router, platform, **platform_config):
         """
         Constructor
         Args:
@@ -59,7 +59,7 @@ class SFAGatewayCommon(Gateway):
         """
         assert isinstance(platform_config, dict), \
             "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
-        super(SFAGatewayCommon, self).__init__(router, platform, platform_config)
+        super(SFAGatewayCommon, self).__init__(router, platform, **platform_config)
         self.sfa_proxy_pool = SFAProxyPool()
         platform_config = self.get_config()
 

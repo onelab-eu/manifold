@@ -279,7 +279,7 @@ class CSVCollection(ManifoldCollection):
 class CSVGateway(Gateway):
     __gateway_name__ = "csv"
 
-    def __init__(self, router, platform, platform_config):
+    def __init__(self, router, platform, **platform_config):
         """
         Constructor
         Args:
@@ -301,7 +301,7 @@ class CSVGateway(Gateway):
                         ...
                     }
         """
-        super(CSVGateway, self).__init__(router, platform, platform_config)
+        super(CSVGateway, self).__init__(router, platform, **platform_config)
 
         for object_name, config in platform_config.items():
             collection = CSVCollection(object_name, config)

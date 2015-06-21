@@ -45,7 +45,7 @@ class TDMIGateway(PostgreSQLGateway):
         "hop"        : None          # This is a dummy object, see metadata/tdmi.h 
     }
 
-    def __init__(self, router, platform, platform_config):
+    def __init__(self, router, platform, **platform_config):
         """
         Constructor of TDMIGateway.
         Args:
@@ -95,7 +95,11 @@ class TDMIGateway(PostgreSQLGateway):
         #    "agent" : [["ip", "platform"]]
         }
 
-        super(TDMIGateway, self).__init__(router, platform, platform_config, re_ignored_tables, re_allowed_tables,None,self.custom_keys,self.custom_fields)
+        platform_config['re_ignored_tables'] = re_ignored_tables
+        platform_config['re_allowed_tables'] = re_allowed_tables
+        platform_config['custom_keys']       = custom_keys
+        platform_config['custom_fields']     = custom_fields
+        super(TDMIGateway, self).__init__(router, platform, **platform_config)
 
     def receive_impl(self, packet): 
         """

@@ -27,7 +27,7 @@ class OMLGateway(PostgreSQLGateway):
     __gateway_name__ = "oml"
 
     # The OML gateway provides additional functions compared to PostgreSQL
-    def __init__(self, router, platform, platform_config = None):
+    def __init__(self, router, platform, **platform_config):
         """
         Constructor
         Args:
@@ -37,16 +37,16 @@ class OMLGateway(PostgreSQLGateway):
                 Platform which instantiates this Gateway.
         """
         # ignore tables starting with _ Ex: '_experiment_metadata'
-        ignore = list()
+        ignore = platform_config.get('re_ignored_tables', list())
         #ignore.append(re.compile('^_'))
-        allowed = list()
+        allowed = platform_config.get('re_allowed_tables', list())
 
         # XXX LOIC !
         # TODO: List of tables in _experiment_metadata that should be added to allowed
 
         # The rest should be ignored 
 
-        super(OMLGateway, self).__init__(router, platform, platform_config,ignore,allowed)
+        super(OMLGateway, self).__init__(router, platform, **platform_config)
         ignore_tables = super(OMLGateway, self).selectall("SELECT key FROM _experiment_metadata WHERE key !~ 'table_[a-zA-Z]';")
         Log.tmp("OML SQL = ",ignore_tables)
         for table_dict in ignore_tables: 

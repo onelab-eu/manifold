@@ -109,7 +109,8 @@ class LocalInterfaceCollection(ManifoldCollection):
         data = packet.get_data()
         interface_type = data.pop('type')
         try:
-            interface = router.add_interface(interface_type, **data)
+            import pdb; pdb.set_trace()
+            interface = router.add_interface(interface_type, None, **data)
         except Exception, e:
             print "TODO: send error packet", e
             return

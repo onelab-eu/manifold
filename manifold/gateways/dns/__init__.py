@@ -133,8 +133,8 @@ class DNSGateway(Gateway):
 
     __gateway_name__ = "dns"
 
-    def __init__(self, router = None, platform_name = None, platform_config = None):
-        Gateway.__init__(self, router, platform_name, platform_config)
+    def __init__(self, router = None, platform_name = None, **platform_config):
+        Gateway.__init__(self, router, platform_name, **platform_config)
 
         self.register_collection(IPCollection())
         self.register_collection(HostnameCollection())

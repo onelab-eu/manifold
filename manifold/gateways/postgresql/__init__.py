@@ -166,13 +166,7 @@ class PostgreSQLGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, router, platform, platform_config, \
-        re_ignored_tables = NONE_TABLE, \
-        re_allowed_tables = ANY_TABLE, \
-        table_aliases     = None , \
-        custom_keys       = None, \
-        custom_fields     = None \
-    ):
+    def __init__(self, router, platform, platform_config):
         """
         Construct a PostgreSQLGateway instance
         Args:
@@ -226,12 +220,11 @@ class PostgreSQLGateway(Gateway):
 
         # The table matching those regular expressions are ignored...
         # ... excepted the ones explicitly allowed
-        self.re_ignored_tables = re_ignored_tables
-        self.re_allowed_tables = re_allowed_tables
-
-        self.table_aliases = table_aliases if table_aliases else dict() 
-        self.custom_fields = custom_fields if custom_fields else dict() 
-        self.custom_keys   = custom_keys   if custom_keys   else dict()
+        self.re_ignored_tables = platorm_config.get('re_ignored_tables', NONE_TABLE)
+        self.re_allowed_tables = platorm_config.get('re_allowed_tables', ANY_TABLE)
+        self.table_aliases     = platorm_config.get('table_aliases', dict())
+        self.custom_fields     = platorm_config.get('custom_fields', dict())
+        self.custom_keys       = platorm_config.get('custom_keys', dict())
 
     #---------------------------------------------------------------------------
     # Schema 
