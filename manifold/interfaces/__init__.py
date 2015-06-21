@@ -97,6 +97,7 @@ class Interface(object):
 
     # Request the interface to be up...
     def set_up(self):
+        self.unset_error()
         self._state = self.STATE_PENDING_UP
         self.up_impl()
 
@@ -137,7 +138,7 @@ class Interface(object):
         # Trigger callbacks to inform interface is down
         for cb, args, kwargs in self._down_callbacks:
             cb(self, *args, **kwargs)
-        if self._reconnecting:
+        if self.is_error() and self._reconnecting:
             Log.info("Platform %s/%s: attempting to set it up againt in %d s." %
                     (self.get_interface_type(), self._platform_name, self._reconnection_delay))
             yield async_sleep(self._reconnection_delay)
