@@ -56,9 +56,9 @@ class Flow(object):
     def __eq__(self, other):
         is_direct  = self._source == other._source and \
                      self._destination == other._destination
-        is_reverse = self._source == other._destination and \
-                     self._destination == other._source
-        return is_direct or is_reverse
+        #is_reverse = self._source == other._destination and \
+        #             self._destination == other._source
+        return is_direct #or is_reverse
         #return self._data == other._record and self._last == other._last
 
     def __hash__(self):

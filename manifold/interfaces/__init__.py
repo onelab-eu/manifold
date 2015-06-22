@@ -76,18 +76,7 @@ class FlowMap(object):
         flow = packet.get_flow().get_reverse()
         last = packet.is_last()
 
-        if flow in self._map:
-            flow_entry = self._map[flow]
-            if flow_entry.is_last():
-                print "ignored duplicated flow", flow
-                return False
-            else:
-                flow_entry.set_expired(False)
-                flow_entry.set_timestamp(now)
-                #print "unset expired for existing flow"
-        else:
-            self._map[flow] = FlowEntry(receiver, last, now, timeout)
-            #print "add flow", now
+        self._map[flow] = FlowEntry(receiver, last, now, timeout)
 
         # With a default timeout, we always push back new entries, and no need
         # to reschedule
@@ -101,10 +90,8 @@ class FlowMap(object):
                 cur_entry = self._map[cur_flow]
                 if cur_entry.get_timestamp() + cur_entry.get_timeout() > expiry:
                     self._list.insert(pos, flow)
-                    return True
+                    return 
             self._list.append(flow)
-
-        return True
 
     def get(self, packet):
         flow = packet.get_flow()
@@ -344,37 +331,37 @@ class Interface(object):
     def send(self, packet, source = None, destination = None, receiver = None):
         """
         Receive handler for packets arriving from the router.
-        For packets coming from the client, directly use the router which is
-        itself a receiver.
+
+        When parameters are specified, they override packet parameters.
+
+        Since we might be multiplexing several flows, we need to remember the
+        receiver for potential responses.
         """
         # XXX This code should be shared by all interfaces
 
-        if not source:
-            if not packet.get_source():
-                source = self.get_address()
-                packet.set_source(source)
-        else:
+        if source:
             packet.set_source(source)
-
         if destination:
             packet.set_destination(destination)
-
-        if not receiver:
-            receiver = packet.get_receiver()
-        else:
+        if receiver:
             packet.set_receiver(receiver)
+
+        receiver = packet.get_receiver()
 
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
-            if flow_entry.is_expired():
-                Log.info("Received packet for expired flow. Discarding.")
-                return
-            receiver = flow_entry.get_receiver()
-        else:
-            do_send = self._flow_map.add_receiver(packet, receiver)
-            if not do_send: # UGLY: to avoid sending duplicates, past last, packets
-                print "do send is false prevent out"
-                return
+            Log.error("Existing flow entry going out. This is not expected. We might do the same request multiple times though...")
+            return
+#            flow_entry = self._map[flow]
+#            if flow_entry.is_last():
+#                print "ignored duplicated flow", flow
+#                return False
+#            else:
+#                flow_entry.set_expired(False)
+#                flow_entry.set_timestamp(now)
+#                #print "unset expired for existing flow"
+        
+        self._flow_map.add_receiver(packet, receiver)
 
         #print "[OUT]", self, packet
         
@@ -387,7 +374,7 @@ class Interface(object):
 
     def receive(self, packet, slot_id = None):
         """
-        For packets received from the remote server."
+        For packets received from outside (eg. a remote server).
         """
         #print "[ IN]", self, packet
 
@@ -395,26 +382,15 @@ class Interface(object):
 
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
+            # Those packets match a previously flow entry.
             if flow_entry.is_expired():
                 Log.info("Received packet for expired flow. Discarding.")
                 return
             receiver = flow_entry.get_receiver()
-        else:
-
-            do_send = self._flow_map.add_receiver(packet, None)
-            if not do_send: # UGLY: to avoid sending duplicates, past last, packets
-                print "NOT SEND"
-                return
-            receiver = None
-
-        if not receiver:
-            # New flows are sent to the router
-            print "packet to router", self._router, packet
-            self._router.receive(packet)
-        else:
-            # Existing flows rely on the state defined in the router... XXX
             packet.set_receiver(receiver)
-            receiver.receive(packet)
+        else:
+            # New flows are sent to the router
+            self._router.receive(packet)
 
     #---------------------------------------------------------------------------
     # Helper functions
