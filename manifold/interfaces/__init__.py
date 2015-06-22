@@ -94,7 +94,6 @@ class FlowMap(object):
         return receiver
 
     def _expire_flow(self, flow):
-        print "expire flow", flow
         record = Record(last = True)
         record.set_source(flow.get_source())
         record.set_destination(flow.get_destination())
@@ -103,7 +102,6 @@ class FlowMap(object):
         receiver = self._map[flow].get_receiver()
         del self._map[flow]
 
-        print "sending expiration last record", record
         receiver.receive(record)
 
     def _expire_flows(self):
@@ -114,7 +112,6 @@ class FlowMap(object):
                 del self._list[0]
                 self._expire_flow(flow)
             else:
-                print "next expiration in", delay, "for flow", flow
                 return delay
         return 0 # no more flows
 
@@ -129,7 +126,6 @@ class FlowMap(object):
             self._set_timer(delay)
 
     def _set_timer(self, delay):
-        print "setting timer in", delay, "s"
         self._timer_id = ReactorThread().callLater(delay, self._on_tick, None)
 
     def _stop_timer(self):

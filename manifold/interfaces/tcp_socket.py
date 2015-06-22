@@ -20,7 +20,7 @@ from manifold.core.packet           import Packet
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 
-DEFAULT_PORT = 50002
+DEFAULT_PORT = 50003
 DEFAULT_TIMEOUT = 10
 
 ################################################################################
