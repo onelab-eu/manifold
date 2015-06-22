@@ -253,6 +253,9 @@ class AgentDaemon(Daemon):
         if (supernodes - self._supernode_blacklist):
             supernodes -= self._supernode_blacklist
         else:
+            # When all blacklisted, connect to server
+            # Otherwise if we have [bad_supernode], we loop indefinitely
+            supernodes = [SERVER_SUPERNODE]
             self._supernode_blacklist.clear()
 
         print "supernodes", supernodes
