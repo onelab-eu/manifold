@@ -133,8 +133,6 @@ class FlowMap(object):
         # XXX Code duplicated
         if receiver:
             receiver.receive(record)
-        else:
-            self._interface.get_router().receive(record)
 
     def _expire_flows(self):
         now = time.time()
