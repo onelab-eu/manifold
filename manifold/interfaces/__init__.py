@@ -335,20 +335,17 @@ class Interface(object):
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
             Log.error("Existing flow entry going out. This is not expected. We might do the same request multiple times though...")
-            print "existing flow entry"
             return False
 
         # We don't create a flow entry for outgoing packets with no receiver
         if receiver:
             # See last comment in next function
-            print "adding flow entry for outgoing flow"
             self._flow_map.add_receiver(packet, receiver)
         return True
 
     def _manage_incoming_flow(self, packet):
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
-            print "we have flow entry"
             # Those packets match a previously flow entry.
             receiver = flow_entry.get_receiver()
             packet.set_receiver(receiver)
@@ -363,7 +360,6 @@ class Interface(object):
             # We need to create a flow entry so that it can be deleted when the answer comes back
             # If we don't, a flow entry will be created by the outgoing reply, with receiver = None, that will prevent future incoming queries
             # Better solution in fact, check receiver before creating outgoing flow entry
-            print "no flow entry => router"
             return self._router
 
     def send(self, packet, source = None, destination = None, receiver = None):
@@ -385,10 +381,9 @@ class Interface(object):
             packet.set_receiver(receiver)
 
         if not self._manage_outgoing_flow(packet):
-            print "not accepting outgoing flow"
             return
 
-        print "[OUT]", self, packet
+        #print "[OUT]", self, packet
         
         packet.inc_ttl()
 
@@ -401,16 +396,14 @@ class Interface(object):
         """
         For packets received from outside (eg. a remote server).
         """
-        print "[ IN]", self, packet
+        #print "[ IN]", self, packet
 
         packet._ingress = self.get_address()
 
         receiver = self._manage_incoming_flow(packet)
         if not receiver:
-            print "NO RECEIVER, return"
             return
 
-        print "ok for incoming packet to", receiver
         receiver.receive(packet)
 
 
