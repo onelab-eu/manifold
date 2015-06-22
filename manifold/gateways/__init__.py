@@ -547,6 +547,17 @@ class Gateway(Interface, Node): # XXX Node needed ?
         error_packet.set_last(is_fatal)
         return error_packet
 
+    # Flow management is disabled in Gateways, so special treatment here doing
+    # the minimum...
+    def _manage_incoming_flow(self, packet):
+        return True
+    def _manage_outgoing_flow(self, packet):
+        receiver = packet.get_receiver()
+        if receiver:
+            return receiver
+        else:
+            return self._router
+
     def send_impl(self, packet):
         """
         Handle a incoming QUERY Packet.

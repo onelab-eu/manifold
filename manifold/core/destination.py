@@ -137,8 +137,6 @@ class Destination(object):
         return self
 
     def __eq__(self, other):
-        if not self or not other:
-            import pdb; pdb.set_trace()
         return self.get_object_name() == other.get_object_name() and \
                 self.get_filter() == other.get_filter() and \
                 self.get_field_names() == other.get_field_names()

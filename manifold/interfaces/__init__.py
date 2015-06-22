@@ -328,6 +328,36 @@ class Interface(object):
                 (self.get_interface_type(), self._platform_name, packet))
         pass
 
+    def _manage_incoming_flow(self, packet):
+        flow_entry = self._flow_map.get(packet)
+        if flow_entry:
+            Log.error("Existing flow entry going out. This is not expected. We might do the same request multiple times though...")
+            return False
+#            flow_entry = self._map[flow]
+#            if flow_entry.is_last():
+#                print "ignored duplicated flow", flow
+#                return False
+#            else:
+#                flow_entry.set_expired(False)
+#                flow_entry.set_timestamp(now)
+#                #print "unset expired for existing flow"
+        
+        self._flow_map.add_receiver(packet, receiver)
+        return True
+
+    def _manage_outgoing_flow(self, packet):
+        flow_entry = self._flow_map.get(packet)
+        if flow_entry:
+            # Those packets match a previously flow entry.
+            if flow_entry.is_expired():
+                Log.info("Received packet for expired flow. Discarding.")
+                return None
+            receiver = flow_entry.get_receiver()
+            packet.set_receiver(receiver)
+            return receiver
+        else:
+            return self._router
+
     def send(self, packet, source = None, destination = None, receiver = None):
         """
         Receive handler for packets arriving from the router.
@@ -348,22 +378,10 @@ class Interface(object):
 
         receiver = packet.get_receiver()
 
-        flow_entry = self._flow_map.get(packet)
-        if flow_entry:
-            Log.error("Existing flow entry going out. This is not expected. We might do the same request multiple times though...")
+        if not self._manage_incoming_flow(packet):
             return
-#            flow_entry = self._map[flow]
-#            if flow_entry.is_last():
-#                print "ignored duplicated flow", flow
-#                return False
-#            else:
-#                flow_entry.set_expired(False)
-#                flow_entry.set_timestamp(now)
-#                #print "unset expired for existing flow"
-        
-        self._flow_map.add_receiver(packet, receiver)
 
-        #print "[OUT]", self, packet
+        print "[OUT]", self, packet
         
         packet.inc_ttl()
 
@@ -376,21 +394,16 @@ class Interface(object):
         """
         For packets received from outside (eg. a remote server).
         """
-        #print "[ IN]", self, packet
+        print "[ IN]", self, packet
 
         packet._ingress = self.get_address()
 
-        flow_entry = self._flow_map.get(packet)
-        if flow_entry:
-            # Those packets match a previously flow entry.
-            if flow_entry.is_expired():
-                Log.info("Received packet for expired flow. Discarding.")
-                return
-            receiver = flow_entry.get_receiver()
-            packet.set_receiver(receiver)
-        else:
-            # New flows are sent to the router
-            self._router.receive(packet)
+        receiver = self._manage_outgoing_flow(packet)
+        if not receiver:
+            return
+
+        receiver.receive(packet)
+
 
     #---------------------------------------------------------------------------
     # Helper functions
