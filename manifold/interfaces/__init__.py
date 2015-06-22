@@ -30,7 +30,7 @@ class FlowEntry(object):
         self._last      = last
         self._timestamp = timestamp
         self._timeout   = timeout
-        self._expired   = False
+    #    self._expired   = False
 
     def get_receiver(self):
         return self._receiver
@@ -47,11 +47,11 @@ class FlowEntry(object):
     def get_timeout(self):
         return self._timeout
 
-    def set_expired(self, expired = True):
-        self._expired = True
+    #def set_expired(self, expired = True):
+    #    self._expired = True
 
-    def is_expired(self):
-        return self._expired
+    #def is_expired(self):
+    #    return self._expired
 
 class FlowMap(object):
     def __init__(self, interface):
@@ -100,16 +100,16 @@ class FlowMap(object):
         if not flow_entry:
             return None
 
-        if packet.is_last():
-            del self._map[flow]
-            if flow in self._list:
-                self._list.remove(flow)
-            else:
-                print "flow not found in list", flow
-            # If the flow was not the first, maybe no need to reschedule
-            self._reschedule()
-
         return flow_entry
+
+    def delete(self, packet):
+        flow = packet.get_flow()
+        del self._map[flow]
+        if flow in self._list:
+            self._list.remove(flow)
+            self._reschedule()
+        else:
+            print "flow not found in list", flow
 
     def _expire_flow(self, flow):
         record = Record(last = True)
@@ -118,7 +118,9 @@ class FlowMap(object):
         record._ingress = self._interface.get_address()
 
         receiver = self._map[flow].get_receiver()
-        self._map[flow].set_expired()
+
+        # We delete instead of expiring, cf README.architecture
+        del self._map[flow]
 
         # XXX Code duplicated
         if receiver:
@@ -328,35 +330,40 @@ class Interface(object):
                 (self.get_interface_type(), self._platform_name, packet))
         pass
 
-    def _manage_incoming_flow(self, packet):
+    def _manage_outgoing_flow(self, packet):
         receiver = packet.get_receiver()
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
             Log.error("Existing flow entry going out. This is not expected. We might do the same request multiple times though...")
+            print "existing flow entry"
             return False
-#            flow_entry = self._map[flow]
-#            if flow_entry.is_last():
-#                print "ignored duplicated flow", flow
-#                return False
-#            else:
-#                flow_entry.set_expired(False)
-#                flow_entry.set_timestamp(now)
-#                #print "unset expired for existing flow"
 
-        self._flow_map.add_receiver(packet, receiver)
+        # We don't create a flow entry for outgoing packets with no receiver
+        if receiver:
+            # See last comment in next function
+            print "adding flow entry for outgoing flow"
+            self._flow_map.add_receiver(packet, receiver)
         return True
 
-    def _manage_outgoing_flow(self, packet):
+    def _manage_incoming_flow(self, packet):
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
+            print "we have flow entry"
             # Those packets match a previously flow entry.
-            if flow_entry.is_expired():
-                Log.info("Received packet for expired flow. Discarding.")
-                return None
             receiver = flow_entry.get_receiver()
             packet.set_receiver(receiver)
+
+            if packet.is_last():
+                # We don't delete right now in case we have packets for this flow past the LAST
+                # TODO a purge mechanism should take care of this
+                self._flow_map.delete(packet)
+
             return receiver
         else:
+            # We need to create a flow entry so that it can be deleted when the answer comes back
+            # If we don't, a flow entry will be created by the outgoing reply, with receiver = None, that will prevent future incoming queries
+            # Better solution in fact, check receiver before creating outgoing flow entry
+            print "no flow entry => router"
             return self._router
 
     def send(self, packet, source = None, destination = None, receiver = None):
@@ -377,7 +384,8 @@ class Interface(object):
         if receiver:
             packet.set_receiver(receiver)
 
-        if not self._manage_incoming_flow(packet):
+        if not self._manage_outgoing_flow(packet):
+            print "not accepting outgoing flow"
             return
 
         print "[OUT]", self, packet
@@ -397,10 +405,12 @@ class Interface(object):
 
         packet._ingress = self.get_address()
 
-        receiver = self._manage_outgoing_flow(packet)
+        receiver = self._manage_incoming_flow(packet)
         if not receiver:
+            print "NO RECEIVER, return"
             return
 
+        print "ok for incoming packet to", receiver
         receiver.receive(packet)
 
 

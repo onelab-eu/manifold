@@ -62,7 +62,9 @@ class Flow(object):
         #return self._data == other._record and self._last == other._last
 
     def __hash__(self):
-        return hash(frozenset([self._source, self._destination]))
+        # ORDER IS IMPORTANT
+        return hash((self._source, self._destination))
+        #return hash(frozenset([self._source, self._destination]))
 
     def __repr__(self):
         return "<Flow %s -> %s>" % (self.get_source(), self.get_destination())
