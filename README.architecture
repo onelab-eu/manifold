@@ -1,6 +1,4 @@
-################################################################################
-                                     FLOWS
-################################################################################
+== Flow management
 
 - Flow are unidirectional and only serve when using interfaces that are not
 gateways. Currently, we use flow maps for all interfaces.
@@ -33,8 +31,9 @@ cannot merge two queries anymore...
 - let's accept corrupted answer for now
 ! that's the problem of the connected mode !
 
-################################################################################
-                                     SHELL
-################################################################################
+see: manifold.interfaces
+
+
+== Shell
 
 - Should autoreconnect when restarting the router

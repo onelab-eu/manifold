@@ -113,7 +113,6 @@ class ManifoldClient(object):
             packet.update_annotation(annotation)
         packet.set_receiver(r)
 
-        print "******* interface send packet", packet
         self._interface.send(packet)
 
         if not deferred:
