@@ -329,6 +329,7 @@ class Interface(object):
         pass
 
     def _manage_incoming_flow(self, packet):
+        receiver = packet.get_receiver()
         flow_entry = self._flow_map.get(packet)
         if flow_entry:
             Log.error("Existing flow entry going out. This is not expected. We might do the same request multiple times though...")
@@ -341,7 +342,7 @@ class Interface(object):
 #                flow_entry.set_expired(False)
 #                flow_entry.set_timestamp(now)
 #                #print "unset expired for existing flow"
-        
+
         self._flow_map.add_receiver(packet, receiver)
         return True
 
@@ -375,8 +376,6 @@ class Interface(object):
             packet.set_destination(destination)
         if receiver:
             packet.set_receiver(receiver)
-
-        receiver = packet.get_receiver()
 
         if not self._manage_incoming_flow(packet):
             return
