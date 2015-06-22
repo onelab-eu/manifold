@@ -85,6 +85,7 @@ class ManifoldLocalCollection(ManifoldCollection):
         rec.set_last()
         ret = Records()
         ret.append(rec)
+
         return ret
 
     def remove(self):

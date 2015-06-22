@@ -129,25 +129,11 @@ class AgentDaemon(Daemon):
             yield async_sleep(60)
             self.reconnect_interface(interface)
         else:
-            Log.info("Interfce %r is up again" % (interface,))
+            Log.info("Interface %r is up again" % (interface,))
             self._router.set_keyvalue('agent_supernode_state', 'up')
 
         defer.returnValue(None)
         
-    @defer.inlineCallbacks
-    def get_supernodes_from_interface(self, interface):
-        """
-        Returns:
-            a list of hostnames
-        """
-        # XXX supernodes = Supernode.get()
-        # XXX Supernode should be attached to an interface... or at the the
-        # router if we can route such requests.
-
-        # BaseClass.set_options(deferred = True)
-        # supernodes = yield SuperNode.collection(deferred=True)
-
-
     @defer.inlineCallbacks
     def get_supernode_delays(self, supernodes):
         """

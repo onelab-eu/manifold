@@ -553,6 +553,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         Args:
             packet: A QUERY Packet instance.
         """
+        Log.info("Gateway.send_impl should better check packet type")
         destination = packet.get_destination()
         
         namespace   = destination.get_namespace()
@@ -595,6 +596,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
             packet: A QUERY Packet instance.
             kwargs are ignored, present for compatibility with operators.
         """
+        Log.info("Gateway.receive should better check packet type")
+        Log.error("This function should not be called, should it ?")
         source = packet.get_source()
         
         namespace   = source.get_namespace()

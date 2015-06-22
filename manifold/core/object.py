@@ -31,7 +31,7 @@ class PlatformInfo(object):
 
     def add_field(self, field):
         if field.get_name() in self._fields:
-            Log.warning("duplicate field")
+            Log.debug("duplicate field")
             return
         self._fields[field.get_name()] = field
 
@@ -181,7 +181,7 @@ class Object(Record):
     @classmethod
     def add_field(cls, field):
         if field.get_name() in cls.__fields__:
-            Log.warning("duplicate field")
+            Log.debug("duplicate field")
             return
         cls.__fields__[field.get_name()] = field
 
@@ -378,7 +378,7 @@ class Object(Record):
 
     @classmethod
     def add_relation(cls, other_object_name, relation):
-        Log.warning("DUPLICATE RELATIONS!")
+        Log.debug("DUPLICATE RELATIONS!")
         if not other_object_name in cls.__relations__:
             cls.__relations__[other_object_name] = set()
         relation.set_uuid()
