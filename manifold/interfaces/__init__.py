@@ -115,7 +115,10 @@ class FlowMap(object):
 
         if packet.is_last():
             del self._map[flow]
-            self._list.remove(flow)
+            if flow in self._list:
+                self._list.remove(flow)
+            else:
+                print "flow not found in list", flow
             # If the flow was not the first, maybe no need to reschedule
             self._reschedule()
 
