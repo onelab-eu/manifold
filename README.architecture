@@ -1,0 +1,40 @@
+################################################################################
+                                     FLOWS
+################################################################################
+
+- Flow are unidirectional and only serve when using interfaces that are not
+gateways. Currently, we use flow maps for all interfaces.
+- In gateways, a system of callbacks is used to keep the packet, and thus the
+flow, with the receiver at each step. We might want to use the flow table then ?
+That would require the gateway to send the packet, and not to directly target
+the receiver as it is done in most of the cases.
+- Do we need ACK and NACK packets ? Timeouts in flow table could be answered by
+something then, otherwise, sometimes, we might not expect an answer.
+- Shall we explicitely specify that we need an answer ?
+
+TODO:
+- Colliding flows on Interface::send are currently ignored. Relationship with
+cache ? Why should not we be able to forward multiple times the same query ?
+What about user permissions, this would be the same flow with different
+pipelines then !!!
+
+BIG ISSUE:
+- suppose incoming query X
+- no answer, expired
+- same query again X'
+- answer to X arrive, followed by answer to X'
+- unconsistent answer
+-
+- even marking the interface expired, we don't know what to do with packets for X
+-
+=> we might need to take into account a packet UUID into the flow. Then we
+cannot merge two queries anymore...
+-
+- let's accept corrupted answer for now
+! that's the problem of the connected mode !
+
+################################################################################
+                                     SHELL
+################################################################################
+
+- Should autoreconnect when restarting the router
