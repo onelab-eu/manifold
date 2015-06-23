@@ -139,7 +139,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
-        Log.warning("Gateway should become an interface")
 
         self._platform_name   = platform_name   # String
         Interface.__init__(self, router, platform_name, **platform_config)
@@ -564,7 +563,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         Args:
             packet: A QUERY Packet instance.
         """
-        Log.info("Gateway.send_impl should better check packet type")
         destination = packet.get_destination()
         
         namespace   = destination.get_namespace()
@@ -607,8 +605,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             packet: A QUERY Packet instance.
             kwargs are ignored, present for compatibility with operators.
         """
-        Log.info("Gateway.receive should better check packet type")
-        Log.error("This function should not be called, should it ?")
+        print "GATEWAY RECV", packet
         source = packet.get_source()
         
         namespace   = source.get_namespace()
@@ -640,18 +637,19 @@ class Gateway(Interface, Node): # XXX Node needed ?
     def register_collection(self, collection, namespace = None):
         # Register it in the FIB: we ignore the announces in the local namespace
         # unless the platform_name is local
+        collection.set_gateway(self)
+
         cls = collection.get_object()
         platform_name = self.get_platform_name()
+        object_name = cls.get_object_name()
 
-        if platform_name == 'local' or namespace != 'local':
+        if namespace != 'local' or object_name not in ['object', 'column']:
             self.get_router().get_fib().add(platform_name, cls.get_announce(), namespace)
 
         # Store the object locally
         if namespace not in self._collections_by_namespace:
             self._collections_by_namespace[namespace] = dict()
         self._collections_by_namespace[namespace][cls.get_object_name()] = collection
-
-        collection.set_gateway(self)
 
 #DEPRECATED|        # Fetch Announces produced by the Storage
 #DEPRECATED|        gateway_storage = self._storage.get_gateway()

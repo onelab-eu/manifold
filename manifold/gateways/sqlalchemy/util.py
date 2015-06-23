@@ -52,7 +52,7 @@ def row2record(row):
     # sqlalchemy.util._collections.NamedTuple instead of DB objects.
 
     if isinstance(row, NamedTuple):
-        return Record(zip(row.keys(), row))
+        return Record(dict(zip(row.keys(), row)))
     else:
         return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
 

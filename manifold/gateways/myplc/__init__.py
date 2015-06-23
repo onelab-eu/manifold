@@ -30,9 +30,10 @@ MAP_METHOD = {
 
 class MyPLCCollection(ManifoldCollection):
 
-    def __init__(self, cls = None):
+    def __init__(self, cls = None): # XXX What is this cls parameter ?
         ManifoldCollection.__init__(self, cls)
 
+        # XXX One proxy per Collection. Can't we share one per gateway ???
         self._proxy = None
 
     def callback_records(self, rows, packet, aliases):

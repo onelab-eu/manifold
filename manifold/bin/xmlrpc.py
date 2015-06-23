@@ -15,6 +15,7 @@
 
 import sys, xmlrpclib, datetime, os.path
 
+from manifold.core.annotation       import Annotation
 from manifold.core.router           import Router
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
@@ -43,6 +44,7 @@ xmlrpclib.Marshaller.dispatch[date]         = lambda s: xmlrpclib.Marshaller.dum
 xmlrpclib.Marshaller.dispatch[Record]       = xmlrpclib.Marshaller.dump_struct
 xmlrpclib.Marshaller.dispatch[Records]      = xmlrpclib.Marshaller.dump_array
 xmlrpclib.Marshaller.dispatch[ResultValue]  = xmlrpclib.Marshaller.dump_struct
+xmlrpclib.Marshaller.dispatch[Annotation]  = xmlrpclib.Marshaller.dump_struct
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
@@ -138,22 +140,22 @@ class XMLRPCDaemon(Daemon):
         capabilities.projection = True
         return capabilities
 
-    @staticmethod
-    @returns(Router)
-    def make_router(allowed_capabilities):
-        """
-        Build a Router instance according to the Options passed to
-        the XMLRPCDaemon.
-        Args:
-            allowed_capabilities: A Capabilities defining which
-                Capabilities are supported by the Router we are building.
-        Returns:
-            The corresponding Router instance.
-        """
-        assert isinstance(allowed_capabilities, Capabilities)
-
-        router = Router(allowed_capabilities)
-        return router
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    @returns(Router)
+#DEPRECATED|    def make_router(allowed_capabilities):
+#DEPRECATED|        """
+#DEPRECATED|        Build a Router instance according to the Options passed to
+#DEPRECATED|        the XMLRPCDaemon.
+#DEPRECATED|        Args:
+#DEPRECATED|            allowed_capabilities: A Capabilities defining which
+#DEPRECATED|                Capabilities are supported by the Router we are building.
+#DEPRECATED|        Returns:
+#DEPRECATED|            The corresponding Router instance.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(allowed_capabilities, Capabilities)
+#DEPRECATED|
+#DEPRECATED|        router = Router(allowed_capabilities)
+#DEPRECATED|        return router
 
     def main(self):
         """
@@ -177,7 +179,7 @@ class XMLRPCDaemon(Daemon):
         allowed_capabilities = XMLRPCDaemon.make_capabilities()
 
         from manifold.clients.deferred_router import ManifoldDeferredRouterClient
-        self.router = ManifoldDeferredRouterClient()
+        self.router = ManifoldDeferredRouterClient(load_storage = True)
 
         # SSL support
 

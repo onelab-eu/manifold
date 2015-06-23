@@ -43,11 +43,10 @@ class ManifoldRouterClient(ManifoldClient):
         self._router = Router()
         #self._router.__enter__()
 
-#DEPRECATED|        # XXX remove references to storage
-#DEPRECATED|        if load_storage:
-#DEPRECATED|            from manifold.util.storage.storage import install_default_storage
-#DEPRECATED|            install_default_storage(self._router)
-
+        if load_storage:
+            from manifold.storage import StorageGateway
+            storage = StorageGateway(self._router)
+            storage.set_up()
         # self.user is a dict or None
         self.init_user(user_email)
 

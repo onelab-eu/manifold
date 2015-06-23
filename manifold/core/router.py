@@ -95,8 +95,8 @@ class Router(object):
         # XXX This should be similar for all gateways
         # XXX add_platform
         #self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
-        dummy = LocalGateway(router = self)
-        dummy.set_up()
+        local_gw = LocalGateway(router = self)
+        local_gw.set_up()
 
         # Anything can be stored in this key/value store. It will be used by local:about
         self._keyvalue_store = dict()
@@ -179,7 +179,11 @@ class Router(object):
     def on_interface_down(self, interface):
         Log.warning("Router interface is now down. We need to remove corresponding FIB entries")
 
-    def add_interface(self, interface_type, interface_name=None, **platform_config):
+    def add_interface(self, interface_type, interface_name=None, namespace=None, **platform_config):
+        """
+        namespace is used to force appending of a namespace to the tables.
+        existing namespaces are thus ignored.
+        """
         interface_cls = Interface.factory_get(interface_type)
         if not interface_cls:
             Log.warning("Could not create a %(interface_type)s interface" % locals())

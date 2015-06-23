@@ -2,6 +2,7 @@ from manifold.clients.router            import ManifoldRouterClient
 from manifold.core.annotation           import Annotation
 from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.core.packet               import Packet
+from manifold.util.log                  import Log
 
 class ManifoldDeferredRouterClient(ManifoldRouterClient):
     
@@ -22,12 +23,15 @@ class ManifoldDeferredRouterClient(ManifoldRouterClient):
         receiver = DeferredReceiver()
         #packet = QueryPacket(query, annotation, receiver = receiver)
 
-        Log.warning("Hardcoded a GET packet")
-        packet = GET()
-        packet.set_destination(query.get_destination())
-        packet.set_receiver(receiver) # Why is it useful ??
-        packet.update_annotation(self.get_annotation())
+        packet = Packet()
+        packet.set_protocol(query.get_protocol())
+        data = query.get_data()
+        if data:
+            packet.set_data(data)
 
-        self.send(packet)
+        packet.set_destination(query.get_destination())
+        packet.update_annotation(self.get_annotation())
+        packet.set_receiver(receiver) # Why is it useful ??
+        self._router.receive(packet)
 
         return receiver.get_deferred()

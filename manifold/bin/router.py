@@ -60,6 +60,7 @@ class RouterDaemon(Daemon):
 
         self._router = Router()
         try:
+            # XXX Options do not seem to be taken into account
             from manifold.util.storage.storage import install_default_storage
             Log.warning("TODO: Configure a Storage in respect with Options(). Loading default Storage")
             install_default_storage(self._router)

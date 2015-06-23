@@ -34,6 +34,31 @@ cannot merge two queries anymore...
 see: manifold.interfaces
 
 
+
+== Packet format
+
+- Required for interoperability of different routers... but also of different
+gateways communicating through UNIX socket...
+- btw, can we have something that spawn a gateway on demand, for example a
+fastping daemon ?
+- currently serialization is handled by pickle
+
+
 == Shell
 
 - Should autoreconnect when restarting the router
+
+
+
+== Forwarding
+
+- What about loops ?
+
+
+
+== DEMO
+
+- Periodic queries Needed from a demo point of view to instrument something
+- Some examples of instrumented tools
+- A bit like OML but we can dynamically establish streams ?
+- Nodes autoorganize as an overlay

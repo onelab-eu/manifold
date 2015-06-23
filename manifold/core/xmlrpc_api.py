@@ -94,7 +94,6 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, query, annotation = None):
         """
         """
-        Log.info("xmlrpc_forward")
         Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), annotation))
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")
@@ -125,7 +124,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         # self._deferred_router_client is a ManifoldDeferredRouterClient, it returns a deferred
         annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
-        return self._deferred_router_client.forward(Query(query), annotation)
+        return self._deferred_router_client.forward(Query.from_dict(query), annotation)
 
     def _xmlrpc_action(self, action, *args):
         Log.info("_xmlrpc_action")
