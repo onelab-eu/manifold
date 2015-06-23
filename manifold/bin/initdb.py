@@ -5,8 +5,7 @@ from manifold.core.router import Router
 
 def main():
     # Instantiate a TopHat router
-    with Router() as router:
-        pass
+    router = Router()
 
 if __name__ == '__main__':
     main()
