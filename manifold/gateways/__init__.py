@@ -643,7 +643,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         platform_name = self.get_platform_name()
         object_name = cls.get_object_name()
 
-        if namespace != 'local' or object_name not in ['object', 'column']:
+        if platform_name == 'local' or namespace != 'local' or object_name not in ['object', 'column']:
             self.get_router().get_fib().add(platform_name, cls.get_announce(), namespace)
 
         # Store the object locally

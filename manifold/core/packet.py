@@ -789,6 +789,11 @@ class DELETE(Packet):
         self.set_protocol(Packet.PROTOCOL_DELETE)
 
 
+# Error types
+E_TYPE_TIMEOUT = 28
+E_CODE_TIMEOUT = 28
+E_MSG_TIMEOUT_TIMEOUT = "Timeout on pending flow entry"
+
 # NOTE: This class will probably disappear and we will use only the Packet class
 class ErrorPacket(Packet):
     """
@@ -889,6 +894,11 @@ class ErrorPacket(Packet):
             Packet.get_protocol_name(self.get_protocol()),
             self.get_message()
         )
+
+class TimeoutErrorPacket(ErrorPacket):
+    def __init__(self, **kwargs):
+        ErrorPacket.__init__(self, type=E_TYPE_TIMEOUT, code=E_CODE_TIMEOUT,
+                message=E_MSG_TIMEOUT_TIMEOUT, last=True, **kwargs)
 #-------------------------------------------------------------------------------
 # Records class
 #-------------------------------------------------------------------------------

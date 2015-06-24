@@ -5,7 +5,7 @@ from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import GET # to deprecate
-from manifold.core.packet           import Record, Records
+from manifold.core.packet           import Record, Records, TimeoutErrorPacket
 from manifold.util.async            import async_sleep
 from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
@@ -112,7 +112,7 @@ class FlowMap(object):
             print "flow not found in list", flow
 
     def _expire_flow(self, flow):
-        record = Record(last = True)
+        record = TimeoutErrorPacket()
         record.set_source(flow.get_source())
         record.set_destination(flow.get_destination())
         record._ingress = self._interface.get_address()
