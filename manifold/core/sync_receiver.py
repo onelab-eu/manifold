@@ -70,7 +70,6 @@ class SyncReceiver(Node, ChildSlotMixin):
             if not packet.is_empty():
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
-            print "syncreceiver receive error", packet
             self._errors.append(packet) # .get_exception()
         elif packet.get_protocol() in Packet.PROTOCOL_QUERY:
             # This can be caused by an announce request packet

@@ -897,8 +897,11 @@ class ErrorPacket(Packet):
 
 class TimeoutErrorPacket(ErrorPacket):
     def __init__(self, **kwargs):
-        ErrorPacket.__init__(self, type=E_TYPE_TIMEOUT, code=E_CODE_TIMEOUT,
-                message=E_MSG_TIMEOUT_TIMEOUT, last=True, **kwargs)
+        if not 'message' in kwargs:
+            kwargs['message'] = E_MSG_TIMEOUT_TIMEOUT
+        if not 'last' in kwargs:
+            kwargs['last'] = True
+        ErrorPacket.__init__(self, type=E_TYPE_TIMEOUT, code=E_CODE_TIMEOUT, **kwargs)
 #-------------------------------------------------------------------------------
 # Records class
 #-------------------------------------------------------------------------------

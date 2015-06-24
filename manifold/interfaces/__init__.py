@@ -112,7 +112,7 @@ class FlowMap(object):
             print "flow not found in list", flow
 
     def _expire_flow(self, flow):
-        record = TimeoutErrorPacket()
+        record = TimeoutErrorPacket(message='Flow timeout: %r' % (flow,))
         record.set_source(flow.get_source())
         record.set_destination(flow.get_destination())
         record._ingress = self._interface.get_address()
@@ -326,7 +326,7 @@ class Interface(object):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
     def send_impl(self, packet):
-        Log.error("Platform %s/%s : packet discarded %r" %
+        Log.info("Platform %s/%s : packet discarded %r" %
                 (self.get_interface_type(), self._platform_name, packet))
         pass
 

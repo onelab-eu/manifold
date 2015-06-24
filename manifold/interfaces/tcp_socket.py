@@ -257,9 +257,8 @@ class TCPServerInterface(Interface):
     def __init__(self, router, platform_name = None, **platform_config):
 
         self.parse_platform_config(platform_config)
-
+        self._factory = None
         ReactorThread().start_reactor()
-
         Interface.__init__(self, router, platform_name, **platform_config)
 
     def terminate(self):
@@ -282,14 +281,17 @@ class TCPServerInterface(Interface):
     # State implementation
 
     def up_impl(self):
-        ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router))
+        self._factory = TCPServerSocketFactory(self._router)
+        ReactorThread().listenTCP(self._port, self._factory)
         # XXX How to wait for the server to be effectively listening
         self.on_up()
 
     @defer.inlineCallbacks
     def down_impl(self):
         # Stop listening to connections
-        ret = self.transport.loseConnection()
+        # exceptions.AttributeError: 'TCPServerInterface' object has no attribute 'transport'
+
+        ret = self._factory.transport.loseConnection()
         yield defer.maybeDeferred(ret)
         self.on_down()
         # XXX We should be able to end all connected clients

@@ -12,17 +12,12 @@
 #   Loïc Baron        <loic.baron@lip6.fr>
 
 from manifold.core.router           import Router
-from manifold.util.constants        import STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY
 from manifold.util.daemon           import Daemon
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.type             import accepts, returns
 
 class RouterDaemon(Daemon):
-    DEFAULTS = {
-        "storage_gateway" : STORAGE_DEFAULT_GATEWAY,
-        "storage_config"  : STORAGE_DEFAULT_CONFIG
-    }
 
     def __init__(self):
         """
@@ -33,25 +28,6 @@ class RouterDaemon(Daemon):
             self.terminate
         )
 
-    @staticmethod
-    def init_options():
-        """
-        Prepare options supported by RouterDaemon.
-        """
-        options = Options()
-
-        options.add_argument(
-            "-g", "--storage-gateway", dest = "storage_gateway",
-            help = "The Manifold Gateway used to contact the Storage (usually %s)" % RouterDaemon.DEFAULTS["storage_gateway"],
-            default = RouterDaemon.DEFAULTS["storage_gateway"]
-        )
-
-        options.add_argument(
-            "-j", "--storage-config", dest = "storage_config",
-            help = "(Requires --storage-gateway). Configuration passed to Manifold to contact the storage. Ex: %s" % RouterDaemon.DEFAULTS["storage_config"],
-            default = RouterDaemon.DEFAULTS["storage_gateway"]
-        )
-
     def main(self):
         """
         Run ManifoldServer (called by Daemon::start).
@@ -59,16 +35,22 @@ class RouterDaemon(Daemon):
         Log.info("Starting RouterServer")
 
         self._router = Router()
+
+        # Storage
         try:
-            # XXX Options do not seem to be taken into account
-            from manifold.util.storage.storage import install_default_storage
-            Log.warning("TODO: Configure a Storage in respect with Options(). Loading default Storage")
-            install_default_storage(self._router)
+            from manifold.storage import StorageGateway
+            storage = StorageGateway(self._router)
+            storage.set_up()
         except Exception, e:
             import traceback
             Log.warning(traceback.format_exc())
             Log.warning("Unable to load the Manifold Storage, continuing without storage")
 
+        # Additional platforms
+        self._router.add_interface("tcpserver")
+        self._router.add_interface("test_timeout", "test_timeout") # XXX What if we don't provide a name here ?
+
+        # XXX This is not used in agent, is it mandatory ?
         self.daemon_loop()
 
     def terminate(self):
@@ -77,7 +59,6 @@ class RouterDaemon(Daemon):
         """
         try:
             Log.info("Stopping gracefully RouterServer")
-            print "router terminate in terminate"
             self._router.terminate()
         except AttributeError:
             # self._router_server may not exists for instance if the
@@ -85,7 +66,6 @@ class RouterDaemon(Daemon):
             pass
 
 def main():
-    RouterDaemon.init_options()
     Log.init_options()
     Daemon.init_options()
     Options().parse()

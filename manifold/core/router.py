@@ -583,14 +583,7 @@ class Router(object):
                 exclude_interfaces.append(ingress)
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
-            try:
-                root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = exclude_interfaces)
-            except Exception, e:
-                print "EXCEPTION A CORRIGER UUID", e
-                import traceback
-                traceback.print_exc()
-                import pdb; pdb.set_trace()
-                root_node = None
+            root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = exclude_interfaces)
 
             if not root_node:
                 record = Record(last = True)

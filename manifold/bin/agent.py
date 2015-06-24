@@ -36,6 +36,8 @@ from manifold.core.filter               import Filter
 from manifold.core.packet               import GET
 from manifold.util.predicate            import Predicate
 
+# This might inherit from routerdaemon
+
 SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
 MAIN_RECONNECT_DELAY = 60
 #SERVER_SUPERNODE = 'localhost'
