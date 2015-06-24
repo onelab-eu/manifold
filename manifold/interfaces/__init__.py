@@ -341,7 +341,6 @@ class Interface(object):
         # We don't create a flow entry for outgoing packets with no receiver
         if receiver:
             # See last comment in next function
-            print "OUTGOING FLOW RECEIVER ADDED TO FLOW MAP", receiver
             self._flow_map.add_receiver(packet, receiver)
         return True
 
@@ -350,7 +349,6 @@ class Interface(object):
         if flow_entry:
             # Those packets match a previously flow entry.
             receiver = flow_entry.get_receiver()
-            print "INCOMING PACKET RECEIVER", receiver
             packet.set_receiver(receiver)
 
             if packet.is_last():
