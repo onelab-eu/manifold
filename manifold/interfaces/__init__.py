@@ -108,8 +108,6 @@ class FlowMap(object):
         if flow in self._list:
             self._list.remove(flow)
             self._reschedule()
-        else:
-            print "flow not found in list", flow
 
     def _expire_flow(self, flow):
         record = TimeoutErrorPacket(message='Flow timeout: %r' % (flow,))
@@ -118,7 +116,6 @@ class FlowMap(object):
         record._ingress = self._interface.get_address()
 
         receiver = self._map[flow].get_receiver()
-        print "EXPIRED FLOW RECEIVER", receiver
 
         # We delete instead of expiring, cf README.architecture
         del self._map[flow]

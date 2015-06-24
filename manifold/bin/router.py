@@ -48,6 +48,7 @@ class RouterDaemon(Daemon):
 
         # Additional platforms
         self._router.add_interface("tcpserver")
+        self._router.add_interface("xmlrpc")
         self._router.add_interface("test_timeout", "test_timeout") # XXX What if we don't provide a name here ?
 
         # XXX This is not used in agent, is it mandatory ?
