@@ -574,7 +574,9 @@ class Router(object):
             namespace = destination.get_namespace()
             valid_namespaces = self.get_fib().get_namespaces()
             if namespace and namespace not in valid_namespaces:
-                raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
+                # XXX We would better send an error packet. We need to catch
+                # such exeptions
+                raise Exception("Invalid namespace '%s': valid namespaces are {'%s'}" % (
                     namespace, "', '".join(valid_namespaces)))
 
             exclude_interfaces = list()
@@ -597,14 +599,16 @@ class Router(object):
 
             receiver._set_child(root_node)
         except Exception, e:
-            Log.error(e)
+            #Log.error(e)
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,
                 message   = "Unable to build a suitable Query Plan (destination = %s): %s" % (destination, e),
-                traceback = traceback.format_exc()
+                traceback = traceback.format_exc(),
+                last      = True
             )
-            traceback.print_exc()
+            #traceback.print_exc()
+            error_packet.set_source(packet.get_destination())
             error_packet.set_destination(packet.get_source())
             receiver.receive(error_packet)
             return

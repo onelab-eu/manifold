@@ -22,7 +22,6 @@ from manifold.util.log              import Log
 from manifold.util.predicate        import Predicate
 from manifold.util.type             import accepts, returns
 
-
 class SyncReceiver(Node, ChildSlotMixin):
 
     #---------------------------------------------------------------------------

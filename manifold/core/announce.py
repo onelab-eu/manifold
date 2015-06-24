@@ -225,7 +225,8 @@ class Announces(list):
         check_table_consistency(tables)
         return make_announces(tables)
 
-
+    def to_dict_list(self):
+        return [announce.to_dict() for announce in self]
 #DEPRECATED|    @staticmethod
 #DEPRECATED|    #@returns(Announces)
 #DEPRECATED|    def from_dot_h(platform_name, gateway_type):

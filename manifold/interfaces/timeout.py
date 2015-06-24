@@ -7,14 +7,15 @@
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.f>
 
+from manifold.core.announce         import Announces
 from manifold.interfaces            import Interface
 
 announce_str = """
 class timeout {
     int timeout;
-    CAPABILITIES(retrieve);
+    CAPABILITY(retrieve);
     KEY(timeout);
-}
+};
 """
 
 class TimeoutInterface(Interface):
@@ -35,10 +36,12 @@ class TimeoutInterface(Interface):
         namespace = destination.get_namespace()
         object_name = destination.get_object_name()
 
-        if namespace == 'test' and object_name == 'timeout':
+
+        # HOW DO WE SET A NAMESPACE ?????
+        if namespace == 'local' and object_name == 'object':
             announces = Announces.from_string(announce_str)
-            self.records(announces)
-        pass
+            records = [a.get_object().to_dict() for a in announces]
+            self.records(records, packet)
         
     def receive_impl(self, packet):
         pass

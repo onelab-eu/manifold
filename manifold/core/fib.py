@@ -43,7 +43,8 @@ class FIB(ChildSlotMixin):
         return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
 
     def get_namespaces(self):
-        return self._objects_by_namespace.keys()
+        namespaces = self._objects_by_namespace.keys()
+        return [n for n in namespaces if n is not None]
 
 #DEPRECATED|    def get_object_relation_tuples(self, obj):
 #DEPRECATED|        ret = list()
@@ -246,12 +247,12 @@ class FIB(ChildSlotMixin):
         if packet.is_empty():
             return
 
-        packet_dict = packet.to_dict()
+        data = packet.get_data()
 
         # IDEAL, see manifold.core.local before
         # announce = Announce.from_dict(packet.to_dict(), platform_name)
 
-        announce = Announce(Table.from_dict(packet_dict, platform_name))
+        announce = Announce(Table.from_dict(data, platform_name))
         obj = announce.get_object()
         namespace = obj.get_namespace()
         

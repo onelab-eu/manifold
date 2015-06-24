@@ -122,7 +122,6 @@ class ManifoldLocalClient(ManifoldClient):
         Results:
             The ResultValue resulting from this Query.
         """
-        r = self.make_receiver()
 
         packet = Packet()
         packet.set_protocol(query.get_protocol())
@@ -135,12 +134,16 @@ class ManifoldLocalClient(ManifoldClient):
         packet.set_destination(query.get_destination())
         if annotation:
             packet.update_annotation(annotation)
+
+        r = self.make_receiver()
         packet.set_receiver(r)
 
         self._interface.send(packet)
 
         # This code is blocking
         result_value = r.get_result_value()
+        #result_value = self._receiver.get_result_value()
+
         assert isinstance(result_value, ResultValue),\
             "Invalid result_value = %s (%s)" % (result_value, type(result_value))
         return result_value
