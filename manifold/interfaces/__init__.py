@@ -358,6 +358,7 @@ class Interface(object):
             # We need to create a flow entry so that it can be deleted when the answer comes back
             # If we don't, a flow entry will be created by the outgoing reply, with receiver = None, that will prevent future incoming queries
             # Better solution in fact, check receiver before creating outgoing flow entry
+            Log.info("Incoming flow on interface %r: sending to router" % (self,))
             return self._router
 
     def send(self, packet, source = None, destination = None, receiver = None):

@@ -552,6 +552,7 @@ class Router(object):
         Args:
             packet: A QueryPacket instance.
         """
+        Log.info("Router receive packet: %r" % (packet,))
 
         if packet.get_uuid() in self._pit:
             # ANTI LOOP
