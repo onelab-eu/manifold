@@ -166,7 +166,7 @@ class PostgreSQLGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, router, platform, platform_config):
+    def __init__(self, router, platform, **platform_config):
         """
         Construct a PostgreSQLGateway instance
         Args:
@@ -214,17 +214,17 @@ class PostgreSQLGateway(Gateway):
                   }
 
         """
-        super(PostgreSQLGateway, self).__init__(router, platform, platform_config)
+        super(PostgreSQLGateway, self).__init__(router, platform, **platform_config)
         self.connection = None
         self.cursor     = None
-
+        
         # The table matching those regular expressions are ignored...
         # ... excepted the ones explicitly allowed
-        self.re_ignored_tables = platorm_config.get('re_ignored_tables', NONE_TABLE)
-        self.re_allowed_tables = platorm_config.get('re_allowed_tables', ANY_TABLE)
-        self.table_aliases     = platorm_config.get('table_aliases', dict())
-        self.custom_fields     = platorm_config.get('custom_fields', dict())
-        self.custom_keys       = platorm_config.get('custom_keys', dict())
+        self.re_ignored_tables = platform_config.get('re_ignored_tables', self.NONE_TABLE)
+        self.re_allowed_tables = platform_config.get('re_allowed_tables', self.ANY_TABLE)
+        self.table_aliases     = platform_config.get('table_aliases', dict())
+        self.custom_fields     = platform_config.get('custom_fields', dict())
+        self.custom_keys       = platform_config.get('custom_keys', dict())
 
     #---------------------------------------------------------------------------
     # Schema 

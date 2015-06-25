@@ -14,6 +14,7 @@ from types                          import StringTypes
 
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
+from manifold.core.destination      import Destination
 from manifold.core.packet           import GET
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
@@ -70,3 +71,29 @@ class StorageGateway(SQLAlchemyGateway):
         self.register_model_collection(ModelPolicy, 'policy', 'local')
         self.register_model_collection(ModelSession, 'session', 'local')
         self.register_model_collection(ModelUser, 'user', 'local')
+
+        self._update_router()
+
+    def _update_router(self):
+        # XXX This code should be factored to be used anywhere we need to make a
+        # query.
+        # Redundant with : Router::execute_query()
+        platform_collection = self.get_collection('platform', 'local')
+        packet = GET()
+        destination = Destination('platform')
+        packet.set_destination(destination)
+        receiver = SyncReceiver()
+        packet.set_receiver(receiver)
+        platforms = platform_collection.get(packet)
+
+        # This code is blocking
+        result_value = receiver.get_result_value()
+        platforms = result_value.get_all().to_dict_list()
+        for platform in platforms:
+            platform_config = json.loads(platform['config'])
+            try:
+                self._router.add_interface(platform['gateway_type'], platform['platform'], **platform_config)
+            except Exception, e:
+                import traceback
+                traceback.print_exc()
+                Log.error(e)

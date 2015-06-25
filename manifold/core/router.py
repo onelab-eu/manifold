@@ -686,6 +686,8 @@ class Router(object):
         Returns:
             The corresponding list of Record.
         """
+        Log.warning("Router::execute_query is deprecated and hardcodes a GET packet")
+        destination = query
         # XXX We should benefit from caching if rules allows for it possible
         # XXX LOCAL
 
