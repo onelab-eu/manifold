@@ -358,7 +358,7 @@ def make_shell():
     #from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION
     from manifold.util.options   import Options
     shell = Shell(interactive = False)
-    shell.authenticate_router()#STORAGE_DEFAULT_ANNOTATION["user"])
+    shell.authenticate_router(None)#STORAGE_DEFAULT_ANNOTATION["user"])
     return shell
 
 @returns(int)
