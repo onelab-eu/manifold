@@ -110,7 +110,7 @@ class FlowMap(object):
             self._reschedule()
 
     def _expire_flow(self, flow):
-        record = TimeoutErrorPacket(message='Flow timeout: %r' % (flow,))
+        record = TimeoutErrorPacket(message='Flow timeout on interface %r : %r' % (self, flow,))
         record.set_source(flow.get_source())
         record.set_destination(flow.get_destination())
         record._ingress = self._interface.get_address()
