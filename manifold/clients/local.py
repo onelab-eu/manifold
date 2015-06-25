@@ -44,9 +44,9 @@ class ManifoldLocalClient(ManifoldClient):
         super(ManifoldLocalClient, self).__init__()
         self._receiver = self.make_receiver()
 
-        self._interface = TCPClientInterface(self._receiver, None, host = 'localhost')
+        self._interface = TCPClientInterface(self._receiver, None, host = 'localhost', up = False)
         #self._interface = UNIXClientInterface(self._receiver, {'filename': socket_path})
-
+        self._interface.set_reconnecting(False)
         self._interface.set_up()
         self._user = None
 
