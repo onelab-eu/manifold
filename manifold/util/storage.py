@@ -2,7 +2,8 @@ from manifold.gateways      import Gateway
 from manifold.util.callback import Callback
 
 #URL='sqlite:///:memory:?check_same_thread=False'
-URL='sqlite:////var/myslice/db.sqlite?check_same_thread=False'
+#URL='sqlite:////var/myslice/db.sqlite?check_same_thread=False'
+URL='mysql://root:onelab@localhost/manifold'
 
 class Storage(object):
     pass

@@ -11,7 +11,7 @@ from manifold.core.record       import Record, LastRecord
 
 from manifold.models            import db
 from manifold.models.account    import Account
-from manifold.models.linked_account    import LinkedAccount
+#from manifold.models.linked_account    import LinkedAccount
 from manifold.models.policy     import Policy
 from manifold.models.platform   import Platform
 from manifold.models.user       import User
@@ -59,7 +59,7 @@ class SQLAlchemyGateway(Gateway):
         'user'     : User,
         'account'  : Account,
         'session'  : DBSession,
-        'linked_account': LinkedAccount,
+        #'linked_account': LinkedAccount,
         'policy'   : Policy
     }
 
@@ -88,6 +88,7 @@ class SQLAlchemyGateway(Gateway):
         Session = sessionmaker(bind=engine)
         self.db = Session()
         
+        Log.tmp("INIT SQLAlchemy GW with a Session = " self.db)
         # Create a session
         #Session = sessionmaker()
         #Session.configure(bind=engine)
