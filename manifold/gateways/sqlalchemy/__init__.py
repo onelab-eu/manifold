@@ -88,7 +88,6 @@ class SQLAlchemyGateway(Gateway):
         Session = sessionmaker(bind=engine)
         self.db = Session()
         
-        Log.tmp("INIT SQLAlchemy GW with a Session = " self.db)
         # Create a session
         #Session = sessionmaker()
         #Session.configure(bind=engine)
