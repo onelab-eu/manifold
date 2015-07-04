@@ -170,7 +170,6 @@ class Interface(object):
 
                     user_config = ref_account.get('config', None)
                     if user_config:
-                        Log.tmp(user_config)
                         user_config = json.loads(user_config)
 
             else:
