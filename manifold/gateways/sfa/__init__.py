@@ -1778,7 +1778,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
-
+        start_time = 0
         # If No AM return
         if not self.sliceapi:
             defer.returnValue({})
