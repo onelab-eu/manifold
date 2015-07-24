@@ -63,7 +63,10 @@ class PasswordAuth(AuthMethod):
             query_users = Query.get('local:user').filter_by('email', '==', self.auth['Username'].lower())
             user, = self.interface.execute_local_query(query_users)
         except Exception, e:
-            self.clean_sessions()
+            import traceback
+            traceback.print_exc()
+            s = SessionAuth('session')
+            s.clean_sessions()
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
         # Compare encrypted plaintext against encrypted password stored in the DB
