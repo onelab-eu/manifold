@@ -48,7 +48,13 @@ class ManifoldCollection(set):
     def create(self, *args, **kwargs):
         pass
 
+    def update(self, *args, **kwargs):
+        pass
+
     def delete(self, *args, **kwargs):
+        pass
+
+    def execute(self, *args, **kwargs):
         pass
 
     def sync(self):
