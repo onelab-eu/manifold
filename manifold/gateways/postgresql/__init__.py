@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Functions for interacting with a PostgreSQL server 
-# http://www.postgresql.org/
+# Example of a Gateway
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+# Loïc Baron        <loic.baron@lip6.fr>
 #
-# Copyright (C) 2013 UPMC 
+# Copyright (C) 2015 UPMC
 
-from __future__                         import absolute_import
 import re, datetime, traceback
-from itertools                          import izip
-from uuid                               import uuid4
+
+import time # for timing sql calls
+
 from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
-from pprint                             import pformat
 
 import psycopg2
 import psycopg2.extensions
@@ -23,45 +22,33 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 # UNICODEARRAY not exported yet
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
-from manifold.gateways                  import Gateway
-from manifold.core.announce             import Announce, Announces, merge_announces
+from manifold.core.capabilities         import Capabilities
+from manifold.core.object               import ObjectFactory
 from manifold.core.field                import Field
+from manifold.core.key                  import Key
+from manifold.core.keys                 import Keys
 from manifold.core.query                import Query
-from manifold.core.table                import Table
+
+from manifold.gateways                  import Gateway
+from manifold.gateways.object           import ManifoldCollection
+
 from manifold.util.log                  import Log
 from manifold.util.misc                 import is_iterable
-from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type                 import accepts, returns
 
-import time # for timing sql calls
-
 class PostgreSQLGateway(Gateway):
+    # this gateway_name must be used as gateway_type when adding a platform to the local storage 
     __gateway_name__ = "postgresql"
 
-    DEFAULT_DB_NAME = "postgres" 
-    DEFAULT_PORT    = 5432
+    #-------------------------------------------------------------------------------
+    # Metadata 
+    #-------------------------------------------------------------------------------
 
     SQL_STR = """
     SELECT %(fields)s
         FROM %(table_name)s
         %(where)s
     """;
-
-    SQL_OPERATORS = {
-        eq: "="
-    }
-
-    #-------------------------------------------------------------------------------
-    # Metadata 
-    #-------------------------------------------------------------------------------
-
-    # SGBD
-
-    SQL_SGBD_DBNAMES = """
-    SELECT    datname
-        FROM  pg_database
-        WHERE datistemplate = false;
-    """
 
     # Database
 
@@ -106,27 +93,6 @@ class PostgreSQLGateway(Gateway):
         GROUP BY table_name;
     """
 
-    # Full request:
-    #   SELECT
-    #     tc.constraint_name,
-    #     tc.table_name,
-    #     kcu.column_name, 
-    #     ccu.table_name  AS foreign_table_name,
-    #     ccu.column_name AS foreign_column_name 
-    #   FROM [...]
-
-
-    # SLOW: prefer the following, postgresql specific one
-    #SQL_TABLE_FOREIGN_KEYS = """
-    #SELECT       kcu.column_name, ccu.table_name AS foreign_table_name
-    #    FROM     information_schema.table_constraints       AS tc 
-    #        JOIN information_schema.key_column_usage        AS kcu ON tc.constraint_name  = kcu.constraint_name
-    #        JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
-    #    WHERE    constraint_type = 'FOREIGN KEY'
-    #      AND    tc.table_name = %(table_name)s;
-    #"""
-
-    #SELECT c.oid, n.nspname, c.relname, n2.nspname, c2.relname, cons.conname
     SQL_TABLE_FOREIGN_KEYS = """
     SELECT replace(replace(cons.conname, %(table_name)s || '_', ''), '_fkey', '') AS column_name, c2.relname AS foreign_table_name
         FROM pg_class c                                          
@@ -159,17 +125,25 @@ class PostgreSQLGateway(Gateway):
         AND pg_catalog.pg_table_is_visible(c.oid);
     """
 
+
     ANY_TABLE  = [re.compile(".*")]
     NONE_TABLE = list() 
+
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
+    # XXX Don't we use .h files anymore?
+
     def __init__(self, router, platform, **platform_config):
         """
-        Construct a PostgreSQLGateway instance
+        Constructor of a PostgreSQLGateway instance
         Args:
+            router: The Router on which this Gateway is running.
+            platform: A String storing name of the platform related to this Gateway or None.
+            platform_config: A dictionnary containing the configuration related to this Gateway.
+
             re_ignored_tables: A list of re instances filtering tables that must be
                 not processed by PostgreSQLGateway. For instance you could filter tables
                 not exposed to Manifold. You may also pass:
@@ -215,8 +189,9 @@ class PostgreSQLGateway(Gateway):
 
         """
         super(PostgreSQLGateway, self).__init__(router, platform, **platform_config)
-        self.connection = None
-        self.cursor     = None
+
+        self.cnx    = PostgreSQLConnection(platform_config)
+        self.cursor = self.cnx.get_cursor()
         
         # The table matching those regular expressions are ignored...
         # ... excepted the ones explicitly allowed
@@ -226,18 +201,51 @@ class PostgreSQLGateway(Gateway):
         self.custom_fields     = platform_config.get('custom_fields', dict())
         self.custom_keys       = platform_config.get('custom_keys', dict())
 
-    #---------------------------------------------------------------------------
-    # Schema 
-    #---------------------------------------------------------------------------
+
+        objects = self.get_objects(platform_config)
+        for object_name, config in objects:
+            collection = PostgreSQLCollection(object_name, config, platform_config)
+            self.register_collection(collection)
 
     @returns(list)
-    def get_databases(self):
+    def get_objects(self, platform_config):
         """
-        Retrieve the database names stored in postgresql
+        Get the list of objects advertised by the platform 
+        Args:
+            platform_config
+
+        Static data model
+            returns the list of objects stored in local platform_config
+            [(object_name,{config}),(object_name,{config})]
+
+        Dynamic data model
+            get the list of objects from the platform
+
         Returns:
-            A list of StringTypes containing the database names (excepted postgres).
+            A list of objects.
         """
-        return [x["datname"] for x in self.selectall(PostgreSQLGateway.SQL_SGBD_DBNAMES) if x["datname"] != "postgres"]
+
+        objects = list()
+
+        # Dynamic data model
+        # -----------------------------
+        # Format should be as follows: [(object_name,{config}),(object_name,{config})]
+        table_names = self.get_table_names()
+        for table_name in table_names:
+            if self.is_ignored_table(table_name): continue
+            #table = self.make_table(table_name)
+            #table = self.tweak_table(table)
+            objects.append((table_name,{}))
+        return objects
+
+    @returns(GeneratorType)
+    def get_table_names(self):
+        """
+        Retrieve the table names stored in the current database
+        Returns:
+            A generator allowing to iterate on each table names (String instance)
+        """
+        return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES % self.get_config())
 
     @returns(GeneratorType)
     def _get_generator(self, sql_query):
@@ -250,27 +258,9 @@ class PostgreSQLGateway(Gateway):
         Returns:
             The corresponding generator instance
         """
-        cursor = self.get_cursor()
+        cursor = self.cursor
         cursor.execute(sql_query)
         return (record[0] for record in cursor.fetchall())
-
-    @returns(GeneratorType)
-    def get_view_names(self):
-        """
-        Retrieve the view names stored in the current database
-        Returns:
-            A generator allowing to iterate on each view names (String instance)
-        """
-        return self._get_generator(PostgreSQLGateway.SQL_DB_VIEW_NAMES % self.get_config())
-
-    @returns(GeneratorType)
-    def get_table_names(self):
-        """
-        Retrieve the table names stored in the current database
-        Returns:
-            A generator allowing to iterate on each table names (String instance)
-        """
-        return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES % self.get_config())
 
     # TODO this could be moved into Gateway to implement "Access List"
     # TODO see manifold/policy
@@ -290,10 +280,56 @@ class PostgreSQLGateway(Gateway):
                         return False
                 return True
         return False
+    
+    #---------------------------------------------------------------------------
+    # Announces (TODO move this in Gateway and/or Announce) 
+    #---------------------------------------------------------------------------
 
-    #---------------------------------------------------------------------------
-    # Connection 
-    #---------------------------------------------------------------------------
+#    @returns(Table)
+#    def tweak_table(self, table):
+#        """
+#        Update a Table instance according to tweaks described in
+#        self.custom_fields and self.custom_keys
+#        Args:
+#            table: A reference to this Table.
+#        Returns:
+#            The updated Table.
+#        """
+#        table_name = table.get_name()
+#
+#        # Inject custom fields in their corresponding announce
+#        if table_name in self.custom_fields.keys():
+#            for field in self.custom_fields[table_name]:
+#                table.insert_field(field)
+#
+#        # Inject custom keys in their corresponding announce
+#        if table_name in self.custom_keys.keys():
+#            for key in self.custom_keys[table_name]:
+#                table.insert_key(key)
+#
+#        return table
+
+
+#---------------------------------------------------------------------------
+# Connection 
+#---------------------------------------------------------------------------
+class PostgreSQLConnection():
+
+    def __init__(self, config):
+        self._config = config
+        self.cursor      = None
+        self.connection  = None
+
+        self.description = None
+        self.lastrowid   = None
+        self.rowcount    = None
+
+    def get_description(self):
+        return self.description
+    def get_lastrowid(self):
+        return self.lastrowid
+    def get_rowcount(self):
+        return self.rowcount
 
     def get_cursor(self, cursor_factory = None):
         """
@@ -313,7 +349,7 @@ class PostgreSQLGateway(Gateway):
         Returns:
             The corresponding psycopg2-compliant dictionnary
         """
-        config = self.get_config()
+        config = self._config
         return {
             "user"     : config["db_user"],
             "password" : config["db_password"],
@@ -379,9 +415,9 @@ class PostgreSQLGateway(Gateway):
             raise RuntimeError("Cannot connect to PostgreSQL server")
 
         # Needed to manage properly cascading execute(), maybe OBSOLETE 
-        self.rowcount    = None
-        self.description = None
-        self.lastrowid   = None
+        #self.rowcount    = None
+        #self.description = None
+        #self.lastrowid   = None
 
         if cursor_factory:
             return self.connection.cursor(cursor_factory = cursor_factory)
@@ -396,27 +432,6 @@ class PostgreSQLGateway(Gateway):
             self.connection.close()
             self.connection = None
 
-#OBSOLETE|    @staticmethod
-#OBSOLETE|    def param(self, name, value):
-#OBSOLETE|        if isinstance(value, NoneType):
-#OBSOLETE|            # None is converted to the unquoted string NULL
-#OBSOLETE|            conversion = "s"
-#OBSOLETE|        elif isinstance(value, bool):
-#OBSOLETE|            # True and False are also converted to unquoted strings
-#OBSOLETE|            conversion = "s"
-#OBSOLETE|        elif isinstance(value, float):
-#OBSOLETE|            conversion = "f"
-#OBSOLETE|        elif not isinstance(value, StringTypes):
-#OBSOLETE|            conversion = "d"
-#OBSOLETE|        else:
-#OBSOLETE|            conversion = "s"
-#OBSOLETE|
-#OBSOLETE|        return "%(" + name + ")" + conversion
-#OBSOLETE|
-#OBSOLETE|    def begin_work(self):
-#OBSOLETE|        # Implicit in pgdb.connect()
-#OBSOLETE|        pass
-
     def commit(self):
         """
         Commit a sequence of SQL commands
@@ -429,244 +444,152 @@ class PostgreSQLGateway(Gateway):
         """
         self.connection.rollback()
 
-    #---------------------------------------------------------------------------
-    # Announces (TODO move this in Gateway and/or Announce) 
-    #---------------------------------------------------------------------------
+class PostgreSQLCollection(ManifoldCollection):
 
-    @returns(Table)
-    def tweak_table(self, table):
+    def __init__(self, object_name, config, platform_config):
+        if not isinstance(config, dict):
+            raise Exception("Wrong format for field description. Expected dict")
+
+        self._config = config
+        self.cnx    = PostgreSQLConnection(platform_config)
+        self.cursor = self.cnx.get_cursor()
+
+        # Static data model
+        # Get fields and key from config of the platform 
+        if 'fields' in config and 'key' in config:
+            field_names, field_types = self.get_fields_from_config()
+            self._field_names = field_names
+            self._field_types = field_types
+        # Dynamic data model
+        # fields not specified must be discovered by the GW
+        else:
+            self._field_names = None
+            self._field_types = None
+
+        self._cls = self.make_object(object_name, config)
+
+    def get_fields_from_config(self):
+        try:
+            field_names, field_types = None, None
+            for name, type in self._config["fields"]:
+                field_names.append(name)
+                field_types.append(type)
+        except Exception, e:
+            Log.warning("Wrong format for fields in platform configuration")
+
+        return (field_names, field_types)
+
+    def make_object(self, object_name, options):
         """
-        Update a Table instance according to tweaks described in
-        self.custom_fields and self.custom_keys
+        Build an Object instance according to a given table/view name by
+        querying the PostgreSQL schema.
+
         Args:
-            table: A reference to this Table.
+            object_name: Name of a view or a relation in PostgreSQL (String instance)
         Returns:
-            The updated Table.
+            The Object instance extracted from the PostgreSQL schema
         """
-        table_name = table.get_name()
+        fields = dict()
 
-        # Inject custom fields in their corresponding announce
-        if table_name in self.custom_fields.keys():
-            for field in self.custom_fields[table_name]:
-                table.insert_field(field)
+        cursor = self.cursor
+        param_execute = {"table_name": object_name}
 
-        # Inject custom keys in their corresponding announce
-        if table_name in self.custom_keys.keys():
-            for key in self.custom_keys[table_name]:
-                table.insert_key(key)
-
-        return table
-
-    @returns(Announces)
-    def make_announces(self):
-        """
-        Prepare Announces to this Gateway, deduced by default by inspecting the pgsql
-        schema and the .h file corresponding to this Gateway.
-        Returns:
-            A list of Announce instances
-        """
-        # Import metadata from pgsql schema.
-        # By default, we only fetch tables and we ignore views.
+        # FOREIGN KEYS:
+        # We build a foreign_keys dictionary associating each field of
+        # the table with the table it references.
         start_time = time.time()
-        table_names = self.get_table_names()
-        #print "SQL took", time.time() - start_time, "s", "[get_table_names]"
-        announces_pgsql = self.make_announces_from_names(table_names)
-        if not announces_pgsql:
-            Log.warning("Cannot find metadata for platform %s" % self.get_platform_name())
-        else:
-            Log.info("Tables imported from pgsql schema: %s" % [announce.get_table() for announce in announces_pgsql])
+        cursor.execute(PostgreSQLGateway.SQL_TABLE_FOREIGN_KEYS, param_execute)
+        fks = cursor.fetchall()
+        foreign_keys = {fk.column_name: fk.foreign_table_name for fk in fks}
 
-#TODO|        ###
-#TODO|        """
-#TODO|        class table {
-#TODO|            string comment;
-#TODO|            field  fields[];
-#TODO|            key    keys[];
-#TODO|        };
-#TODO|
-#TODO|        class field {
-#TODO|            string comment;
-#TODO|            bool   is_const;
-#TODO|            bool   is_array;
-#TODO|            string type;
-#TODO|        };
-#TODO|
-#TODO|        class key {
-#TODO|            table table;    /**< BACKWARD_1N */
-#TODO|            field fields[];
-#TODO|        };
-#TODO|        """
-
-        # Fetch metadata from .h files (if any)
-        announces_h = super(PostgreSQLGateway, self).make_announces()
-        Log.info("Tables imported from .h schema: %s" % [announce.get_table() for announce in announces_h])
-
-        # Return the resulting announces
-        return merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
-
-    #---------------------------------------------------------------------------
-    # Manifold <-> pgsql
-    #---------------------------------------------------------------------------
-
-    @returns(StringTypes)
-    def get_pgsql_name(self, manifold_name):
-        """
-        Translate the name of Manifold object into the appropriate view/table name
-        Args:
-            manifold_name: the Manifold object name (for example "agent") (String instance)
-        Returns:
-            The corresponding pgsql name (for instance "view_agent") (String instance).
-            If not found, returns the value stored in the manifold_name parameter.
-        """
-        if manifold_name in self.table_aliases.keys():
-            return self.table_aliases[manifold_name]
-        return manifold_name
-
-#OBSOLETE|    def do(self, query, params = None):
-#OBSOLETE|        cursor = self.execute(query, params)
-#OBSOLETE|        cursor.close()
-#OBSOLETE|        return self.rowcount
-#OBSOLETE|
-#OBSOLETE|    def next_id(self, table_name, primary_key):
-#OBSOLETE|        sequence = "%(table_name)s_%(primary_key)s_seq" % locals()  
-#OBSOLETE|        sql = "SELECT nextval('%(sequence)s')" % locals()
-#OBSOLETE|        rows = self.selectall(sql, hashref = False)
-#OBSOLETE|        if rows: 
-#OBSOLETE|            return rows[0][0]
-#OBSOLETE|            
-#OBSOLETE|        return None 
-#OBSOLETE|
-#OBSOLETE|    def last_insert_id(self, table_name, primary_key):
-#OBSOLETE|        if isinstance(self.lastrowid, int):
-#OBSOLETE|            sql = "SELECT %s FROM %s WHERE oid = %d" % \
-#OBSOLETE|                  (primary_key, table_name, self.lastrowid)
-#OBSOLETE|            rows = self.selectall(sql, hashref = False)
-#OBSOLETE|            if rows:
-#OBSOLETE|                return rows[0][0]
-#OBSOLETE|
-#OBSOLETE|        return None
-
-    def execute(self, sql, params = None, cursor_factory = None):
-        """
-        Execute a SQL query on PostgreSQL.
-        Args:
-            sql: a String containing a SQL query.
-            params: a dictionnary or None if unused.
-            cursor_factory: see http://initd.org/psycopg/docs/extras.html
-        Returns:
-            The corresponding cursor.
-        """
-        # modified for psycopg2-2.0.7 
-        # executemany is undefined for SELECT's
-        # see http://www.python.org/dev/peps/pep-0249/
-        # accepts either None, a single dict, a tuple of single dict - in which case it execute's
-        # or a tuple of several dicts, in which case it executemany's
-
-        cursor = self.connect(cursor_factory)
-#        try:
-        # psycopg2 requires %()s format for all parameters,
-        # regardless of type.
-        # this needs to be done carefully though as with pattern-based filters
-        # we might have percents embedded in the query
-        # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
-        if psycopg2:
-            sql = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", sql)
-        # rewrite wildcards set by Filter.py as "***" into "%"
-        sql = sql.replace("***", "%")
-
-        if not params:
-            cursor.execute(sql)
-        elif isinstance(params, StringValue):
-            cursor.execute(sql, params)
-        elif isinstance(params, dict):
-            cursor.execute(sql, params)
-        elif isinstance(params, tuple) and len(params) == 1:
-            cursor.execute(sql, params[0])
-        else:
-            param_seq = params
-            cursor.executemany(sql, param_seq)
-        (self.rowcount, self.description, self.lastrowid) = \
-                        (cursor.rowcount, cursor.description, cursor.lastrowid)
-#        except Exception, e:
-#            try:
-#                self.rollback()
-#            except:
-#                pass
-#            uuid = uuid4() #commands.getoutput("uuidgen")
-#            Log.error("Database error %s:" % uuid)
-#            Log.error(e)
-#            Log.error("Query:")
-#            Log.error(sql)
-#            Log.error("Params:")
-#            Log.error(pformat(params))
-#            raise Exception(str(e).rstrip())
-
-        return cursor
-
-    # see instead: psycopg2.extras.NamedTupleCursor
-    @returns(list)
-    def selectall(self, query, params = None, hashref = True, key_field = None):
-        """
-        Return each row as a dictionary keyed on field name (like DBI
-        selectrow_hashref()). If key_field is specified, return rows
-        as a dictionary keyed on the specified field (like DBI
-        selectall_hashref()).
-
-        If params is specified, the specified parameters will be bound
-        to the query.
-
-        Args:
-            sql: a String containing a SQL query.
-            params:
-            hashref:
-            key_field:
-        Returns:
-            Returns a list of dict corresponding to fetched records.
-        """
+        # COMMENTS:
+        # We build a comments dictionary associating each field of the table with
+        # its comment.
         start_time = time.time()
-        cursor = self.execute(query, params)
-        rows = cursor.fetchall()
-        cursor.close()
-        self.commit()
-        if hashref or key_field is not None:
-            # Return each row as a dictionary keyed on field name
-            # (like DBI selectrow_hashref()).
-            labels = [column[0] for column in self.description]
-            rows = [dict(zip(labels, row)) for row in rows]
+        comments = self.get_fields_comment(object_name)
 
-        #print "SQL took", time.time() - start_time, "s", "[", query, "]"
+        # FIELDS:
+        start_time = time.time()
+        cursor.execute(PostgreSQLGateway.SQL_TABLE_FIELDS, param_execute)
+        for field in cursor.fetchall():
+            _qualifiers = list()
+            if not field.is_updatable == "YES":
+                _qualifiers.append('const')
+            is_local = lambda field_name: field_name.endswith('_id')
+            if is_local(field.column_name):
+                _qualifiers.append('local')
 
-        if key_field is not None and key_field in labels:
-            # Return rows as a dictionary keyed on the specified field
-            # (like DBI selectall_hashref()).
-            return dict([(row[key_field], row) for row in rows])
-        else:
-            return rows
+            field = Field(
+                type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else self.to_manifold_type(field.data_type),
+                name        = field.column_name,
+                qualifiers  = _qualifiers,
+                is_array    = (field.data_type == "ARRAY"),
+                description = comments[field.column_name] if field.column_name in comments else "(null)"
+            )
+            fields[field.name] = field
 
-#OBSOLETE|    def fields(self, table, notnull = None, hasdef = None):
-#OBSOLETE|        """
-#OBSOLETE|        Return the names of the fields of the specified table.
-#OBSOLETE|        """
-#OBSOLETE|        if hasattr(self, "fields_cache"):
-#OBSOLETE|            if self.fields_cache.has_key((table, notnull, hasdef)):
-#OBSOLETE|                return self.fields_cache[(table, notnull, hasdef)]
-#OBSOLETE|        else:
-#OBSOLETE|            self.fields_cache = {}
-#OBSOLETE|
-#OBSOLETE|        sql = "SELECT attname FROM pg_attribute, pg_class" \
-#OBSOLETE|              " WHERE pg_class.oid = attrelid" \
-#OBSOLETE|              " AND attnum > 0 AND relname = %(table)s"
-#OBSOLETE|
-#OBSOLETE|        if notnull is not None:
-#OBSOLETE|            sql += " AND attnotnull is %(notnull)s"
-#OBSOLETE|
-#OBSOLETE|        if hasdef is not None:
-#OBSOLETE|            sql += " AND atthasdef is %(hasdef)s"
-#OBSOLETE|
-#OBSOLETE|        rows = self.selectall(sql, locals(), hashref = False)
-#OBSOLETE|        self.fields_cache[(table, notnull, hasdef)] = [row[0] for row in rows]
-#OBSOLETE|
-#OBSOLETE|        return self.fields_cache[(table, notnull, hasdef)]
+        # PRIMARY KEYS: XXX simple key ?
+        # We build a key dictionary associating each table with its primary key
+        start_time = time.time()
+        cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
+        pks = cursor.fetchall()
+        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
+        if len(pks) == 0:
+            #param_execute['constraint_name'] = '_pkey'
+            cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS_2, param_execute)
+            pks = cursor.fetchall()
+
+        keys = Keys()
+        l_fields = list()
+        for pk in pks:
+            primary_key = tuple(pk.column_names)
+            for k in primary_key:
+                l_fields.append(fields[k])
+            keys.add(Key(l_fields))
+
+        obj = ObjectFactory(object_name)
+
+        obj.set_fields(fields.values())
+        obj.set_keys(keys)
+        obj.set_capabilities(self.get_capabilities())
+        
+        return obj
+
+    @returns(Capabilities)
+    def get_capabilities(self):
+        """
+        Extract the Capabilities from platform.config
+        Returns:
+            The corresponding Capabilities instance.
+        """
+        capabilities = Capabilities()
+
+        # Default capabilities if they are not retrieved
+        capabilities.retrieve   = True
+        capabilities.join       = True
+        capabilities.selection  = True
+        capabilities.projection = True
+           
+        return capabilities
+
+    @returns(dict)
+    def get_fields_comment(self, table_name):
+        """
+        Retrieve for each table/view the corresponding comment.
+        Those comments are set thanks to:
+            COMMENT ON COLUMN my_table.my_field IS 'My field description';
+
+        Params:
+            table_name: A String instance containing the name of a table
+                belonging to the current database.
+        Returns:
+            A dictionnary {String : String} which map a field_name to
+            its corresponding description.
+        """
+        cursor = self.cursor
+        cursor.execute(PostgreSQLGateway.SQL_TABLE_COMMENT, {"table_name": table_name})
+        comments = cursor.fetchall()
+        return {comment.relname : comment.description for comment in comments}
 
     #---------------------------------------------------------------------------
     # Query to SQL 
@@ -698,7 +621,7 @@ class PostgreSQLGateway(Gateway):
         elif x is None:
             x = "NULL"
         elif isinstance(x, (ListType, TupleType)):
-            x = "(%s)" % ",".join(map(lambda x: str(PostgreSQLGateway._to_sql_value(x)), x))
+            x = "(%s)" % ",".join(map(lambda x: str(PostgreSQLCollection._to_sql_value(x)), x))
         elif hasattr(x, "__pg_repr__"):
             x = x.__pg_repr__()
         else:
@@ -721,9 +644,9 @@ class PostgreSQLGateway(Gateway):
         # The pgdb._quote function is good enough for general SQL
         # quoting, except for array types.
         if isinstance(value, (list, tuple, set, frozenset)):
-            return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote, value))
+            return "ARRAY[%s]" % ", ".join(map(PostgreSQLCollection.quote, value))
         else:
-            return PostgreSQLGateway._to_sql_value(value)
+            return PostgreSQLCollection._to_sql_value(value)
 
     @staticmethod
     #@accepts(Predicate)
@@ -760,14 +683,14 @@ class PostgreSQLGateway(Gateway):
                 if isinstance(field, (list, tuple, set, frozenset)):
                     and_clauses = []
                     for value_elt in value:
-                        value_elt = map(PostgreSQLGateway._to_sql_value, value_elt)
+                        value_elt = map(PostgreSQLCollection._to_sql_value, value_elt)
                         predicate_list = ["%s = %s" % (f, ve) for f, ve in izip(field,value_elt)]
                         and_clauses.append(" AND ".join(predicate_list))
                     field = ""
                     op    = ""
                     value = " OR ".join(and_clauses)
                 else:
-                    value = map(PostgreSQLGateway.quote, value)
+                    value = map(PostgreSQLCollection.quote, value)
                     if op_ == and_:
                         op = "@>"
                         value = "ARRAY[%s]" % ", ".join(value)
@@ -789,7 +712,7 @@ class PostgreSQLGateway(Gateway):
                 # actual replacement to % done in PostgreSQL.py
                 value = value.replace ("*", "***")
                 value = value.replace ("%", "***")
-                value = str(PostgreSQLGateway.quote(value))
+                value = str(PostgreSQLCollection.quote(value))
             else:
                 if op_ == eq:
                     op = "="
@@ -807,9 +730,9 @@ class PostgreSQLGateway(Gateway):
                 if isinstance(value, StringTypes) and value[-2:] != "()":
                     # This is a string value and we're not calling a pgsql function
                     # having no parameter (for instance NOW())
-                    value = str(PostgreSQLGateway.quote(value))
+                    value = str(PostgreSQLCollection.quote(value))
                 elif isinstance(value, datetime.datetime):
-                    value = str(PostgreSQLGateway.quote(str(value)))
+                    value = str(PostgreSQLCollection.quote(str(value)))
 
         clause = "%s %s %s" % (
             "\"%s\"" % field if field else "",
@@ -834,64 +757,8 @@ class PostgreSQLGateway(Gateway):
             This String is equal to "" if filters is empty
         """
         # NOTE : How to handle complex clauses
-        return " AND ".join([PostgreSQLGateway._to_sql_where_elt(predicate) for predicate in predicates])
+        return " AND ".join([PostgreSQLCollection._to_sql_where_elt(predicate) for predicate in predicates])
 
-    @staticmethod
-    @returns(StringTypes)
-    def get_ts(ts):
-        """
-        Translate a python timestamp a SQL compliant string
-        Args:
-            ts: A StringType or a date or datetime instance containing a timestamp.
-                String instances containing a timestamp must respect the following
-                format:
-                    '%Y-%m-%d %H:%M:%S'
-                You may also pass "latest" or None which means "now"
-        Returns:
-            The corresponding string
-        Raises:
-            ValueError: if parameter ts is not valid
-        """
-        try:
-            if isinstance(ts, StringTypes):
-                if ts == "latest" or ts == None:
-                    ret = "NULL"
-                else:
-                    ret = "'%s'" % ts
-            elif isinstance(ts, datetime.datetime):
-                ret = ts.strftime("%Y-%m-%d %H:%M:%S")
-            elif isinstance(ts, datetime.date):
-                ret = ts.strftime("%Y-%m-%d 00:00:00")
-        except:
-            raise ValueError("Invalid parameter: ts = %s" % ts)
-        return ret
-
-    @staticmethod
-    @returns(tuple)
-    def get_ts_bounds(ts):
-        """
-        Convert a timestamp or a pair of timestamp into the corresponding
-        SQL compliant value(s) 
-        Args:
-            ts: The input timestamp(s). Supported types:
-                ts
-                [ts_min, ts_max]
-                (ts_min, ts_max)
-        Raises:
-            ValueError: if parameter ts is not valid
-        Returns:
-            The corresponding (ts_min, ts_max) tuple in SQL format
-        """
-        try:
-            if isinstance(ts, StringTypes):
-                ts_min = ts_max = ts
-            elif type(ts) is tuple:
-                (ts_min, ts_max) = ts
-            elif type(ts) is list:
-                [ts_min, ts_max] = ts
-        except:
-            raise ValueError("Invalid parameter: ts = %s" % ts)
-        return (PostgreSQLGateway.get_ts(ts_min), PostgreSQLGateway.get_ts(ts_max))
 
     @staticmethod
     def to_sql(query):
@@ -903,10 +770,10 @@ class PostgreSQLGateway(Gateway):
             A String containing a postgresql command 
         """
         table_name = query.get_table_name()
-        if not table_name: Log.error("PostgreSQLGateway::to_sql(): Invalid query: %s" % query)
+        if not table_name: Log.error("PostgreSQLCollection::to_sql(): Invalid query: %s" % query)
 
         select = query.get_select()
-        where  = PostgreSQLGateway.to_sql_where(query.get_where())
+        where  = PostgreSQLCollection.to_sql_where(query.get_where())
         params = {
             "fields"     : "*" if select.is_star() else ", ".join(select),
             "table_name" : table_name,
@@ -914,7 +781,49 @@ class PostgreSQLGateway(Gateway):
         }
 
         sql = PostgreSQLGateway.SQL_STR % params
+        Log.tmp(sql)
         return sql
+
+    # see instead: psycopg2.extras.NamedTupleCursor
+    @returns(list)
+    def selectall(self, query, params = None, hashref = True, key_field = None):
+        """
+        Return each row as a dictionary keyed on field name (like DBI
+        selectrow_hashref()). If key_field is specified, return rows
+        as a dictionary keyed on the specified field (like DBI
+        selectall_hashref()).
+
+        If params is specified, the specified parameters will be bound
+        to the query.
+
+        Args:
+            sql: a String containing a SQL query.
+            params:
+            hashref:
+            key_field:
+        Returns:
+            Returns a list of dict corresponding to fetched records.
+        """
+        start_time = time.time()
+        self.cursor = self.cnx.get_cursor()
+        self.cursor.execute(query, params)
+        rows = self.cursor.fetchall()
+        if hashref or key_field is not None:
+            # Return each row as a dictionary keyed on field name
+            # (like DBI selectrow_hashref()).
+            labels = [column[0] for column in self.cursor.description]
+            rows = [dict(zip(labels, row)) for row in rows]
+
+        #print "SQL took", time.time() - start_time, "s", "[", query, "]"
+        self.cursor.close()
+        self.cnx.commit()
+
+        if key_field is not None and key_field in labels:
+            # Return rows as a dictionary keyed on the specified field
+            # (like DBI selectall_hashref()).
+            return dict([(row[key_field], row) for row in rows])
+        else:
+            return rows
 
     @staticmethod
     @returns(StringTypes)
@@ -944,175 +853,97 @@ class PostgreSQLGateway(Gateway):
         elif re_timestamp.match(sql_type):
             return "timestamp"
         else:
-            print "PostgreSQLGateway to_manifold_type: %r is not supported" % sql_type
+            Log.warning("PostgreSQLCollection to_manifold_type: %r might not be supported" % sql_type)
+            return sql_type
 
-    #---------------------------------------------------------------------------
-    # Metadata 
-    #---------------------------------------------------------------------------
 
-    @returns(dict)
-    def get_tables_comment(self):
-        """
-        Retrieve for each table/view the corresponding comment.
-        Those comments are set thanks to:
-            COMMENT ON TABLE my_table IS 'My table description';
-            COMMENT ON VIEW  my_view  IS 'My view description';
+    def get(self, packet):
+        #  this example will just send an empty list of Records
+        try:
+            records = list()
 
-        Returns:
-            A dictionnary {String : String} which map a table_name to
-            its corresponding description.
-        """
-        cursor = self.get_cursor()
-        cursor.execute(PostgreSQLGateway.SQL_TABLE_COMMENT, {"table_name": table_name})
-        comments = cursor.fetchall()
-        return {comment.relname : comment.description for comment in comments}
+            # -----------------------------
+            #      Add your code here 
+            # -----------------------------
+            # Get data records from your platform
 
-    @returns(dict)
-    def get_fields_comment(self, table_name):
-        """
-        Retrieve for each table/view the corresponding comment.
-        Those comments are set thanks to:
-            COMMENT ON COLUMN my_table.my_field IS 'My field description';
+            # packet is used if the GW supports filters and fields selection
+            Log.tmp(packet)
+            query = Query.from_packet(packet)
+            Log.tmp(query)
+            sql = self.to_sql(query)
+            records = self.selectall(sql, None)
+            # send the records
+            self.get_gateway().records(records, packet)
 
-        Params:
-            table_name: A String instance containing the name of a table
-                belonging to the current database.
-        Returns:
-            A dictionnary {String : String} which map a field_name to
-            its corresponding description.
-        """
-        cursor = self.get_cursor()
-        cursor.execute(PostgreSQLGateway.SQL_TABLE_COMMENT, {"table_name": table_name})
-        comments = cursor.fetchall()
-        return {comment.relname : comment.description for comment in comments}
+        except Exception as e:
+            traceback.print_exc()
+            raise Exception("Error in PostgreSQLCollection on get() function: %s" % e)
 
-    @returns(Table)
-    def make_table(self, table_name):
-        """
-        Build a Table instance according to a given table/view name by
-        quering the PostgreSQL schema.
+    def create(self, packet):
 
-        Args:
-            table_name: Name of a view or a relation in PostgreSQL (String instance)
-        Returns:
-            The Table instance extracted from the PostgreSQL schema related
-            to the queried view/relation
-        """
-        cursor = self.get_cursor()
-        table = Table(self.get_platform_name(), table_name)
-        param_execute = {"table_name": table_name}
+        if not packet.is_empty():
 
-        # FOREIGN KEYS:
-        # We build a foreign_keys dictionary associating each field of
-        # the table with the table it references.
-        start_time = time.time()
-        cursor.execute(PostgreSQLGateway.SQL_TABLE_FOREIGN_KEYS, param_execute)
-        fks = cursor.fetchall()
-        foreign_keys = {fk.column_name: fk.foreign_table_name for fk in fks}
-        #print "SQL took", time.time() - start_time, "s", "[get_fk]"
+            data = packet.get_data()
+            source = packet.get_source()
+            object_name = source.get_object_name()
 
-        # COMMENTS:
-        # We build a comments dictionary associating each field of the table with
-        # its comment.
-        start_time = time.time()
-        comments = self.get_fields_comment(table_name)
-        #print "SQL took", time.time() - start_time, "s", "[get_fields_comments]"
+            # -----------------------------
+            #      Add your code here 
+            # -----------------------------
 
-        # FIELDS:
-        start_time = time.time()
-        fields = set()
-        cursor.execute(PostgreSQLGateway.SQL_TABLE_FIELDS, param_execute)
-        for field in cursor.fetchall():
-            _qualifiers = list()
-            if not field.is_updatable == "YES":
-                _qualifiers.append('const')
-            is_local = lambda field_name: field_name.endswith('_id')
-            if is_local(field.column_name):
-                _qualifiers.append('local')
-            # PostgreSQL types vs base types
-            table.insert_field(Field(
-                type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else PostgreSQLGateway.to_manifold_type(field.data_type),
-                name        = field.column_name,
-                qualifiers  = _qualifiers,
-                is_array    = (field.data_type == "ARRAY"),
-                description = comments[field.column_name] if field.column_name in comments else "(null)"
-            ))
-        #print "SQL took", time.time() - start_time, "s", "[get_fields]"
-    
-        # PRIMARY KEYS: XXX simple key ?
-        # We build a key dictionary associating each table with its primary key
-        start_time = time.time()
+            # Create a record in your platform
 
-        cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
-        pks = cursor.fetchall()
-        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
-        if len(pks) == 0:
-            #param_execute['constraint_name'] = '_pkey'
-            cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS_2, param_execute)
-            pks = cursor.fetchall()
+        if packet.is_last():
+            Log.info("Last record")
 
-        primary_keys = dict()
-        for pk in pks:
-            primary_key = tuple(pk.column_names)
-            if table_name not in primary_keys.keys():
-                primary_keys[table_name] = set()
-            primary_keys[table_name].add(primary_key)
-        
-        if table_name in primary_keys.keys():
-            for key in primary_keys[table_name]:
-                # TABLE / TUPLE
-                is_local = lambda field_name: field_name.endswith('_id')
-                if not is_iterable(k): k = [k]
-                local = any(is_local(x) for x in k) if is_iterable(k) else is_local(x)
-                table.insert_key(k, local = local)
-   
-        # PARTITIONS:
-        # TODO
-        #mc = MetadataClass('class', table_name)
-        #mc.fields = fields
-        #mc.keys.append(primary_keys[table_name])
-    
-        table.capabilities.retrieve   = True
-        table.capabilities.join       = True
-        table.capabilities.selection  = True
-        table.capabilities.projection = True
-        Log.debug("Adding table: %s" % table)
-        return table
+    def update(self, packet):
 
-    @returns(Announces)
-    def make_announces_from_names(self, table_names):
-        """
-        Build metadata by querying postgresql's information schema
-        Param
-            table_names: A structure on which we can iterate
-                (list, set, generator...) to retrieve table names
-                or view names. Filtered table names are ignored
-                (see self.is_ignored_table())
-        Returns:
-            The list of corresponding Announce instances
-        """
-        announces_pgsql = Announces() 
-        
-        for table_name in table_names:
-            if self.is_ignored_table(table_name): continue
-            table = self.make_table(table_name)
-            table = self.tweak_table(table)
-            announce = Announce(table)
-            announces_pgsql.append(announce)
+        if not packet.is_empty():
 
-        return announces_pgsql
+            data = packet.get_data()
+            source = packet.get_source()
+            object_name = source.get_object_name()
 
-    #---------------------------------------------------------------------------
-    # Overloaded methods 
-    #---------------------------------------------------------------------------
+            # -----------------------------
+            #      Add your code here 
+            # -----------------------------
 
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        query = Query.from_packet(packet)
-        sql = PostgreSQLGateway.to_sql(query)
-        rows = self.selectall(sql, None)
-        self.records(rows, packet)
+            # Update a record in your platform
+
+        if packet.is_last():
+            Log.info("Last record")
+
+    def delete(self, packet):
+
+        if not packet.is_empty():
+
+            data = packet.get_data()
+            source = packet.get_source()
+            object_name = source.get_object_name()
+
+            # -----------------------------
+            #      Add your code here 
+            # -----------------------------
+
+            # Delete a record in your platform
+
+        if packet.is_last():
+            Log.info("Last record")
+
+    def execute(self, packet):
+
+        if not packet.is_empty():
+
+            data = packet.get_data()
+            source = packet.get_source()
+            object_name = source.get_object_name()
+
+            # -----------------------------
+            #      Add your code here 
+            # -----------------------------
+
+            # Execute a method on your platform
+
+        if packet.is_last():
+            Log.info("Last record")
