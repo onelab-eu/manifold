@@ -167,7 +167,6 @@ class Query(object):
             query.select(field_names)
         if params:
             query.set(params)
-
         return query
 
 
@@ -589,7 +588,7 @@ class Query(object):
         # fields is a tuple of arguments
         if len(fields) == 1:
             tmp, = fields
-            if tmp is None:
+            if tmp is None or tmp.is_star():
                 # None = '*'
                 self.fields = FieldNames(star = True)
             else:
@@ -597,7 +596,10 @@ class Query(object):
                 if clear:
                     self.fields = fields
                 else:
-                    self.fields |= fields
+                    if not fields.is_star():
+                        self.fields = fields
+                    else:
+                        self.fields |= fields
             return self
 
         # We have an sequence of fields
@@ -605,6 +607,7 @@ class Query(object):
             self.fields = FieldNames(star = False)
         for field in fields:
             self.fields.add(field)
+
         return self
 
     def set(self, params, clear = False):
