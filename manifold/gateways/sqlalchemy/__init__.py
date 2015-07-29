@@ -94,8 +94,9 @@ class SQLAlchemyCollection(ManifoldCollection):
             raise RuntimeError("Filters should be empty for a CREATE Destination (%s): %r" % (destination, destination.get_filter()))
 
         cls = self.get_model()
-
-        params = destination.get_params()
+        Log.tmp(destination.get_filter())
+        Log.tmp(destination.get_field_names())
+        params = packet.get_data()
         if "password" in params:
             params["password"] = hash_password(params["password"])
 
@@ -176,7 +177,7 @@ class SQLAlchemyCollection(ManifoldCollection):
         # We hash the password
         # As a result from the frontend the edited password will be inserted
         # into the local DB as hash
-        if "password" in destination.get_params():
+        if "password" in packet.get_data():
             destination.params["password"] = hash_password(destination.params["password"])
         _params = cls.process_params(destination.params, _filters, user, self.get_router(), session)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in destination.params.items() }
