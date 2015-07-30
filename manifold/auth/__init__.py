@@ -1,6 +1,8 @@
 import time, crypt, base64, random
 from hashlib                    import md5
 
+from manifold.util.log          import Log
+
 try:
     from manifold.conf  import ADMIN_USER
 except:
@@ -65,8 +67,12 @@ class PasswordAuth(AuthMethod):
         except Exception, e:
             import traceback
             traceback.print_exc()
-            s = SessionAuth('session')
-            s.clean_sessions()
+            Log.warning("Authentication failed, delete expired sessions")
+            query_sessions = Query.delete('local:session').filter_by('expires', '<', int(time.time()))
+            try:
+                self.interface.execute_local_query(query_sessions)
+            except: pass
+
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
         # Compare encrypted plaintext against encrypted password stored in the DB
@@ -132,7 +138,7 @@ class SessionAuth(AuthMethod):
         sessions = self.interface.execute_local_query(query_sessions)
         if not sessions:
             del self.auth['session']
-            raise AuthenticationFailure, "No such session: %s" % self.auth['session']
+            raise AuthenticationFailure, "No such session: %s" % self.auth
         session = sessions[0]
 
         user_id = session['user_id']
