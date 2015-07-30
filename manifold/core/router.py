@@ -193,6 +193,8 @@ class Router(object):
         try:
             interface = interface_cls(self, interface_name, **platform_config)
         except Exception, e:
+            import traceback
+            traceback.print_exc()
             raise Exception, "Cannot create interface %s of type %s with parameters %r: %s" % (interface_name, interface_type, platform_config, e)
 
         # Note the interface will register itself when initialized properly
