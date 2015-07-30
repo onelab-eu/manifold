@@ -25,6 +25,7 @@ from manifold.gateways.object           import ManifoldCollection
 from manifold.gateways.postgresql.connection import PostgreSQLConnection
 
 from manifold.util.log                          import Log
+from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type                 import accepts, returns
 
 #---------------------------------------------------------------------------
