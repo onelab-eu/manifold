@@ -42,9 +42,9 @@ class FIB(ChildSlotMixin):
     def get_address(self):
         return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
 
-    def get_namespaces(self):
+    def get_namespaces(self, allow_none=False):
         namespaces = self._objects_by_namespace.keys()
-        return [n for n in namespaces if n is not None]
+        return [n for n in namespaces if allow_none or n is not None]
 
 #DEPRECATED|    def get_object_relation_tuples(self, obj):
 #DEPRECATED|        ret = list()
@@ -67,7 +67,7 @@ class FIB(ChildSlotMixin):
     def get_objects(self, namespace = None):
         if namespace == '*':
             ret = list()
-            for namespace in self.get_namespaces():
+            for namespace in self.get_namespaces(True):
                 ret.extend(self.get_objects_from_namespace(namespace))
             return ret
         else:
