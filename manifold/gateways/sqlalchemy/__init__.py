@@ -2,6 +2,7 @@ from __future__                 import absolute_import
 from sqlalchemy                 import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm             import sessionmaker
+from sqlalchemy.exc             import SQLAlchemyError
 
 from manifold.conf              import ADMIN_USER
 from manifold.gateways          import Gateway
@@ -81,14 +82,13 @@ class SQLAlchemyGateway(Gateway):
         from manifold.models.account    import Account  as DBAccount
         from manifold.models.session    import Session  as DBSession
 
-        engine = create_engine(config['url'], echo=False)
+        engine = create_engine(config['url'], echo=False, pool_recycle=3600)
         
         Base.metadata.create_all(engine)
         
         Session = sessionmaker(bind=engine)
         self.db = Session()
         
-        Log.tmp("INIT SQLAlchemy GW with a Session = " self.db)
         # Create a session
         #Session = sessionmaker()
         #Session.configure(bind=engine)
@@ -118,11 +118,15 @@ class SQLAlchemyGateway(Gateway):
             if self.user and cls.restrict_to_self and self.user['email'] != ADMIN_USER:
                 res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
-
-        tuplelist = res.all()
+        try:
+            tuplelist = res.all()
+            return tuplelist
+        except SQLAlchemyError, e:
+            Log.error("SQLAlchemyError trying to rollback db session: %s" % e)
+            db.rollback()
+            self.local_query_get(query)
+            return list()
         # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
-
-        return tuplelist
 
     def local_query_update(self, query):
 
@@ -181,7 +185,6 @@ class SQLAlchemyGateway(Gateway):
             db.commit()
         except:
             db.rollback()
-
         return []
 
     def local_query_create(self, query):
@@ -212,7 +215,7 @@ class SQLAlchemyGateway(Gateway):
             db.commit()
         except:
             db.rollback()
-        
+       
         return [new_obj]
 
     def local_query_delete(self, query):

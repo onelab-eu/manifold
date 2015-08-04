@@ -1,6 +1,8 @@
 import time, crypt, base64, random
 from hashlib                    import md5
 
+from manifold.util.log          import Log
+
 try:
     from manifold.conf  import ADMIN_USER
 except:
@@ -63,6 +65,14 @@ class PasswordAuth(AuthMethod):
             query_users = Query.get('local:user').filter_by('email', '==', self.auth['Username'].lower())
             user, = self.interface.execute_local_query(query_users)
         except Exception, e:
+            import traceback
+            traceback.print_exc()
+            Log.warning("Authentication failed, delete expired sessions")
+            query_sessions = Query.delete('local:session').filter_by('expires', '<', int(time.time()))
+            try:
+                self.interface.execute_local_query(query_sessions)
+            except: pass
+
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
         # Compare encrypted plaintext against encrypted password stored in the DB
@@ -128,7 +138,7 @@ class SessionAuth(AuthMethod):
         sessions = self.interface.execute_local_query(query_sessions)
         if not sessions:
             del self.auth['session']
-            raise AuthenticationFailure, "No such session: %s" % self.auth['session']
+            raise AuthenticationFailure, "No such session: %s" % self.auth
         session = sessions[0]
 
         user_id = session['user_id']
@@ -147,13 +157,16 @@ class SessionAuth(AuthMethod):
             except: pass
             raise AuthenticationFailure, "Invalid session"
 
-    def get_session(self, user):
-        assert user, "A user associated to a session should not be NULL"
+    def clean_sessions(self):
         # Before a new session is added, delete expired sessions
         query_sessions = Query.delete('local:session').filter_by('expires', '<', int(time.time()))
         try:
             self.interface.execute_local_query(query_sessions)
         except: pass
+
+    def get_session(self, user):
+        assert user, "A user associated to a session should not be NULL"
+        self.clean_sessions()
 
         # Generate 32 random bytes
         bytes = random.sample(xrange(0, 256), 32)

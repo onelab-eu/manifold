@@ -962,6 +962,11 @@ class VirtualWallParser(WiLabtParser):
         return t_urn[1]
 
     @classmethod
+    def on_build_resource_hook(cls, resource):
+        resource['sliver_type'] = "emulab-xen"
+        return resource
+
+    @classmethod
     def _process_node(cls, node):
         authority = 'urn:publicid:IDN+wall2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in node) or (node['component_manager_id'] != authority):
