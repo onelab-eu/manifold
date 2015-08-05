@@ -172,7 +172,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         self._get_right().receive(self._right_packet) # XXX
 
-    def send(self, packet):
+    def send_impl(self, packet):
         """
         Handle an incoming Packet.
         Args:

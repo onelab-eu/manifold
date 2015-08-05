@@ -88,7 +88,7 @@ class Selection(Operator, ChildSlotMixin):
         )
 
 
-    def send(self, packet):
+    def send_impl(self, packet):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, forward the Packet if it's
@@ -143,6 +143,7 @@ class Selection(Operator, ChildSlotMixin):
         keys = FieldNames(self._filter.keys())
         self._update_child(lambda p, d: p.optimize_projection(fields | keys))
         #self.query.fields = fields
+
         if not keys <= fields:
             # XXX add projection that removed added_fields
             # or add projection that removes fields

@@ -113,7 +113,7 @@ class Union(Operator, ChildrenSlotMixin):
         """
         return self._get_first().get_destination()
 
-    def send(self, packet):
+    def send_impl(self, packet):
         """
         Handle an incoming Packet.
         Args:
