@@ -378,7 +378,7 @@ class Object(Record):
 
     @classmethod
     def add_relation(cls, other_object_name, relation):
-        Log.debug("DUPLICATE RELATIONS!")
+        Log.debug("RELATION(%s, %s) = %s" % (cls.get_object_name(), other_object_name,relation))
         if not other_object_name in cls.__relations__:
             cls.__relations__[other_object_name] = set()
         relation.set_uuid()
