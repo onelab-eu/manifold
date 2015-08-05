@@ -168,7 +168,7 @@ class Relation(object):
             True iif using this Relation implies to use a SubQuery Node
             in the QueryPlan. See manifold/operators/subquery.py.
         """
-        return self.get_type() not in [Relation.types.LINK, Relation.types.CHILD, Relation.types.PARENT]
+        return self.get_type() not in [Relation.types.LINK, Relation.types.CHILD, Relation.types.PARENT, Relation.types.LINK_11]
 
     @returns(bool)
     def requires_join(self):
