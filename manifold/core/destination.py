@@ -120,7 +120,6 @@ class Destination(object):
         Args:
             field_names: A FieldNames instance.
         """
-        Log.tmp(type(field_names))
         if is_iterable(field_names):
             map(self.add_field_names, field_names)
             return self

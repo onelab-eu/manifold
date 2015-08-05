@@ -35,7 +35,7 @@ class OLocalObject(ManifoldCollection):
         string namespace;       
         column columns[];       /**< The corresponding fields/columns.    */
         string capabilities[];  /**< The supported capabilities           */
-        string key[];           /**< The keys related to this object      */
+        string keys[];          /**< The keys related to this object      */
         string origins[];       /**< The platform originating this object */
         string partitions[];
         string platforms[];     /**< The next_hops advertising this object */
