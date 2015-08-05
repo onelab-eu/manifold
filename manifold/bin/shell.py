@@ -47,6 +47,17 @@ DEFAULT_API_URL   = "https://localhost:7080"
 TRUE_VALUES  = [1, '1', 'true', 'on', 'yes']
 FALSE_VALUES = [0, '0', 'false', 'off', 'no']
 
+CMD_ADD_PLATFORM = """
+INSERT INTO local:platform
+    SET
+        platform          = '%(platform_name)s',
+        platform_longname = '%(platform_longname)s',
+        gateway_type      = '%(gateway_type)s',
+        auth_type         = '%(auth_type)s',
+        config            = '%(config)s',
+        disabled          = %(disabled)s
+"""
+
 class Shell(object):
 
     PROMPT = "manifold"
@@ -711,16 +722,48 @@ class Shell(object):
 
     def handle_show(self, args):
         if len(args) == 0:
+            # SHOW
             print "Current variables:", self._environment.keys()
             return
-        elif len(args) > 1 or not args[0].startswith('$'):
+
+        elif len(args) == 1 and args[0].startswith('$'):
+            # SHOW $variable
+            variable = args[0]
+            self._display(self._environment[variable])
+
+        elif len(args) == 1 and args == ['platforms']:
+            # SHOW platforms
+            command = "select * from local:platform where disabled == 0"
+            self.display(self.evaluate(command))
+        elif len(args) == 2 and args == ['all', 'platforms']:
+            # SHOW ALL platforms
+            command = "select * from local:platform"
+            self.display(self.evaluate(command))
+        else:
+            print len(args), args
             Log.error("Wrong SHOW arguments: %r" % args)
-            Log.error("Usage: SHOW [variable]")
+            Log.error("Usage:")
+            Log.error("  SHOW $variable")
+            Log.error("  SHOW [ALL] PLATFORMS")
             return
 
-        variable = args[0]
-
-        self._display(self._environment[variable])
+    def handle_add(self, name, gateway_type, config='{}', enabled='enabled'):
+        try:
+            json.loads(config)
+        except Exception, e:
+            Log.error("Wrong configuration: %s [%s]" % (config, e))
+            return
+        platform_params = {
+            'platform_name': name,
+            'platform_longname': name,
+            'gateway_type': gateway_type,
+            'auth_type': 'none',
+            'config': config,
+            'disabled': 0 if enabled == 'enabled' else 1
+        }
+        command = CMD_ADD_PLATFORM % platform_params
+        self.display(self.evaluate(command))
+        Log.info("The platform will not be active until the next restart")
 
     def handle_set(self, args):
         if len(args) == 0:
@@ -817,16 +860,24 @@ class Shell(object):
                     break
 
                 # Shell commands
-                command_tokens = command.split(' ')
-                if command_tokens[0] == 'DUMP':
+                command_tokens = command.lower().split(' ')
+                if command_tokens[0] == 'dump':
                     self.handle_dump(command_tokens[1:])
                     continue;
-                elif command_tokens[0] == 'SHOW':
+                elif command_tokens[0] == 'show':
                     self.handle_show(command_tokens[1:])
                     continue;
-                elif command_tokens[0] == 'SET':
+                elif command_tokens[0] == 'set':
                     self.handle_set(command_tokens[1:])
                     continue;
+                elif command_tokens[0] == 'add':
+                    try:
+                        self.handle_add(*command_tokens[1:])
+                    except Exception, e:
+                        print e
+                        Log.error("Usage: ADD NAME GATEWAY [CONFIG [ENABLED|DISABLED]]")
+                        Log.error("  Config is a JSON string; no space allowed")
+                        Log.error("  The platform is enabled by default")
 
                 try:
                     if self._query_plan:

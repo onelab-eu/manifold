@@ -60,8 +60,9 @@ class Object(Record):
     """
     A Manifold object.
     """
-    __metaclass__   = PluginFactory
-    __plugin__name__attribute__ = '__object_name__'
+# XXX Why is this necessary
+#    __metaclass__   = PluginFactory
+#    __plugin__name__attribute__ = '__object_name__'
 
     __object_name__     = None
     __fields__          = None
@@ -70,6 +71,16 @@ class Object(Record):
     __partitions__      = None
     __namespace__       = None
 
+
+    # META 
+    @classmethod
+    def collection(cls, *args, **kwargs):
+        # Hardcoded values, we should issue a query to manifold
+        o1 = cls()
+        o2 = cls()
+        o1.log = "O1 LOG"
+        o2.log = "O2 log"
+        return [o1, o2]
     
 
     @staticmethod
@@ -135,6 +146,9 @@ class Object(Record):
 
     # XXX Looks like an announce
     def __str__(self):
+        return self.get_string()
+
+    def get_string(self):
         object_name = self.get_object_name()
         relations = list()
         for o, r in self.get_relation_tuples():
@@ -407,7 +421,7 @@ def ObjectFactory(name):
             self[key] = value
             #setattr(cls, key, value)
         #Object.__init__(cls) # , name)
-    newclass = type(str(name), (Object,),{"__init__": __init__})
+    newclass = type(str(name), (Object,),{"__init__": __init__, "__str__": Object.__str__})
 
     newclass.__object_name__     = name
     newclass.__fields__          = dict()

@@ -50,6 +50,8 @@ class Operator(Node, SlotMixin):
             packet: A Packet instance.
         """
         Log.record(packet)
+        # TODO: we should impose source anytime a packet is issued
+        #assert(packet.get_source() != None)
         self.send_impl(packet)
 
     def send_impl(self, packet):

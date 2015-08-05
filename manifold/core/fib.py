@@ -116,7 +116,7 @@ class FIB(ChildSlotMixin):
             table = announce.get_table() # XXX
 
             object_name     = table.get_name() # XXX
-            #print "FIB RECEIVED OBJECT: %s:%s" % (object_name, namespace)
+            print "FIB RECEIVED OBJECT: %s:%s" % (namespace, object_name)
 
             keys            = table.get_keys()
             fields          = table.get_fields()
@@ -193,6 +193,7 @@ class FIB(ChildSlotMixin):
                     obj.add_field(field)
 
                     obj.add_platform_field(platform_name, field)
+                    Log.warning("Add platform field merges fields from different collections if they have the same name... Bug...")
 
                     # This should be done only if we have added a new field, so
                     # that's why it is not out of the loop
@@ -232,7 +233,6 @@ class FIB(ChildSlotMixin):
                             Log.debug("%s" % self.get_object(obj.get_object_name(), namespace)())
                             Log.debug("OTHER %s" % other.get_object_name())
                             Log.debug("%s" % self.get_object(other.get_object_name(), namespace)())
-
 
             # Fields = they define a set of FD
             # We have new Fd that can impact other existing objects

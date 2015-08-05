@@ -107,6 +107,7 @@ class PostgreSQLCollection(ManifoldCollection):
         self._config = config
         self.cnx    = PostgreSQLConnection(platform_config)
         self.cursor = self.cnx.get_cursor()
+        self.is_relation_table = False
 
         # Static data model
         # Get fields and key from config of the platform 
@@ -156,6 +157,10 @@ class PostgreSQLCollection(ManifoldCollection):
         fks = cursor.fetchall()
         foreign_keys = {fk.column_name: fk.foreign_table_name for fk in fks}
 
+        Log.tmp("%s: FK = %s" % (object_name,foreign_keys))
+
+        # TODO: Add Relation based on the FKs
+
         # COMMENTS:
         # We build a comments dictionary associating each field of the table with
         # its comment.
@@ -182,32 +187,52 @@ class PostgreSQLCollection(ManifoldCollection):
             )
             fields[field.name] = field
 
-        # PRIMARY KEYS: XXX simple key ?
-        # We build a key dictionary associating each table with its primary key
-        start_time = time.time()
-        cursor.execute(PostgreSQLCollection.SQL_TABLE_KEYS, param_execute)
-        pks = cursor.fetchall()
-        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
-        if len(pks) == 0:
-            #param_execute['constraint_name'] = '_pkey'
-            cursor.execute(PostgreSQLCollection.SQL_TABLE_KEYS_2, param_execute)
-            pks = cursor.fetchall()
-
+        pks = self.get_keys(object_name)
         keys = Keys()
         l_fields = list()
         for pk in pks:
             primary_key = tuple(pk.column_names)
+
+            # if a table has only keys and no data => Relation table between 2 objects
+            if len(primary_key) == len(fields.keys()):
+                Log.tmp("Table %s is NOT an object it is only a Relation Table" % object_name)
+                self.is_relation_table = True
+
             for k in primary_key:
                 l_fields.append(fields[k])
+
             keys.add(Key(l_fields))
+
 
         obj = ObjectFactory(object_name)
 
         obj.set_fields(fields.values())
         obj.set_keys(keys)
         obj.set_capabilities(self.get_capabilities())
-        
+
+        Log.tmp(obj)
         return obj
+
+    def get_fields(self, obj_name):
+        # Get the fields of the other object to discover a matching field
+        start_time = time.time()
+        self.cursor.execute(PostgreSQLCollection.SQL_TABLE_FIELDS, {"table_name": obj_name})
+        return self.cursor.fetchall()
+
+    def get_keys(self, object_name):
+        param_execute = {"table_name": object_name}
+        # PRIMARY KEYS: XXX simple key ?
+        # We build a key dictionary associating each table with its primary key
+        start_time = time.time()
+        self.cursor.execute(PostgreSQLCollection.SQL_TABLE_KEYS, param_execute)
+        pks = self.cursor.fetchall()
+        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
+        if len(pks) == 0:
+            #param_execute['constraint_name'] = '_pkey'
+            self.cursor.execute(PostgreSQLCollection.SQL_TABLE_KEYS_2, param_execute)
+            pks = self.cursor.fetchall()
+
+        return pks
 
     @returns(Capabilities)
     def get_capabilities(self):

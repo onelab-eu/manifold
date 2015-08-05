@@ -46,6 +46,10 @@ class Destination(object):
         self._namespace = namespace
 
     def copy(self):
+        Log.warning("Destination::copy is deprecated. Use clone()")
+        return self.clone()
+
+    def clone(self):
         return copy.deepcopy(self)
 
     #---------------------------------------------------------------------------
@@ -98,6 +102,9 @@ class Destination(object):
         """
         return self._filter
 
+    def set_filter(self, filter):
+        self._filter = filter
+
     def add_filter(self, predicate_or_filter):
         """
         Args:
@@ -106,6 +113,9 @@ class Destination(object):
         assert isinstance(predicate_or_filter, Predicate) or isinstance(predicate_or_filter, Filter)
         self._filter.add(predicate_or_filter)
         return self
+
+    def update_filter(self, method, *args, **kwargs):
+        self.set_filter(method(self.get_filter(), *args, **kwargs))
 
     @returns(FieldNames)
     def get_field_names(self):

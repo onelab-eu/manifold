@@ -12,15 +12,17 @@
 import re, datetime, traceback
 
 
-from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
+from types                                   import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
 
-from manifold.gateways                          import Gateway
-from manifold.gateways.postgresql.collection    import PostgreSQLCollection
+from manifold.core.relation                  import Relation
+from manifold.gateways                       import Gateway
+from manifold.gateways.postgresql.collection import PostgreSQLCollection
 from manifold.gateways.postgresql.connection import PostgreSQLConnection
-
-from manifold.util.log                          import Log
-from manifold.util.misc                         import is_iterable
-from manifold.util.type                         import accepts, returns
+from manifold.util.log                       import Log
+from manifold.util.misc                      import is_iterable
+from manifold.util.predicate                 import Predicate
+from manifold.util.predicate                 import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.util.type                      import accepts, returns
 
 class PostgreSQLGateway(Gateway):
     # this gateway_name must be used as gateway_type when adding a platform to the local storage 
@@ -125,14 +127,16 @@ class PostgreSQLGateway(Gateway):
         self.custom_fields     = platform_config.get('custom_fields', dict())
         self.custom_keys       = platform_config.get('custom_keys', dict())
 
+        self.object_names      = self.get_object_names(platform_config)
+        self.collections       = list() 
 
-        objects = self.get_objects(platform_config)
-        for object_name, config in objects:
+        for object_name, config in self.object_names:
             collection = PostgreSQLCollection(object_name, config, platform_config)
+            self.collections.append(collection)
             self.register_collection(collection)
 
     @returns(list)
-    def get_objects(self, platform_config):
+    def get_object_names(self, platform_config):
         """
         Get the list of objects advertised by the platform 
         Args:
