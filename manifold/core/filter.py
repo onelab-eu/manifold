@@ -302,6 +302,8 @@ class Filter(set):
         """
         This function returns the values that are determined by the filters for
         a given field, or None is the filter is not *setting* determined values.
+
+        Returns: list : a list of fields
         """
         value_list = list()
         for predicate in self:
@@ -326,6 +328,15 @@ class Filter(set):
                 continue
 
         return list(set(value_list))
+
+    def update_field_value_eq(self, field, value):
+        # XXX Maybe it would be better to erase all occurences of a given field
+        for predicate in self:
+            p_field, p_op, p_value = predicate.get_tuple()
+            if p_field == field:
+                predicate.set_op(eq)
+                predicate.set_value(value)
+                break # assuming there is a single predicate with field/op
 
     def __and__(self, other):
         # Note: we assume the predicates in self and other are already in

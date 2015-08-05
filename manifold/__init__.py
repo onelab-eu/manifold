@@ -13,6 +13,7 @@ from manifold.core.announce import Announces
 
 BASE="manifold"
 
+# Hardcoded object for test purposes
 GIT_ANNOUNCE="""
 class git {
     const string url;
@@ -46,8 +47,8 @@ class ManifoldImporter(object):
         sys.modules[fullname] = mod
         if fullname != 'manifold':
             # Here we create the specific class
-            mod.__file__ = 'manifold://XXX'
-            code = "POUET"
+            mod.__file__ = 'manifold.meta'
+            code = "meta"
             announce = Announces.from_string(GIT_ANNOUNCE)
             mod.__dict__['Git'] = ObjectFactory('Git').from_announce(announce[0])
         else:
