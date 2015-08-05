@@ -38,10 +38,10 @@ class OLocalLocalObject(ManifoldCollection):
     class object {
         string object_name;      /**< The name of the object/table.        */
         string namespace;
-        column columns[];       /**< The corresponding fields/columns.    */
-        string capabilities[];  /**< The supported capabilities           */
-        string key[];           /**< The keys related to this object      */
-        string origins[];       /**< The platform originating this object */
+        column columns[];        /**< The corresponding fields/columns.    */
+        string capabilities[];   /**< The supported capabilities           */
+        string keys[];           /**< The keys related to this object      */
+        string origins[];        /**< The platform originating this object */
 
         CAPABILITY(retrieve);
         KEY(object_name);
