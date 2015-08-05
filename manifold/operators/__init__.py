@@ -113,7 +113,7 @@ class ChildStatus:
 #OBSOLETE|        """
 #OBSOLETE|        return self.callback
 #OBSOLETE|
-#OBSOLETE|    def send(self, record):
+#OBSOLETE|    def send_impl(self, record):
 #OBSOLETE|        """
 #OBSOLETE|        \brief calls the parent callback with the record passed in parameter
 #OBSOLETE|        """

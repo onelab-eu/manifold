@@ -142,7 +142,7 @@ class From(Operator, ChildSlotMixin):
         """
         return self.get_capabilities().fullquery
 
-    def send(self, packet, slot_id = None):
+    def send_impl(self, packet, slot_id = None):
         """
         Process an incoming packet.
         Args:

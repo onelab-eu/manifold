@@ -44,6 +44,21 @@ class Operator(Node, SlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
+    def send(self, packet):
+        """
+        Args:
+            packet: A Packet instance.
+        """
+        Log.record(packet)
+        self.send_impl(packet)
+
+    def send_impl(self, packet):
+        """
+        Args:
+            packet: A Packet instance.
+        """
+        raise RuntimeError("send_impl: This method must be overloaded")
+
     @returns(bool)
     def has_children_with_fullquery(self):
         """

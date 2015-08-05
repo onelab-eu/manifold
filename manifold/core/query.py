@@ -154,6 +154,7 @@ class Query(object):
         namespace   = destination.get_namespace()
         filters     = destination.get_filter()
         field_names = destination.get_field_names()
+        Log.tmp("from_packet field_names = %s" % field_names)
 
         params      = packet.get_data()
 
@@ -574,39 +575,32 @@ class Query(object):
         return self
 
     #@returns(Query)
-    def select(self, *fields, **kwargs):
+    #def select(self, *fields, **kwargs):
+    def select(self, *args, **kwargs):
         """
         Update the SELECT clause of this Query.
         Args:
-            fields: A list of String, where each String correspond to a Field name.
+            fields: A FieldNames instance
         Returns:
             The updated Query instance.
         """
+        # If clear is set, self.fields = fields
         clear = kwargs.get('clear', False)
-        # We might raise an Exception for other attributes
-
-        # fields is a tuple of arguments
-        if len(fields) == 1:
-            tmp, = fields
-            if tmp is None or tmp.is_star():
-                # None = '*'
-                self.fields = FieldNames(star = True)
-            else:
-                fields = FieldNames(tmp) if is_iterable(tmp) else FieldNames([tmp])
-                if clear:
-                    self.fields = fields
-                else:
-                    if not fields.is_star():
-                        self.fields = fields
-                    else:
-                        self.fields |= fields
-            return self
-
-        # We have an sequence of fields
-        if clear:
-            self.fields = FieldNames(star = False)
-        for field in fields:
-            self.fields.add(field)
+        if len(args) == 1:
+            if self.fields.is_star() == False:
+                field_names, = args
+                assert isinstance(field_names, list) or isinstance(field_names, StringTypes) or isinstance(field_names, FieldNames)
+                if isinstance(field_names, StringTypes):
+                    field_names = FieldNames([field_names])
+                elif isinstance(field_names, list):
+                    field_names = FieldNames(field_names)
+                self.fields |= field_names
+        else: # several args, no bool
+            if clear:
+                self.fields = FieldNames(star = False)
+            for field in args:
+                assert not isinstance(field, bool)
+                self.fields.append(field)
 
         return self
 

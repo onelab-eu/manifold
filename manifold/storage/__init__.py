@@ -92,7 +92,9 @@ class StorageGateway(SQLAlchemyGateway):
         for platform in platforms:
             platform_config = json.loads(platform['config'])
             try:
-                self._router.add_interface(platform['gateway_type'], platform['platform'], **platform_config)
+                # Load only the enabled platforms
+                if platform['disabled'] == 0:
+                    self._router.add_interface(platform['gateway_type'], platform['platform'], **platform_config)
             except Exception, e:
                 import traceback
                 traceback.print_exc()

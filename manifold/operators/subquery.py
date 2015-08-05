@@ -481,7 +481,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            self._router.add_to_local_cache(method, uuid, subrecords)
 #DEPRECATED|        return record
 
-    def send(self, packet):
+    def send_impl(self, packet):
         """
         Handle an incoming Packet instance.
         Args:

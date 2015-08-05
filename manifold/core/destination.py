@@ -123,8 +123,9 @@ class Destination(object):
         if is_iterable(field_names):
             map(self.add_field_names, field_names)
             return self
-
-        if field_names and self._field_names is not None:
+        
+        # if we are here, field_names is a String
+        if field_names and self._field_names is not None and field_names not in self._field_names:
             self._field_names.add(field_names)
         return self
 
