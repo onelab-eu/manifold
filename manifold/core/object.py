@@ -70,6 +70,15 @@ class Object(Record):
     __partitions__      = None
     __namespace__       = None
 
+
+    # META 
+    @classmethod
+    def collection(cls, *args, **kwargs):
+        o1 = cls()
+        o2 = cls()
+        o1.log = "O1 LOG"
+        o2.log = "O2 log"
+        return [o1, o2]
     
 
     @staticmethod

@@ -80,7 +80,7 @@ class IPCollection(ManifoldCollection):
         destination = packet.get_destination()
 
         obj = destination.get_object()
-        value_list = destination.get_filter().get_field_values(obj)
+        value_list = destination.get_filter().get_field_values(obj) # XXX WRONG
 
         # We don't really ask something sometimes...
         if destination.get_field_names() == FieldNames([obj]):
@@ -109,7 +109,7 @@ class HostnameCollection(ManifoldCollection):
         destination = packet.get_destination()
 
         obj = destination.get_object()
-        value_list = destination.get_filter().get_field_values(obj)
+        value_list = destination.get_filter().get_field_values(obj) # XXX WRONG
 
         # We don't really ask something sometimes...
         if destination.get_field_names() == FieldNames([obj]):
