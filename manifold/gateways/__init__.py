@@ -548,8 +548,10 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
     # Flow management is disabled in Gateways, so special treatment here doing
     # the minimum...
+
     def _manage_incoming_flow(self, packet):
         return True
+
     def _manage_outgoing_flow(self, packet):
         receiver = packet.get_receiver()
         if receiver:
@@ -557,11 +559,14 @@ class Gateway(Interface, Node): # XXX Node needed ?
         else:
             return self._router
 
-    def send_impl(self, packet):
+
+    # We overload the interface receive function
+    def receive(self, packet, **kwargs):
         """
         Handle a incoming QUERY Packet.
         Args:
             packet: A QUERY Packet instance.
+            kwargs are ignored, present for compatibility with operators.
         """
         destination = packet.get_destination()
         
@@ -596,35 +601,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
             self.records(records, packet)
         else:
             self.last(packet)
-
-    # We overload the interface receive function
-    def receive(self, packet, **kwargs):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-            kwargs are ignored, present for compatibility with operators.
-        """
-        print "GATEWAY RECV", packet
-        source = packet.get_source()
-        
-        namespace   = source.get_namespace()
-        object_name = source.get_object_name()
-
-        try:
-            collection = self.get_collection(object_name, namespace)
-        except ValueError:
-            raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
-
-        # This is because we assure the gateway could modify the packet, which
-        # is further used in self.records
-        packet_clone = packet.clone()
-
-        assert packet.get_protocol() == Packet.PROTOCOL_CREATE
-        collection.create(packet_clone)
-
-        # For now, we return since we are processing packet by packet
-        return
 
     def get_collection(self, object_name, namespace = None):
         return self._collections_by_namespace[namespace][object_name]

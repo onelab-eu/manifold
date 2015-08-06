@@ -83,7 +83,6 @@ class GitLogCollection(ManifoldCollection):
         log = log.strip('\n\x1e').split("\x1e")
         log = [row.strip().split("\x1f") for row in log]
         log = [dict(zip(GIT_COMMIT_FIELDS, row)) for row in log]
-        print "log", log
         return {'url': url, 'log': log}
 
 class GitStateCollection(ManifoldCollection):
@@ -123,8 +122,6 @@ class GitStateCollection(ManifoldCollection):
         except:
             has_local_changes = True
 
-        print "state=", state
-    
         return {'url': url, 'state': state, 'has_local_changes': has_local_changes}
 
 class GitGateway(Gateway):

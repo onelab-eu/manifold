@@ -20,6 +20,7 @@ from manifold.core.destination      import Destination
 # DEPRECATED BY FIBfrom manifold.core.dbnorm           import to_3nf   # Replaced by FIB
 # DEPRECATED BY FIBfrom manifold.core.dbgraph          import DBGraph  # Replaced by FIB
 from manifold.core.fib              import FIB
+from manifold.core.filter           import Filter
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet, GET, CREATE, UPDATE, DELETE
 from manifold.core.query            import Query
@@ -32,6 +33,7 @@ from manifold.interfaces            import Interface
 from manifold.policy                import Policy
 from manifold.util.constants        import DEFAULT_PEER_URL, DEFAULT_PEER_PORT
 from manifold.util.log              import Log
+from manifold.util.predicate        import Predicate
 from manifold.util.type             import returns, accepts
 
 from manifold.core.local            import LocalGateway, LOCAL_NAMESPACE
@@ -112,6 +114,9 @@ class Router(object):
     def terminate(self):
         for interface in self._interfaces.values():
             interface.terminate()
+
+    def get_address(self):
+        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', '0')))
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -700,6 +705,7 @@ class Router(object):
         receiver = SyncReceiver()
 
         packet = GET()
+        packet.set_source(self.get_address())
         packet.set_destination(query.get_destination())
         packet.set_receiver(receiver)
 

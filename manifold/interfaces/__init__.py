@@ -13,145 +13,12 @@ from manifold.util.predicate        import Predicate
 from manifold.util.misc             import lookahead
 
 from twisted.internet               import defer
-from manifold.util.reactor_thread   import ReactorThread
 
-DEFAULT_TIMEOUT = 4
-TIMEOUT_PER_TTL = 0.25
+from flow_entry                     import FlowEntry
+from flow_map                       import FlowMap
+
 RECONNECTION_DELAY = 10
 
-#from manifold.interfaces.tcp_socket     import TCPSocketInterface
-#from manifold.interfaces.unix_socket    import UNIXSocketInterface
-
-# XXX We need to keep track of clients to propagate announces
-
-class FlowEntry(object):
-    def __init__(self, receiver, last, timestamp, timeout):
-        self._receiver  = receiver
-        self._last      = last
-        self._timestamp = timestamp
-        self._timeout   = timeout
-    #    self._expired   = False
-
-    def get_receiver(self):
-        return self._receiver
-
-    def is_last(self):
-        return self._last
-
-    def get_timestamp(self):
-        return self._timestamp
-
-    def set_timestamp(self, timestamp):
-        self._timestamp = timestamp
-
-    def get_timeout(self):
-        return self._timeout
-
-    #def set_expired(self, expired = True):
-    #    self._expired = True
-
-    #def is_expired(self):
-    #    return self._expired
-
-class FlowMap(object):
-    def __init__(self, interface):
-        self._interface = interface
-
-        self._map  = dict()  # hash by flow
-        self._list = list()  # sort by expiry time
-
-        self._timer_id = None
-        self._on_tick()
-
-    def terminate(self):
-        self._stop_timer()
-
-    def add_receiver(self, packet, receiver):
-        now = time.time()
-
-        timeout = DEFAULT_TIMEOUT - packet.get_ttl() * TIMEOUT_PER_TTL
-        if timeout < TIMEOUT_PER_TTL:
-            timeout = TIMEOUT_PER_TTL
-
-        flow = packet.get_flow().get_reverse()
-        last = packet.is_last()
-
-        self._map[flow] = FlowEntry(receiver, last, now, timeout)
-
-        # With a default timeout, we always push back new entries, and no need
-        # to reschedule
-        if not self._list:
-            self._set_timer(timeout)
-
-        # Insert in the list by expiration time
-        expiry = now + timeout
-        if not flow in self._list:
-            for pos, cur_flow in enumerate(self._list):
-                cur_entry = self._map[cur_flow]
-                if cur_entry.get_timestamp() + cur_entry.get_timeout() > expiry:
-                    self._list.insert(pos, flow)
-                    return 
-            self._list.append(flow)
-
-    def get(self, packet):
-        flow = packet.get_flow()
-
-        flow_entry = self._map.get(flow)
-        if not flow_entry:
-            return None
-
-        return flow_entry
-
-    def delete(self, packet):
-        flow = packet.get_flow()
-        del self._map[flow]
-        if flow in self._list:
-            self._list.remove(flow)
-            self._reschedule()
-
-    def _expire_flow(self, flow):
-        record = TimeoutErrorPacket(message='Flow timeout on interface %r : %r' % (self, flow,))
-        record.set_source(flow.get_source())
-        record.set_destination(flow.get_destination())
-        record._ingress = self._interface.get_address()
-
-        receiver = self._map[flow].get_receiver()
-
-        # We delete instead of expiring, cf README.architecture
-        del self._map[flow]
-
-        # XXX Code duplicated
-        if receiver:
-            receiver.receive(record)
-
-    def _expire_flows(self):
-        now = time.time()
-        for flow in self._list:
-            flow_entry = self._map[flow]
-            delay = flow_entry.get_timeout() - now + flow_entry.get_timestamp()
-            if delay < 0:
-                del self._list[0]
-                self._expire_flow(flow)
-            else:
-                return delay
-        return 0 # no more flows
-
-    def _reschedule(self):
-        self._stop_timer()
-        self._on_tick()
-
-    def _on_tick(self, *args, **kwargs):
-        #print "tick!", args, kwargs
-        delay = self._expire_flows()
-        if delay > 0:
-            self._set_timer(delay)
-
-    def _set_timer(self, delay):
-        self._timer_id = ReactorThread().callLater(delay, self._on_tick, None)
-
-    def _stop_timer(self):
-        if self._timer_id:
-            self._timer_id.cancel()
 
 class Interface(object):
 
@@ -254,7 +121,7 @@ class Interface(object):
                     (self.get_interface_type(), self._platform_name, len(self._tx_buffer)))
         while self._tx_buffer:
             packet = self._tx_buffer.pop()
-            self.send_impl(packet)
+            self.send_impl(packet, None)
 
         # Trigger callbacks to inform interface is up
         for cb, args, kwargs in self._up_callbacks:
@@ -323,11 +190,11 @@ class Interface(object):
     def del_down_callback(self, callback):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
-    def send_impl(self, packet):
-        Log.info("Platform %s/%s : packet discarded %r" %
-                (self.get_interface_type(), self._platform_name, packet))
-        pass
-
+#    def send_impl(self, packet):
+#        Log.info("Platform %s/%s : packet discarded %r" %
+#                (self.get_interface_type(), self._platform_name, packet))
+#        pass
+#
     def _manage_outgoing_flow(self, packet):
         receiver = packet.get_receiver()
         flow_entry = self._flow_map.get(packet)
@@ -361,41 +228,67 @@ class Interface(object):
             Log.info("Incoming flow on interface %r: sending to router" % (self,))
             return self._router
 
-    def send(self, packet, source = None, destination = None, receiver = None):
+    def send(self, packet, orig_packet = None, source = None, destination = None, receiver = None):
         """
-        Receive handler for packets arriving from the router.
+        Receive handler for orig_packets arriving from the router.
 
-        When parameters are specified, they override packet parameters.
+        When parameters are specified, they override orig_packet parameters.
 
         Since we might be multiplexing several flows, we need to remember the
         receiver for potential responses.
         """
-        # XXX This code should be shared by all interfaces
-
+        #print "[SEND]", self, packet
+        new_source = packet.get_source()
         if source:
-            packet.set_source(source)
+            new_source = source
+        if not new_source and orig_packet:
+            new_source = orig_packet.get_destination()
+        if not new_source:
+            new_source = self.get_address()
+        if not new_source:
+            raise Exception, "A orig_packet should have a source address"
+        packet.set_source(new_source)
+
+        new_destination = packet.get_destination()
         if destination:
-            packet.set_destination(destination)
+            new_destination = destination
+        if not new_destination and orig_packet:
+            new_destination = orig_packet.get_source()
+        if not new_destination:
+            raise Exception, "A orig_packet should have a destination address"
+        packet.set_destination(new_destination)
+
+        new_receiver = packet.get_receiver()
         if receiver:
-            packet.set_receiver(receiver)
+            new_receiver = receiver
+        if not new_receiver and orig_packet:
+            new_receiver = orig_packet.get_receiver()
+        if not new_receiver:
+            Log.warning("Receiver set to self ? Is it the right choice ?")
+            new_receiver = self
+        # XXX is it needed ?
+        packet.set_receiver(new_receiver)
+
+        # Why is it needed ?
+        packet._ingress = self.get_address()
 
         if not self._manage_outgoing_flow(packet):
             return
 
-        #print "[OUT]", self, packet
-        
         packet.inc_ttl()
 
         if self.is_up():
-            self.send_impl(packet)
+            Log.warning("We have to get rid of receiver now that we have a flow table")
+            new_receiver.receive(packet)
         else:
             self._tx_buffer.append(packet)
+
 
     def receive(self, packet, slot_id = None):
         """
         For packets received from outside (eg. a remote server).
         """
-        #print "[ IN]", self, packet
+        #print "[RECEIVE]", self, packet
 
         packet._ingress = self.get_address()
 
@@ -430,11 +323,7 @@ class Interface(object):
         if last is not None:
             record.set_last(last)
 
-        record.set_source(packet.get_destination())
-        record.set_destination(packet.get_source())
-        record._ingress = self.get_address()
-
-        packet.get_receiver().receive(record)
+        self.send(record, packet)
 
     # XXX It is important that the packet is the second argument for
     # deferred callbacks
@@ -462,9 +351,13 @@ class Interface(object):
         if not records:
             self.last(packet)
             return
-
+        
+        has_last = False
         for record, last in lookahead(records):
+            has_last = True
             self.record(record, packet, last=last)
+        if not has_last:
+            self.last(packet)
             
     def last(self, packet):
         self.record(Record(last = True), packet)
@@ -481,3 +374,17 @@ class Interface(object):
         """
         self.error(packet, description, False)
 
+
+    def error(self, packet, description, is_fatal = True):
+        """
+        Craft an ErrorPacket carrying an error message.
+        Args:
+            description: The corresponding error message (String) or
+                Exception.
+            is_fatal: Set to True if this ErrorPacket
+                must make crash the pending Query.
+        """
+        # Could be factorized with Gateway::error() by defining Producer::error()
+        print "error packet making"
+        error_packet = self.make_error(CORE, description, is_fatal)
+        self.send(error_packet, packet)

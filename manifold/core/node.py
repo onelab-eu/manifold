@@ -200,6 +200,8 @@ class Node(object):
             raise Exception("A query cannot be forwarded")
         elif packet.get_protocol() in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR]:
             self._pool_consumers.receive(packet)
+        else:
+            print "No upstream. Packet has been ignored"
 
     @returns(StringTypes)
     def format_node(self, indent = 0):

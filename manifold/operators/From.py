@@ -191,7 +191,7 @@ class From(Operator, ChildSlotMixin):
             packet.update_destination(lambda d: d.add_filter(filter))
 
             packet.set_receiver(self)
-            self.get_interface().send(packet)
+            self.get_interface().receive(packet)
 
     @returns(Operator)
     def optimize_selection(self, filter):

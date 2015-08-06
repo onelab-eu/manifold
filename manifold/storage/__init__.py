@@ -81,7 +81,11 @@ class StorageGateway(SQLAlchemyGateway):
         platform_collection = self.get_collection('platform', 'local')
         packet = GET()
         destination = Destination('platform')
+
+        # This should be automatically done by send based on the destination
+        # address
         packet.set_destination(destination)
+        packet.set_source(self.get_address()) 
         receiver = SyncReceiver()
         packet.set_receiver(receiver)
         platforms = platform_collection.get(packet)
@@ -99,3 +103,7 @@ class StorageGateway(SQLAlchemyGateway):
                 import traceback
                 traceback.print_exc()
                 Log.error(e)
+
+    # Storage is always up
+    def is_up(self):
+        return True

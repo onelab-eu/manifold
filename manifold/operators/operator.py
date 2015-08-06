@@ -95,20 +95,6 @@ class Operator(Node, SlotMixin):
 #DEPRECATED|            query modeled by the tree of Operator rooted to this Operator.
 #DEPRECATED|        """
 #DEPRECATED|        return self.query
-
-    def error(self, description, is_fatal = True):
-        """
-        Craft an ErrorPacket carrying an error message.
-        Args:
-            description: The corresponding error message (String) or
-                Exception.
-            is_fatal: Set to True if this ErrorPacket
-                must make crash the pending Query.
-        """
-        # Could be factorized with Gateway::error() by defining Producer::error()
-        print "error packet making"
-        error_packet = self.make_error(CORE, description, is_fatal)
-        self.send(error_packet)
     
 #---------------------------------------------------------------------------
 # Default operator implementation

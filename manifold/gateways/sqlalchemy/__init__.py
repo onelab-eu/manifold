@@ -25,7 +25,7 @@ from manifold.core.record               import Records
 from manifold.core.table                import Table # XXX isn't it deprecated ?
 from manifold.gateways                  import Gateway
 from manifold.gateways.object           import ManifoldCollection
-from manifold.gateways.sqlalchemy.util  import xgetattr, row2record # XXX XXX XXX
+from manifold.gateways.sqlalchemy.util  import xgetattr, row2dict
 from manifold.util.log                  import Log
 from manifold.util.type                 import accepts, returns
 
@@ -281,7 +281,7 @@ class SQLAlchemyCollection(ManifoldCollection):
         rows = res.all()
         # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in rows]
 
-        records = Records([row2record(row) for row in rows])
+        records = [row2dict(row) for row in rows]
 
         self.get_gateway().records(records, packet)
 

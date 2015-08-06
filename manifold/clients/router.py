@@ -19,7 +19,6 @@ from ..core.query            import Query
 from ..core.result_value     import ResultValue
 from ..core.router           import Router
 from ..core.sync_receiver    import SyncReceiver
-#from ..core.helpers          import execute_local_query
 from ..util.log              import Log
 from ..util.type             import accepts, returns
 
@@ -154,6 +153,8 @@ class ManifoldRouterClient(ManifoldClient):
         if data:
             packet.set_data(data)
 
+
+        packet.set_source(self._router.get_address())
         packet.set_destination(query.get_destination())
         packet.update_annotation(self.get_annotation())
         packet.set_receiver(receiver) # Why is it useful ??

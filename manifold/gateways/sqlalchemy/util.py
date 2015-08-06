@@ -9,7 +9,6 @@
 # Copyright (C) 2013 UPMC
 
 from manifold.core.filter           import Filter
-from manifold.core.record           import Record
 from manifold.util.type             import accepts, returns
 
 @returns(tuple)
@@ -28,8 +27,8 @@ def xgetattr(cls, list_attr):
         ret.append(getattr(cls, a))
     return tuple(ret)
 
-@returns(Record)
-def row2record(row):
+@returns(dict)
+def row2dict(row):
     """
     Convert a python object into the corresponding dictionnary, based
     on its attributes.
@@ -38,7 +37,7 @@ def row2record(row):
             either in manifold.gateways.sqlalchemy.models or
             either in sqlalchemy.util._collections.NamedTuple
     Returns:
-        The corresponding Record.
+        The corresponding dict.
     """
     try:
         from sqlalchemy.util   import NamedTuple
@@ -52,7 +51,7 @@ def row2record(row):
     # sqlalchemy.util._collections.NamedTuple instead of DB objects.
 
     if isinstance(row, NamedTuple):
-        return Record(dict(zip(row.keys(), row)))
+        return dict(zip(row.keys(), row))
     else:
-        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
+        return {c.name: getattr(row, c.name) for c in row.__table__.columns}
 
