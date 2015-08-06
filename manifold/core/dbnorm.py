@@ -473,179 +473,179 @@ def closure(x, fds):
         if old_x_plus == x_plus:                 # until temp_x+ = x+
             break
     return x_plus
-
-@returns(dict)
-@accepts(frozenset, Fds)
-def closure_ext(x, fds):
-    """
-    \brief Compute the closure of a set of attributes under the
-        set of functional dependencies
-        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
-    \param x A set of Field instances (usually it should be a Key instance)
-    \param fds A Fds instance (each fd must have exactly one output field)
-    \return A dictionnary {Field => list(Fd)} where
-        - key is a Field in the closure x+
-        - data is a set of Fd needed to retrieve this Field
-    """
-    # x = source node
-    # x+ = vertices reachable from x (at the current iteration)
-    # y -> z = an arc (a fd) that is visited during the DFS from (closure of) x
-
-    check_closure(x, fds)
-    x_plus_ext = dict()
-    for x_elt in x:
-        x_plus_ext[x_elt] = set()                 # x+ = x
-
-    #print "computing closure with x = %r and fds = %r" % (x, fds)
-    added = True
-    while added:                                   # repeat will we visit at least one new fd
-        added = False
-        for fd in fds:                             #   for each fd (y -> z)
-            y = fd.get_determinant().get_key()
-            x_plus = set(x_plus_ext.keys())
-            if y.get_fields() <= x_plus:                        #     if y in x+
-                z = fd.get_field()
-                if z not in x_plus:                #       if z not in x+
-                    added = True                   #          this fd is relevant, let's visit it
-                    x_plus_ext[z] = set()          #          x+ u= y
-
-                    # "z" is retrieved thanks to
-                    #  - each Fd needed to retrieve "y"
-                    #  - the Fd [y --> z]
-                    for y_elt in y:
-                        if x_plus_ext[y_elt]:
-                            x_plus_ext[z] |= x_plus_ext[y_elt]
-                    x_plus_ext[z].add(fd)
-
-    return x_plus_ext
-
-@returns(Fds)
-@accepts(list)
-def make_fd_set(tables):
-    """
-    Compute the set of functionnal dependancies.
-    Args:
-        tables: A list of input Table instances.
-    Returns:
-        A Fds instance.
-    """
-    fds = Fds()
-    for table in tables:
-        name = table.get_name()
-        for key in table.get_keys():
-            for field in table.get_fields():
-                map_field_methods = dict()
-                methods = set()
-                for platform in table.get_platforms():
-                    methods.add(Method(platform, name))
-                map_field_methods[field] = methods
-                fds.add(Fd(Determinant(key, name), map_field_methods))
-    return fds
-
-@accepts(Fds)
-@returns(tuple)
-def fd_minimal_cover(fds):
-    """
-    Compute the functionnal dependancy minimal cover
-        See http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
-    Args:
-        fds: A Fds instance
-    Returns:
-        A couple made of:
-        - a Fds instance (fd kept, e.g. min cover)
-        - a Fds instance (fd removed)
-    """
-    g = fds.split()                                     # replace {[x -> {a1, ..., an}]} by g = {[x -> a1], ..., [x -> an]}
-
-    fds_removed = Fds()
-    g_copy = g.copy()
-    for fd in g_copy:                                   # for each fd = [x -> a]:
-        g2 = Fds([f for f in g if fd != f])             #   g' = g \ {fd}
-        x  = fd.get_determinant().get_key().get_fields()
-        a  = fd.get_field()
-        x_plus = closure(x, g2)                    #   compute x+ according to g'
-        if a in x_plus:                                 #   if a \in x+:
-            #print "rm %s" % fd
-            fds_removed.add(fd)
-            g = g2                                      #     g = g'
-
-    for fd in g.copy():                                 # for each fd = [x -> a] in g:
-        x = fd.get_determinant().get_key()
-        if x.is_composite():                            #   if x has multiple attributes:
-            for b in x.get_fields():                    #     for each b in x:
-
-                x_b = Key([xi for xi in x.get_fields() if xi != b])  #       x_b = x - b
-                g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
-                fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
-                fd2.set_key(x_b)
-                g2.add(fd2)
-                x_b_plus = closure(x_b.get_fields(), g2)        #       compute (x - b)+ with repect to g'
-
-                if b in x_b_plus:                       #       if b \subseteq (x - b)+:
-                    g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
-
-    return (g, fds_removed)
-
-@accepts(Fds, Fds)
-def reinject_fds(fds_min_cover, fds_removed):
-    """
-    Reinject Fds removed by fd_minimal_cover in the remaining fds.
-    Args:
-        fds_min_cover: A Fds instance gatehring the Fd involved in the 3nf graph. This
-            parameter will be enriched with some previously removed Fd instances.
-        fds_removed: A Fds instance gathering the Fd instances removed during the normalization.
-            An Fd in this set is:
-            (1) either a Fd [x --> x]
-                or a Fd [x --> x_i] with x = (x_0, ..., x_N)
-                (We ignore such Fds and will take care of keys when building final tables)
-            (2) either a Fd [x --> y] which is redundant with an existing Fd
-                (We reinject the information in the corresponding Fd)
-            (3) either a Fd [x --> z] which is a transitive Fds such as x --> ... --> z
-                (We reinject the information along the whole path)
-
-            Both last cases can be treated in the same way
-    """
-
-    map_key_closure  = dict() # Cache (it maps each table and its corresponding closure, e.g. { x : x+ })
-    key_fd_by_method = dict() # Maps for each method (i.e. (table, key) pair) which Fds must be reinjected: { method : {fds_removed} }
-    methods_with_fds = list() # Stores which methods are altered during the (2) and (3) reinjection phases
-
-    for fd_removed in fds_removed:
-        x = fd_removed.get_determinant().get_key()
-        y = fd_removed.get_field()
-        m = fd_removed.get_methods()
-
-        method = list(m)[0].get_name()
-
-        # (1)
-        if y in x:
-            # We cannot simply re-add them since it will cause new relations in the 3nf.
-            # fds_min_cover.add(fd_removed)
-
-            # We have a single method in each fd
-            if not method in key_fd_by_method:
-                key_fd_by_method[method] = list()
-            key_fd_by_method[method].append(fd_removed)
-
-            continue
-
-        # (2)+(3)
-        methods_with_fds.append(method)
-
-        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x
-        if x not in map_key_closure.keys():
-            map_key_closure[x] = closure_ext(x.get_fields(), fds_min_cover)
-
-        # (2)
-        for fd in map_key_closure[x][y]:
-            #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
-            fd.add_methods(m)
-
-    for method, fds in key_fd_by_method.items():
-        if not method in methods_with_fds:
-            for fd in fds:
-                fds_min_cover.add(fd)
-
+#UNUSED|
+#UNUSED|@returns(dict)
+#UNUSED|@accepts(frozenset, Fds)
+#UNUSED|def closure_ext(x, fds):
+#UNUSED|    """
+#UNUSED|    \brief Compute the closure of a set of attributes under the
+#UNUSED|        set of functional dependencies
+#UNUSED|        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
+#UNUSED|    \param x A set of Field instances (usually it should be a Key instance)
+#UNUSED|    \param fds A Fds instance (each fd must have exactly one output field)
+#UNUSED|    \return A dictionnary {Field => list(Fd)} where
+#UNUSED|        - key is a Field in the closure x+
+#UNUSED|        - data is a set of Fd needed to retrieve this Field
+#UNUSED|    """
+#UNUSED|    # x = source node
+#UNUSED|    # x+ = vertices reachable from x (at the current iteration)
+#UNUSED|    # y -> z = an arc (a fd) that is visited during the DFS from (closure of) x
+#UNUSED|
+#UNUSED|    check_closure(x, fds)
+#UNUSED|    x_plus_ext = dict()
+#UNUSED|    for x_elt in x:
+#UNUSED|        x_plus_ext[x_elt] = set()                 # x+ = x
+#UNUSED|
+#UNUSED|    #print "computing closure with x = %r and fds = %r" % (x, fds)
+#UNUSED|    added = True
+#UNUSED|    while added:                                   # repeat will we visit at least one new fd
+#UNUSED|        added = False
+#UNUSED|        for fd in fds:                             #   for each fd (y -> z)
+#UNUSED|            y = fd.get_determinant().get_key()
+#UNUSED|            x_plus = set(x_plus_ext.keys())
+#UNUSED|            if y.get_fields() <= x_plus:                        #     if y in x+
+#UNUSED|                z = fd.get_field()
+#UNUSED|                if z not in x_plus:                #       if z not in x+
+#UNUSED|                    added = True                   #          this fd is relevant, let's visit it
+#UNUSED|                    x_plus_ext[z] = set()          #          x+ u= y
+#UNUSED|
+#UNUSED|                    # "z" is retrieved thanks to
+#UNUSED|                    #  - each Fd needed to retrieve "y"
+#UNUSED|                    #  - the Fd [y --> z]
+#UNUSED|                    for y_elt in y:
+#UNUSED|                        if x_plus_ext[y_elt]:
+#UNUSED|                            x_plus_ext[z] |= x_plus_ext[y_elt]
+#UNUSED|                    x_plus_ext[z].add(fd)
+#UNUSED|
+#UNUSED|    return x_plus_ext
+#UNUSED|
+#UNUSED|@returns(Fds)
+#UNUSED|@accepts(list)
+#UNUSED|def make_fd_set(tables):
+#UNUSED|    """
+#UNUSED|    Compute the set of functionnal dependancies.
+#UNUSED|    Args:
+#UNUSED|        tables: A list of input Table instances.
+#UNUSED|    Returns:
+#UNUSED|        A Fds instance.
+#UNUSED|    """
+#UNUSED|    fds = Fds()
+#UNUSED|    for table in tables:
+#UNUSED|        name = table.get_name()
+#UNUSED|        for key in table.get_keys():
+#UNUSED|            for field in table.get_fields():
+#UNUSED|                map_field_methods = dict()
+#UNUSED|                methods = set()
+#UNUSED|                for platform in table.get_platforms():
+#UNUSED|                    methods.add(Method(platform, name))
+#UNUSED|                map_field_methods[field] = methods
+#UNUSED|                fds.add(Fd(Determinant(key, name), map_field_methods))
+#UNUSED|    return fds
+#UNUSED|
+#UNUSED|@accepts(Fds)
+#UNUSED|@returns(tuple)
+#UNUSED|def fd_minimal_cover(fds):
+#UNUSED|    """
+#UNUSED|    Compute the functionnal dependancy minimal cover
+#UNUSED|        See http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
+#UNUSED|    Args:
+#UNUSED|        fds: A Fds instance
+#UNUSED|    Returns:
+#UNUSED|        A couple made of:
+#UNUSED|        - a Fds instance (fd kept, e.g. min cover)
+#UNUSED|        - a Fds instance (fd removed)
+#UNUSED|    """
+#UNUSED|    g = fds.split()                                     # replace {[x -> {a1, ..., an}]} by g = {[x -> a1], ..., [x -> an]}
+#UNUSED|
+#UNUSED|    fds_removed = Fds()
+#UNUSED|    g_copy = g.copy()
+#UNUSED|    for fd in g_copy:                                   # for each fd = [x -> a]:
+#UNUSED|        g2 = Fds([f for f in g if fd != f])             #   g' = g \ {fd}
+#UNUSED|        x  = fd.get_determinant().get_key().get_fields()
+#UNUSED|        a  = fd.get_field()
+#UNUSED|        x_plus = closure(x, g2)                    #   compute x+ according to g'
+#UNUSED|        if a in x_plus:                                 #   if a \in x+:
+#UNUSED|            #print "rm %s" % fd
+#UNUSED|            fds_removed.add(fd)
+#UNUSED|            g = g2                                      #     g = g'
+#UNUSED|
+#UNUSED|    for fd in g.copy():                                 # for each fd = [x -> a] in g:
+#UNUSED|        x = fd.get_determinant().get_key()
+#UNUSED|        if x.is_composite():                            #   if x has multiple attributes:
+#UNUSED|            for b in x.get_fields():                    #     for each b in x:
+#UNUSED|
+#UNUSED|                x_b = Key([xi for xi in x.get_fields() if xi != b])  #       x_b = x - b
+#UNUSED|                g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
+#UNUSED|                fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
+#UNUSED|                fd2.set_key(x_b)
+#UNUSED|                g2.add(fd2)
+#UNUSED|                x_b_plus = closure(x_b.get_fields(), g2)        #       compute (x - b)+ with repect to g'
+#UNUSED|
+#UNUSED|                if b in x_b_plus:                       #       if b \subseteq (x - b)+:
+#UNUSED|                    g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
+#UNUSED|
+#UNUSED|    return (g, fds_removed)
+#UNUSED|
+#UNUSED|@accepts(Fds, Fds)
+#UNUSED|def reinject_fds(fds_min_cover, fds_removed):
+#UNUSED|    """
+#UNUSED|    Reinject Fds removed by fd_minimal_cover in the remaining fds.
+#UNUSED|    Args:
+#UNUSED|        fds_min_cover: A Fds instance gatehring the Fd involved in the 3nf graph. This
+#UNUSED|            parameter will be enriched with some previously removed Fd instances.
+#UNUSED|        fds_removed: A Fds instance gathering the Fd instances removed during the normalization.
+#UNUSED|            An Fd in this set is:
+#UNUSED|            (1) either a Fd [x --> x]
+#UNUSED|                or a Fd [x --> x_i] with x = (x_0, ..., x_N)
+#UNUSED|                (We ignore such Fds and will take care of keys when building final tables)
+#UNUSED|            (2) either a Fd [x --> y] which is redundant with an existing Fd
+#UNUSED|                (We reinject the information in the corresponding Fd)
+#UNUSED|            (3) either a Fd [x --> z] which is a transitive Fds such as x --> ... --> z
+#UNUSED|                (We reinject the information along the whole path)
+#UNUSED|
+#UNUSED|            Both last cases can be treated in the same way
+#UNUSED|    """
+#UNUSED|
+#UNUSED|    map_key_closure  = dict() # Cache (it maps each table and its corresponding closure, e.g. { x : x+ })
+#UNUSED|    key_fd_by_method = dict() # Maps for each method (i.e. (table, key) pair) which Fds must be reinjected: { method : {fds_removed} }
+#UNUSED|    methods_with_fds = list() # Stores which methods are altered during the (2) and (3) reinjection phases
+#UNUSED|
+#UNUSED|    for fd_removed in fds_removed:
+#UNUSED|        x = fd_removed.get_determinant().get_key()
+#UNUSED|        y = fd_removed.get_field()
+#UNUSED|        m = fd_removed.get_methods()
+#UNUSED|
+#UNUSED|        method = list(m)[0].get_name()
+#UNUSED|
+#UNUSED|        # (1)
+#UNUSED|        if y in x:
+#UNUSED|            # We cannot simply re-add them since it will cause new relations in the 3nf.
+#UNUSED|            # fds_min_cover.add(fd_removed)
+#UNUSED|
+#UNUSED|            # We have a single method in each fd
+#UNUSED|            if not method in key_fd_by_method:
+#UNUSED|                key_fd_by_method[method] = list()
+#UNUSED|            key_fd_by_method[method].append(fd_removed)
+#UNUSED|
+#UNUSED|            continue
+#UNUSED|
+#UNUSED|        # (2)+(3)
+#UNUSED|        methods_with_fds.append(method)
+#UNUSED|
+#UNUSED|        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x
+#UNUSED|        if x not in map_key_closure.keys():
+#UNUSED|            map_key_closure[x] = closure_ext(x.get_fields(), fds_min_cover)
+#UNUSED|
+#UNUSED|        # (2)
+#UNUSED|        for fd in map_key_closure[x][y]:
+#UNUSED|            #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
+#UNUSED|            fd.add_methods(m)
+#UNUSED|
+#UNUSED|    for method, fds in key_fd_by_method.items():
+#UNUSED|        if not method in methods_with_fds:
+#UNUSED|            for fd in fds:
+#UNUSED|                fds_min_cover.add(fd)
+#UNUSED|
 #DEPRECATED|@returns(DBGraph)
 #DEPRECATED|#TODO to_3nf should not consider a list of Announces!
 #DEPRECATED|@accepts(dict)

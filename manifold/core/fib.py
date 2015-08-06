@@ -27,9 +27,7 @@ class FIB(ChildSlotMixin):
 
         # We store all accepted FDs
         self._fds = Fds()
-
         self._uuid = str(uuid.uuid4())
-
         self._router = router
 
     def is_up(self, interface_name):
@@ -97,7 +95,7 @@ class FIB(ChildSlotMixin):
     def get_fds(self):
         return self._fds.copy()
 
-    def add(self, platform_name, announces, namespace = None): # XXX namespace should be in announced object 
+    def add(self, platform_name, announces, namespace = None): # XXX namespace should be in announced object
         """
         Adds a new announce to the FIB.
         """
@@ -145,7 +143,7 @@ class FIB(ChildSlotMixin):
             for key in table.get_keys():
                 if key.is_empty():
                     key = Key(fields, local=key.is_local())
-                    
+
 
                 for field in fields:
 
@@ -166,7 +164,7 @@ class FIB(ChildSlotMixin):
                             #print "Don't keep the FD"
                             # XXX obj.set_platform_object_name(platform_name, object_name) # XXX
                             continue
-                        
+
                     # We keep the FD
 
                     # Multivalued dependencies...
@@ -255,9 +253,9 @@ class FIB(ChildSlotMixin):
         announce = Announce(Table.from_dict(data, platform_name))
         obj = announce.get_object()
         namespace = obj.get_namespace()
-        
+
         self.add(platform_name, announce, namespace)
-            
+
 
     def dump(self):
         print "#" * 80
