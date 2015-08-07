@@ -19,7 +19,6 @@ from manifold.core.record       import Record
 from manifold.core.query_plan   import QueryPlan
 from manifold.core.result_value import ResultValue
 from manifold.policy            import Policy
-from manifold.models.platform   import Platform 
 from manifold.util.storage      import DBStorage as Storage
 from manifold.util.type         import accepts, returns 
 from manifold.util.log          import Log
@@ -102,7 +101,7 @@ class Interface(object):
         Args:
             platform_name: A String containing the name of the platform.
         Returns:
-            The corresponding Platform if found, None otherwise.
+            The corresponding platform if found, None otherwise.
         """
         for platform in self.platforms:
             if platform['platform'] == platform_name:

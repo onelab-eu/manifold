@@ -14,6 +14,7 @@ from manifold.util.log     import Log
 from manifold.util.options import Options
 from manifold.util.reactor_thread import ReactorThread
 from manifold.input.sql    import SQLParser
+from manifold.util.storage import DBStorage
 from manifold.auth         import Auth
 
 from twisted.internet      import defer, ssl
@@ -505,6 +506,7 @@ class Shell(object):
 def main():
     Shell.init_options()
     Log.init_options()
+    DBStorage.init_options()
     Options().parse()
     command = Options().execute
     if command:

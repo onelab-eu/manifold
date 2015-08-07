@@ -16,7 +16,7 @@ class Options(object):
     __metaclass__ = Singleton
 
     # We should be able to use another default conf file
-    CONF_FILE = '/etc/manifold.conf'
+    CONF_FILE = '/etc/manifold/manifold.conf'
     
     def __init__(self, name = None):
         self._parser = argparse.ArgumentParser()
