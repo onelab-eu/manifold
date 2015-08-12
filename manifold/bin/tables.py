@@ -47,7 +47,7 @@ def init_options():
             dest='method',
             help = "todo")
 
-    # Destination
+    # Address
     opt.add_argument("-o", "--object", dest='object',
             default = DEFAULT_TABLE,
             help = "TODO. Default is %s" % DEFAULT_TABLE)

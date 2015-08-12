@@ -20,7 +20,7 @@ from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.field_names      import FieldNames
 from manifold.core.key              import Key
 from manifold.core.operator_slot    import ChildSlotMixin
@@ -52,7 +52,7 @@ class From(Operator, ChildSlotMixin):
         """
         Constructor.
         Args:
-            destination: A Destination instance destinationing a Table provided by this Platform.
+            destination: A Address instance destinationing a Table provided by this Platform.
             annotation: An Annotation instance.
             capabilities: A Capabilities instance, set according to the metadata related
                 to the Table queried by this From Node.
@@ -60,7 +60,7 @@ class From(Operator, ChildSlotMixin):
         """
         assert isinstance(interface, Interface),\
             "Invalid interface = %s (%s)" % (interface, type(interface))
-        assert isinstance(destination, Destination),\
+        assert isinstance(destination, Address),\
             "Invalid destination = %s (%s)" % (destination, type(destination))
         assert isinstance(capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (capabilities, type(capabilities))
@@ -117,11 +117,11 @@ class From(Operator, ChildSlotMixin):
         except Exception, e:
             print "Exception in repr: %s" % e
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination nested in this From instance.
+            The Address nested in this From instance.
         """
         return self._destination
 

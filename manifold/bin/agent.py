@@ -30,7 +30,7 @@ from manifold.bin.shell                 import Shell
 
 # XXX DELETE WHEN SHELL FULLY REPLACES PACKET SENDING
 from manifold.core.deferred_receiver    import DeferredReceiver
-from manifold.core.destination          import Destination
+from manifold.core.address              import Address
 from manifold.core.field_names          import FieldNames
 from manifold.core.filter               import Filter
 from manifold.core.packet               import GET
@@ -158,7 +158,7 @@ class AgentDaemon(Daemon):
         # XXX We send a single probe...
         d = DeferredReceiver() 
         self._ping.send(GET(), 
-                destination = Destination('ping',
+                destination = Address('ping',
                     Filter().filter_by(Predicate('destination', 'included', list(supernodes))),
                     FieldNames(['destination', 'delay'])),
                 receiver = d)
@@ -321,7 +321,7 @@ class AgentDaemon(Daemon):
     def check_connectivity(self, interface):
         # XXX Can't we get events from the interface
         receiver = SyncReceiver()
-        interface.send(PING(), Destination('object', namespace='local'), receiver = receiver)
+        interface.send(PING(), Address('object', namespace='local'), receiver = receiver)
 
         # How to detect timeout
         # What is a valid result

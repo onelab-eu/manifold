@@ -20,7 +20,7 @@
 
 import copy
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import SlotMixin 
 from manifold.core.packet           import Packet
@@ -51,7 +51,7 @@ class Operator(Node, SlotMixin):
             packet: A Packet instance.
         """
         Log.record(packet, source = self)
-        assert isinstance(packet.get_source(), Destination), "send(): packet source: type error: %s" % packet
+        assert isinstance(packet.get_source(), Address), "send(): packet source: type error: %s" % packet
         self.send_impl(packet)
 
     def send_impl(self, packet):

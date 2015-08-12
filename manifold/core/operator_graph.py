@@ -17,7 +17,7 @@
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
 
 from manifold.core.annotation       import Annotation
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.node             import Node
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.lattice          import Lattice
@@ -75,7 +75,7 @@ class OperatorGraph(object):
             of time this is the top Operator of the AST).
         """
         # Check parameters
-        assert isinstance(destination, Destination),\
+        assert isinstance(destination, Address),\
             "Invalid destination %s (%s)" % (destination, type(destination))
         assert isinstance(annotation, Annotation),\
             "Invalid annotation %s (%s)" % (annotation, type(annotation))

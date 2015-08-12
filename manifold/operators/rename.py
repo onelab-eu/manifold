@@ -11,7 +11,7 @@
 
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.field_names      import FIELD_SEPARATOR
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
@@ -217,11 +217,11 @@ class Rename(Operator, ChildSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Address corresponding to this Operator. 
         """
         d = self._get_child().get_destination()
         rmap = {v: k for k, v in self.get_aliases().items()}

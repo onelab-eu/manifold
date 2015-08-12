@@ -1,7 +1,7 @@
 import sys, time, uuid as uuid_module
 
 from manifold.core.annotation       import Annotation
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import GET # to deprecate
@@ -85,7 +85,7 @@ class Interface(object):
         return self._platform_name
 
     def get_address(self):
-        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._platform_name)))
+        return Address('uuid', Filter().filter_by(Predicate('uuid', '==', self._platform_name)))
 
     def get_interface_type(self):
         return self.__interface_type__

@@ -14,7 +14,7 @@ from types                          import StringTypes
 
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.packet           import GET
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
@@ -80,7 +80,7 @@ class StorageGateway(SQLAlchemyGateway):
         # Redundant with : Router::execute_query()
         platform_collection = self.get_collection('platform', 'local')
         packet = GET()
-        destination = Destination('platform')
+        destination = Address('platform')
 
         # This should be automatically done by send based on the destination
         # address

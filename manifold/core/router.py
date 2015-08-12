@@ -16,7 +16,7 @@ from manifold.core.annotation       import Annotation
 from manifold.core.announce         import Announces, Announce
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 # DEPRECATED BY FIBfrom manifold.core.dbnorm           import to_3nf   # Replaced by FIB
 # DEPRECATED BY FIBfrom manifold.core.dbgraph          import DBGraph  # Replaced by FIB
 from manifold.core.fib              import FIB
@@ -116,7 +116,7 @@ class Router(object):
             interface.terminate()
 
     def get_address(self):
-        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', '0')))
+        return Address('uuid', Filter().filter_by(Predicate('uuid', '==', '0')))
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -178,7 +178,7 @@ class Router(object):
         fib = self.get_fib()
         interface.send(GET(), 
                 source      = fib.get_address(), 
-                destination = Destination('object', namespace='local'), 
+                destination = Address('object', namespace='local'), 
                 receiver    = fib)
 
     def on_interface_down(self, interface):

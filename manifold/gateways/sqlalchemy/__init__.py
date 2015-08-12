@@ -18,7 +18,7 @@ from sqlalchemy.orm                     import sessionmaker
 
 from manifold.core.announce             import Announce, Announces
 from manifold.core.annotation           import Annotation
-from manifold.core.destination          import Destination
+from manifold.core.address              import Address
 from manifold.core.field                import Field
 from manifold.core.object               import Object
 from manifold.core.record               import Records
@@ -91,7 +91,7 @@ class SQLAlchemyCollection(ManifoldCollection):
         session = self.get_gateway().get_session()
 
         if destination.get_filter():
-            raise RuntimeError("Filters should be empty for a CREATE Destination (%s): %r" % (destination, destination.get_filter()))
+            raise RuntimeError("Filters should be empty for a CREATE Address (%s): %r" % (destination, destination.get_filter()))
 
         cls = self.get_model()
         Log.tmp(destination.get_filter())
@@ -115,7 +115,7 @@ class SQLAlchemyCollection(ManifoldCollection):
         except IntegrityError, e:
             raise RuntimeError, "Integrity error: %s" % e
         except Exception, e:
-            raise RuntimeError, "Destination error: %s" % e
+            raise RuntimeError, "Address error: %s" % e
         finally:
             session.rollback()
 

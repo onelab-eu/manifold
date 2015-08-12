@@ -15,7 +15,7 @@
 import sys, random, traceback
 from types                                  import StringTypes
 
-from manifold.core.destination              import Destination
+from manifold.core.address                  import Address
 from manifold.core.key                      import Key
 from manifold.core.query                    import Query
 from manifold.operators.cartesian_product   import CartesianProduct
@@ -95,14 +95,14 @@ class AST(object):
         Append a From Node to this AST.
         Args:
             platform_name: the name of the Platform related to this From Node. 
-            destination: The Destination sent to the platform.
+            destination: The Address sent to the platform.
             capabilities: The Capabilities related to this Table of this Platform.
             key: The Key related to this Table.
         Returns:
             The updated AST.
         """
         assert self.is_empty(),          "Should be instantiated on an empty AST"
-        assert isinstance(destination, Destination), "Invalid destination = %s (%s)" % (destination, type(destination))
+        assert isinstance(destination, Address), "Invalid destination = %s (%s)" % (destination, type(destination))
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         # Retrieve the appropriate Gateway.
@@ -128,7 +128,7 @@ class AST(object):
         """
         Append a FromTable Node to this AST.
         Args:
-            destination: A Destination instance describing the Records provided by this
+            destination: A Address instance describing the Records provided by this
                 FromTable Node.
             records: A list of corresponding Records.
             key: A Key instance which can be used to identify each Records.
@@ -136,7 +136,7 @@ class AST(object):
             The resulting AST.
         """
         assert self.is_empty(),          "Should be instantiated on an empty AST"
-        assert isinstance(destination, Destination), "Invalid destination = %r (%r)" % (destination, type(destination))
+        assert isinstance(destination, Address), "Invalid destination = %r (%r)" % (destination, type(destination))
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         self.root = FromTable(destination, records, key)
@@ -383,7 +383,7 @@ class AST(object):
         For instance, SELECT and WHERE clause allows to fetch less
         information from the data sources involved in the query plan.
         Args:
-            destination: The Destination of the Query issued by the user.
+            destination: The Address of the Query issued by the user.
         """
         try: # DEBUG
             self.optimize_selection(destination.get_filter())

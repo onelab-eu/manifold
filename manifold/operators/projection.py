@@ -13,7 +13,7 @@
 
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.field_names      import FieldNames
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
@@ -140,11 +140,11 @@ class Projection(Operator, ChildSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator.
+            The Address corresponding to this Operator.
         """
         d = self._get_child().get_destination()
         return d.projection(self._field_names)
@@ -162,7 +162,7 @@ class Projection(Operator, ChildSlotMixin):
         self._get_child().send(packet)
 
     def receive_impl(self, packet, slot_id = None):
-        packet.update_source(Destination.set_field_names, self._field_names)
+        packet.update_source(Address.set_field_names, self._field_names)
 
         if not packet.is_empty() and not self._field_names.is_star():
             packet = do_projection(packet, self._field_names)

@@ -12,7 +12,7 @@
 import traceback
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.exceptions       import ManifoldInternalException
 from manifold.core.field_names      import FieldNames, FIELD_SEPARATOR
 from manifold.core.filter           import Filter
@@ -350,10 +350,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         """
 
         # Prepare parent and child destinations
-        parent_destination = Destination()
+        parent_destination = Address()
         child_destinations = {}
         for child_id, child, child_data in self._iter_children():
-            child_destinations[child_id] = Destination()
+            child_destinations[child_id] = Address()
 
         # Object
         parent_object = destination.get_object()
@@ -757,11 +757,11 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Address corresponding to this Operator. 
         """
         dparent = self._get_parent().get_destination()
         children_destination_relation_list = []

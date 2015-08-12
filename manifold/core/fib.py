@@ -2,7 +2,7 @@ import uuid
 
 from manifold.core.announce         import Announce, Announces
 from manifold.core.dbnorm           import Fd, Fds, Determinant, closure
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.key              import Key
 from manifold.core.keys             import Keys
@@ -38,7 +38,7 @@ class FIB(ChildSlotMixin):
         return self._uuid
 
     def get_address(self):
-        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+        return Address('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
 
     def get_namespaces(self, allow_none=False):
         namespaces = self._objects_by_namespace.keys()

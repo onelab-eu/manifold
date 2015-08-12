@@ -14,7 +14,7 @@
 import traceback
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.field_names      import FieldNames
 from manifold.core.node             import Node
@@ -64,11 +64,11 @@ class Selection(Operator, ChildSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Address corresponding to this Operator. 
         """
         d = self._get_child().get_destination()
         return d.selection(self._filter)
@@ -119,7 +119,7 @@ class Selection(Operator, ChildSlotMixin):
             packet: A Packet instance (RECORD or ERROR)
             slot_id: Unused, pass None.
         """
-        packet.update_source(Destination.add_filter, self._filter)
+        packet.update_source(Address.add_filter, self._filter)
         if packet.is_empty() or self._filter.match(packet.get_dict()):
             self.forward_upstream(packet)
             return

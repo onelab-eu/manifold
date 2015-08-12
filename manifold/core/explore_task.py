@@ -16,7 +16,7 @@ from types                          import StringTypes
 from twisted.internet.defer         import Deferred, DeferredList
 
 from manifold.core.ast              import AST
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.field_names      import FieldNames
 from manifold.core.key              import Key
@@ -393,7 +393,7 @@ class ExploreTask(Deferred):
             platform_object_name =  obj.get_platform_object_name(platform_name)
             # XXX ISSUE 
             Log.warning("How to handle tables with mutiple partitions, a UNION ?")
-            destination =  Destination(platform_object_name, Filter(), selected_field_names)
+            destination =  Address(platform_object_name, Filter(), selected_field_names)
             #query = Query.get(platform_object_name).select(selected_field_names)
 
             obj = fib.get_object(platform_object_name, namespace)

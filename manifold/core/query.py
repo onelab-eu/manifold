@@ -12,7 +12,7 @@
 import copy, json, uuid, traceback
 
 from types                          import StringTypes
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter, Predicate
 from manifold.core.field_names      import FieldNames
 from manifold.core.packet           import Packet
@@ -744,17 +744,17 @@ class Query(object):
         return self
 
     #---------------------------------------------------------------------------
-    # Destination
+    # Address
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
-        Craft the Destination corresponding to this Query.
+        Craft the Address corresponding to this Query.
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
-        return Destination(
+        return Address(
             self.get_object_name(), 
             self.get_filter(),
             self.fields | FieldNames(self.params.keys()),

@@ -11,7 +11,7 @@
 
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.exceptions       import ManifoldInternalException
 from manifold.core.field_names      import FieldNames
 from manifold.core.node             import Node
@@ -105,11 +105,11 @@ class Union(Operator, ChildrenSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator.
+            The Address corresponding to this Operator.
         """
         return self._get_first().get_destination()
 

@@ -11,7 +11,7 @@
 import threading, uuid
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.node             import Node
@@ -40,7 +40,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         self.clear()
 
     def get_address(self):
-        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+        return Address('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
 
     def clear(self):
         self._records = Records() # Records resulting from a Query

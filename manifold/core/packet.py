@@ -30,7 +30,7 @@ from types                      import GeneratorType, StringTypes
 
 from manifold.core.annotation   import Annotation
 from manifold.core.code         import ERROR, WARNING
-from manifold.core.destination  import Destination
+from manifold.core.address      import Address
 from manifold.core.exceptions   import ManifoldException
 from manifold.core.field_names  import FieldNames, FIELD_SEPARATOR
 from manifold.util.log          import Log
@@ -93,7 +93,7 @@ class Packet(object):
         PROTOCOL_CREATE : "CREATE",
         PROTOCOL_UPDATE : "UPDATE",
         PROTOCOL_DELETE : "DELETE",
-        PROTOCOL_PING : "PING",
+        PROTOCOL_PING   : "PING",
     }
 
     #---------------------------------------------------------------------------

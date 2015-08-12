@@ -11,7 +11,7 @@
 
 from types                          import StringTypes
 
-from manifold.core.destination      import Destination
+from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import LeftRightSlotMixin
@@ -85,11 +85,11 @@ class RightJoin(Operator, LeftRightSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Destination)
+    @returns(Address)
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Address corresponding to this Operator. 
         """
         dleft  = self._get_left().get_destination()
         dright = self._get_right().get_destination()

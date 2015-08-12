@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# A Destination corresponds to an entry in the routing table of a
+# A Address corresponds to an entry in the routing table of a
 # Manifold router (basically this a view over a given object).
 #
 # Copyright (C) UPMC Paris Universitas
@@ -19,7 +19,7 @@ from manifold.util.type         import accepts, returns
 
 import copy
 
-class Destination(object):
+class Address(object):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -46,7 +46,7 @@ class Destination(object):
         self._namespace = namespace
 
     def copy(self):
-        Log.warning("Destination::copy is deprecated. Use clone()")
+        Log.warning("Address::copy is deprecated. Use clone()")
         return self.clone()
 
     def clone(self):
@@ -98,7 +98,7 @@ class Destination(object):
     def get_filter(self):
         """
         Returns:
-            The Filter instance corresponding to this Destination (None if unset).
+            The Filter instance corresponding to this Address (None if unset).
         """
         return self._filter
 
@@ -121,7 +121,7 @@ class Destination(object):
     def get_field_names(self):
         """
         Returns:
-            The FieldNames instance corresponding to this Destination (None if unset).
+            The FieldNames instance corresponding to this Address (None if unset).
         """
         return self._field_names
 
@@ -186,86 +186,86 @@ class Destination(object):
 
     # XXX This should be distributed in the different operators
 
-    #@returns(Destination)
+    #@returns(Address)
     def left_join(self, destination): 
         """
-        Combine this Destination and another one according to an operator
+        Combine this Address and another one according to an operator
         according to the LeftJoin Operator.
         Args:
-            destination: A Destination instance.
+            destination: A Address instance.
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
-        return Destination(
+        return Address(
             object = self._object_name,
             filter = self._filter | destination.get_filter(),
             field_names = self._field_names | destination.get_field_names(),
             origin = self._origin
         )
 
-    #@returns(Destination)
+    #@returns(Address)
     def right_join(self, destination):
         """
-        Combine this Destination and another one according to an operator
+        Combine this Address and another one according to an operator
         according to the RightJoin Operator.
         Args:
-            destination: A Destination instance.
+            destination: A Address instance.
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
-        return Destination(
+        return Address(
             object = destination._object,
             filter = self._filter | destination.get_filter(),
             field_names = self._field_names | destination.get_field_names(),
             origin = self._origin
         )
 
-    #@returns(Destination)
+    #@returns(Address)
     def selection(self, filter):
         """
-        Combine this Destination and another one according to an operator
+        Combine this Address and another one according to an operator
         according to the Selection Operator.
         Args:
             filter: A Filter instance.
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
-        return Destination(
+        return Address(
             object = self._object_name,
             filter = self._filter & filter,
             field_names = self._field_names,
             origin = self._origin
         )
 
-    #@returns(Destination)
+    #@returns(Address)
     def projection(self, field_names):
         """
-        Combine this Destination and another one according to an operator
+        Combine this Address and another one according to an operator
         according to the Projection Operator.
         Args:
             field_names: A FieldNames instance.
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
-        return Destination(
+        return Address(
             object = self._object_name,
             filter = self._filter,
             field_names = self._field_names & field_names,
             origin = self._origin
         )
 
-    #@returns(Destination)
+    #@returns(Address)
     def rename(self, aliases):
         """
-        Combine this Destination and another one according to an operator
+        Combine this Address and another one according to an operator
         according to the Rename Operator.
         Args:
             aliases: A {String : String} mapping the old field name and
                 the new field name. 
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
-        return Destination(
+        return Address(
             object = self._object_name,
             filter = self._filter.copy().rename(aliases),
             field_names = self._field_names.copy().rename(aliases),
@@ -273,15 +273,15 @@ class Destination(object):
         )
 
     # XXX This is the opposite of split, we name it merge
-    #@returns(Destination)
+    #@returns(Address)
     def subquery(self, children_destination_relation_list):
         """
-        Combine this Destination and another one according to an operator
+        Combine this Address and another one according to an operator
         according to the SubQuery Operator.
         Args:
             children_destination_relation_list:
         Returns:
-            The corresponding Destination.
+            The corresponding Address.
         """
         object = self._object_name
         filter = self._filter
@@ -294,4 +294,4 @@ class Destination(object):
                 filter.filter_by("%s.%s" % (name, key), op, value)
             field_names |= FieldNames(['%s.%s' % (name, f) for f in destination.get_field_names()])
         origin = self._origin
-        return Destination(object, filter, field_names, origin)
+        return Address(object, filter, field_names, origin)
