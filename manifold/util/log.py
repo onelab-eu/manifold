@@ -399,7 +399,7 @@ class Log(object):
                 which has called Log.record().
         """
         msg = [
-            "%s :" % (source.format_node()) if source else "",
+            "In %s :" % (source.format_node()) if source else "",
             "%r" % packet,
         ]
 #        from manifold.core.record import Record
@@ -415,7 +415,7 @@ class Log(object):
 #                "%s :" % (source.format_node()) if source else "",
 #                "%r" % record2,
 #            ]
-        #cls.print_msg(" ".join(msg), "RECORD", caller_name())
+        #cls.print_msg("\n".join(msg), "RECORD", caller_name())
 
     @classmethod
     def deprecated(cls, new):

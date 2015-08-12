@@ -117,16 +117,24 @@ class Filter(set):
         assert isinstance(predicate_or_filter, Predicate)
         set.add(self, predicate_or_filter)
 
+    def is_empty(self):
+        """
+        Tests whether this Filter is empty or not.
+        Returns:
+            True iif this Filter is empty.
+        """
+        return len(self) == 0
+
     @returns(StringTypes)
     def __str__(self):
         """
         Returns:
             The '%s' representation of this Filter.
         """
-        if len(self) > 0:
-            return ' AND '.join([str(pred) for pred in self])
+        if self.is_empty():
+            return "<empty filter>"
         else:
-            return '<empty filter>'
+            return " AND ".join([str(pred) for pred in self])
 
     @returns(StringTypes)
     def __repr__(self):
@@ -397,6 +405,6 @@ class Filter(set):
             if not key_found:
                 s.add(o_predicate) 
 
-        print self, "*and*", other, "      ==>>    ", s
+        #print self, "*and*", other, "      ==>>    ", s
             
         return s

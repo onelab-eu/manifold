@@ -144,8 +144,6 @@ class Rename(Operator, ChildSlotMixin):
         """
 #        import traceback
 #        traceback.print_stack()
-#        import pdb
-#        pdb.set_trace()
         # LOIC ??? | raise Exception("Rename: uses obsolete get_producer()")
         assert isinstance(aliases, dict),\
             "Invalid aliases = %s (%s)" % (aliases, type(aliases))

@@ -298,6 +298,7 @@ class FieldNames(list):
         self.append(field_name)
 
     def set(self, field_names):
+        assert isinstance(field_names, FieldNames)
         if field_names.is_star():
             self.set_star()
             return

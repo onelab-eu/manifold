@@ -181,7 +181,7 @@ class Node(object):
             packet: A Packet instance.
         """
         self.check_receive(packet)
-        Log.record(packet)
+        Log.record(packet, source = self)
         self.receive_impl(packet, slot_id = slot_id)
 
     def send_to(self, receiver, packet):
@@ -196,12 +196,11 @@ class Node(object):
     def forward_upstream(self, packet):
         #self.check_send(packet)
         #packet.set_source(self)
-        if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
-            raise Exception("A query cannot be forwarded")
-        elif packet.get_protocol() in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR]:
+        if packet.get_protocol() in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR] \
+        or packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
             self._pool_consumers.receive(packet)
         else:
-            print "No upstream. Packet has been ignored"
+            Log.warning("No upstream. Packet has been ignored")
 
     @returns(StringTypes)
     def format_node(self, indent = 0):

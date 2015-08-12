@@ -7,7 +7,7 @@ from manifold.core.capabilities     import Capabilities
 from manifold.core.field_names      import FieldNames
 from manifold.core.keys             import Keys
 from manifold.core.partition        import Partitions
-from manifold.core.record           import Record
+from manifold.core.packet           import Record
 from manifold.core.relation         import Relation
 from manifold.core.table            import Table
 from manifold.util.log              import Log

@@ -157,7 +157,7 @@ class PostgreSQLCollection(ManifoldCollection):
         fks = cursor.fetchall()
         foreign_keys = {fk.column_name: fk.foreign_table_name for fk in fks}
 
-        Log.tmp("%s: FK = %s" % (object_name,foreign_keys))
+        #Log.tmp("%s: FK = %s" % (object_name,foreign_keys))
 
         # TODO: Add Relation based on the FKs
 
@@ -192,25 +192,15 @@ class PostgreSQLCollection(ManifoldCollection):
         l_fields = list()
         for pk in pks:
             primary_key = tuple(pk.column_names)
-
-            # if a table has only keys and no data => Relation table between 2 objects
-            if len(primary_key) == len(fields.keys()):
-                Log.tmp("Table %s is NOT an object it is only a Relation Table" % object_name)
-                self.is_relation_table = True
-
             for k in primary_key:
                 l_fields.append(fields[k])
-
             keys.add(Key(l_fields))
 
-
         obj = ObjectFactory(object_name)
-
         obj.set_fields(fields.values())
         obj.set_keys(keys)
         obj.set_capabilities(self.get_capabilities())
 
-        Log.tmp(obj)
         return obj
 
     def get_fields(self, obj_name):
@@ -245,7 +235,7 @@ class PostgreSQLCollection(ManifoldCollection):
 
         # Default capabilities if they are not retrieved
         capabilities.retrieve   = True
-        capabilities.join       = True
+        capabilities.join       = False
         capabilities.selection  = True
         capabilities.projection = True
            
@@ -460,7 +450,6 @@ class PostgreSQLCollection(ManifoldCollection):
         }
 
         sql = PostgreSQLCollection.SQL_STR % params
-        Log.tmp(sql)
         return sql
 
     # see instead: psycopg2.extras.NamedTupleCursor
@@ -547,9 +536,7 @@ class PostgreSQLCollection(ManifoldCollection):
             # Get data records from your platform
 
             # packet is used if the GW supports filters and fields selection
-            Log.tmp(packet)
             query = Query.from_packet(packet)
-            Log.tmp(query)
             sql = self.to_sql(query)
             records = self.selectall(sql, None)
             # send the records

@@ -18,7 +18,7 @@ from manifold.core.node             import Node
 from manifold.core.operator_slot    import LeftRightSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
-from manifold.core.record           import Record, Records
+from manifold.core.packet           import Record, Records
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.operators.right_join  import RightJoin
@@ -145,12 +145,8 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         Returns:
             The Destination corresponding to this Operator. 
         """
-        Log.tmp('left = ',type(self._get_left()))
-        Log.tmp('right = ',type(self._get_right()))
         dleft  = self._get_left().get_destination()
-        Log.tmp("dleft = ",dleft)
         dright = self._get_right().get_destination()
-        Log.tmp("dright = ",dright)
         return dleft.left_join(dright)
 
     def _update_and_send_right_packet(self):
@@ -170,11 +166,11 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         predicate = Predicate(self._predicate.get_value(), included, self._left_map.keys())
         self._right_packet.update_query(lambda q: q.filter_by(predicate))
 
-        self._get_right().receive(self._right_packet) # XXX
+        self._get_right().send(self._right_packet) # XXX
 
     def send_impl(self, packet):
         """
-        Handle an incoming Packet.
+        Handle an incoming QUERY_TYPES Packet.
         Args:
             packet: A Packet instance.
         """
@@ -185,12 +181,10 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # We forward the query to the left node
         # TODO : a subquery in fact
 
-        left_key    = self._predicate.get_field_names()
+        left_key     = self._predicate.get_field_names()
         right_key    = self._predicate.get_value_names()
-
         right_object = self._get_right().get_destination().get_object()
-
-        left_packet        = packet.clone()
+        left_packet  = packet.clone()
         # split filter and fields
         # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
         left_field_names = q.get_select() & left_field_names
@@ -218,9 +212,14 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_field_names, True), clear = True))
         self._right_packet = right_packet
 
-        self._get_left().receive(left_packet)
+        self._get_left().send(left_packet)
 
     def receive_impl(self, packet, slot_id = None):
+        """
+        Handle an incoming RECORD or ERROR Packet.
+        Args:
+            packet: A Packet instance.
+        """
         # Out of the Query part since it is used for a True Hack !
         left_field_names = self._get_left().get_destination().get_field_names()
 
@@ -309,7 +308,12 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     for left_record_list in self._left_map.values():
                         for left_record in left_record_list:
                             self.forward_upstream(left_record)
-                self.forward_upstream(Record(last = True))
+                self.send_last_packet()
+
+    def send_last_packet(self):
+        last_packet = Record(last = True)
+        last_packet.set_source(self.get_destination())
+        self.forward_upstream(last_packet)
                     
 
     #---------------------------------------------------------------------------

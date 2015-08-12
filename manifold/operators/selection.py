@@ -84,13 +84,12 @@ class Selection(Operator, ChildSlotMixin):
             The '%r' representation of this Selection instance.
         """
         return DUMPSTR_SELECTION % (
-            ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
+            " AND ".join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
         )
-
 
     def send_impl(self, packet):
         """
-        Process an incoming Packet instance.
+        Handle an incoming QUERY_TYPES Packet and send a Packet to the child Producer.
           - If this is a RECORD Packet, forward the Packet if it's
             carried Record satisfies the Predicate(s) of this Selection
             Operator. Otherwise, drop it.
@@ -113,8 +112,14 @@ class Selection(Operator, ChildSlotMixin):
             self._get_child().send(new_packet)
 
     def receive_impl(self, packet, slot_id = None):
+        """
+        Handle a RECORD or ERROR Packet issued by its Producer and forward
+        a Packet to the parent Consumer.
+        Args:
+            packet: A Packet instance (RECORD or ERROR)
+            slot_id: Unused, pass None.
+        """
         packet.update_source(Destination.add_filter, self._filter)
-
         if packet.is_empty() or self._filter.match(packet.get_dict()):
             self.forward_upstream(packet)
             return
@@ -128,7 +133,6 @@ class Selection(Operator, ChildSlotMixin):
             packet.clear_data()
             self.forward_upstream(packet)
                 
-
     @returns(Node)
     def optimize_selection(self, filter):
         # Concatenate both selections...

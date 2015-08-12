@@ -267,7 +267,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         """
         assert isinstance(packet, Packet), \
             "Invalid packet = %s (%s)" % (packet, type(packet))
-        assert packet.get_protocol() == Packet.PROTOCOL_QUERY,\
+        assert packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES,\
             "Invalid packet type = %s (%s)" % (packet, type(packet))
 
     #---------------------------------------------------------------------------
@@ -467,7 +467,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
     @returns(bool)
     def handle_query_object(self, packet):
         ret = False
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
             query = Query.from_packet(packet)
             table_name = query.get_table_name()
             if table_name == "object":

@@ -154,7 +154,6 @@ class Query(object):
         namespace   = destination.get_namespace()
         filters     = destination.get_filter()
         field_names = destination.get_field_names()
-        Log.tmp("from_packet field_names = %s" % field_names)
 
         params      = packet.get_data()
 
@@ -556,19 +555,19 @@ class Query(object):
         return self
 
     def unfilter_by(self, *args):
-        if len(args) == 1:
-            filters = args[0]
-            if filters == None:
-                return self
-            if not isinstance(filters, (set, list, tuple, Filter)):
-                filters = [filters]
-            for predicate in set(filters):
+        assert len(args) == 1 or len(args) == 3, "Invalid expression for filter"
+
+        if not self.filters.is_empty():
+            if len(args) == 1: # we got a Filter, or a set, or a list, or a tuple or None.
+                filters = args[0]
+                if filters != None:
+                    if not isinstance(filters, (set, list, tuple, Filter)):
+                        filters = [filters]
+                    for predicate in set(filters):
+                        self.filters.remove(predicate)
+            elif len(args) == 3: # we got three args: (field_name, op, value)
+                predicate = Predicate(*args)
                 self.filters.remove(predicate)
-        elif len(args) == 3:
-            predicate = Predicate(*args)
-            self.filters.remove(predicate)
-        else:
-            raise Exception, 'Invalid expression for filter'
 
         assert isinstance(self.filters, Filter),\
             "Invalid self.filters = %s" % (self.filters, type(self.filters))

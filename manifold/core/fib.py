@@ -98,6 +98,10 @@ class FIB(ChildSlotMixin):
     def add(self, platform_name, announces, namespace = None): # XXX namespace should be in announced object
         """
         Adds a new announce to the FIB.
+        Args:
+            platform_name: A String containing the name of the platform.
+            announces: An Announces instance.
+            namespace: A String or None.
         """
         if not isinstance(announces, Announces):
             announces = Announces([announces])
@@ -109,22 +113,14 @@ class FIB(ChildSlotMixin):
             self._objects_by_namespace[namespace] = object_dict
 
         for announce in announces:
-
-
-            table = announce.get_table() # XXX
-
+            table           = announce.get_table() # XXX
             object_name     = table.get_name() # XXX
-            print "FIB RECEIVED OBJECT: %s:%s" % (namespace, object_name)
-
             keys            = table.get_keys()
             fields          = table.get_fields()
             capabilities    = table.get_capabilities()
-
             #obj.add_capabilities(partitions)
             #obj.add_platform_capabilities(platform_name, partitions)
-
             partitions      = table.get_partitions()
-
             relations       = set()
 
             # Object
@@ -144,11 +140,8 @@ class FIB(ChildSlotMixin):
                 if key.is_empty():
                     key = Key(fields, local=key.is_local())
 
-
                 for field in fields:
-
                     fd = Fd(Determinant(key, object_name), {field: set([Method(platform_name, object_name)])})
-
                     #print "Considering FD", fd
 
                     # Let's challenge the Fd
@@ -189,7 +182,6 @@ class FIB(ChildSlotMixin):
                     # We can expect that no platform announces such superkeys...
 
                     obj.add_field(field)
-
                     obj.add_platform_field(platform_name, field)
                     Log.warning("Add platform field merges fields from different collections if they have the same name... Bug...")
 

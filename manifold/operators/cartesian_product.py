@@ -133,7 +133,7 @@ class CartesianProduct(Operator):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
             # formerly start()
             raise Exception, "CartesianProduct::receive(QUERY) Not implemented"
 

@@ -125,7 +125,6 @@ class Predicate:
             return hash(self.get_tuple())
         except Exception, e:
             # XXX TO REMOVE
-            import pdb; pdb.set_trace()
             return 0
 
     @returns(bool)

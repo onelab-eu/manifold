@@ -83,10 +83,10 @@ class Packet(object):
     PROTOCOL_DELETE = 7
     PROTOCOL_PING = 8
 
-    PROTOCOL_QUERY = (PROTOCOL_GET, PROTOCOL_UPDATE, PROTOCOL_DELETE) # TEMP, Records == CREATE
+    PROTOCOL_QUERY_TYPES = [PROTOCOL_GET, PROTOCOL_UPDATE, PROTOCOL_DELETE] # TEMP, Records == CREATE
 
     PROTOCOL_NAMES = {
-        PROTOCOL_QUERY  : "QUERY",
+#        PROTOCOL_QUERY  : "QUERY",
 #        PROTOCOL_RECORD : "RECORD",
         PROTOCOL_ERROR  : "ERROR",
         PROTOCOL_GET    : "GET",
@@ -267,7 +267,6 @@ class Packet(object):
                         dic[k] = v
             except Exception, e:
                 print "EEEEEE", e
-                import pdb; pdb.set_trace()
         return dic
 
     @staticmethod
@@ -553,14 +552,25 @@ class Packet(object):
         Returns:
             The '%r' representation of this Packet.
         """
-        return "<Packet.%s%s%s%s %s -> %s [DATA: %s]>" % (
-            Packet.get_protocol_name(self.get_protocol()),
-            ' {%s}' % self._uuid,
-            ' ANNOTATION:%r' % self.get_annotation() if self.get_annotation else '',
-            ' LAST' if self.is_last() else '',
-            self.get_source(), self.get_destination(),
-            ' '.join([("%s" % self._data) if self._data else '']),
-        )
+        fmt = "\n\t".join([
+            "<Packet",
+            "type       : %(type)s",
+            "uuid       : %(uuid)s",
+            "annotation : %(annotation)s",
+            "last       : %(last)s",
+            "src        : %(src)s",
+            "dst        : %(dst)s",
+            "data       : %(data)s\n>"
+        ])
+        return fmt % {
+            "type"       : Packet.get_protocol_name(self.get_protocol()),
+            "uuid"       : "%s" % self._uuid,
+            "annotation" : "%r" % self.get_annotation() if self.get_annotation else '',
+            "last"       : self.is_last(),
+            "src"        : self.get_source(), 
+            "dst"        : self.get_destination(),
+            "data"       : ' '.join([("%s" % self._data) if self._data else ''])
+        }
 
 
     @returns(StringTypes)
@@ -710,7 +720,6 @@ class Packet(object):
 #DEPRECATED|            records    = copy.deepcopy(s)
 #DEPRECATED|        except Exception, e:
 #DEPRECATED|            print "exception in clone", e
-#DEPRECATED|            import pdb; pdb.set_trace()
 #DEPRECATED|        return QueryPacket(query, annotation, receiver, records = records)
 #DEPRECATED|
 #DEPRECATED|    @returns(StringTypes)
