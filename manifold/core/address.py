@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# A Address corresponds to an entry in the routing table of a
+# An Address corresponds to an entry in the routing table of a
 # Manifold router (basically this a view over a given object).
 #
 # Copyright (C) UPMC Paris Universitas
@@ -192,7 +192,7 @@ class Address(object):
         Combine this Address and another one according to an operator
         according to the LeftJoin Operator.
         Args:
-            destination: A Address instance.
+            destination: An Address instance.
         Returns:
             The corresponding Address.
         """
@@ -209,7 +209,7 @@ class Address(object):
         Combine this Address and another one according to an operator
         according to the RightJoin Operator.
         Args:
-            destination: A Address instance.
+            destination: An Address instance.
         Returns:
             The corresponding Address.
         """

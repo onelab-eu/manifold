@@ -128,7 +128,7 @@ class AST(object):
         """
         Append a FromTable Node to this AST.
         Args:
-            destination: A Address instance describing the Records provided by this
+            destination: An Address instance describing the Records provided by this
                 FromTable Node.
             records: A list of corresponding Records.
             key: A Key instance which can be used to identify each Records.

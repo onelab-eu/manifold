@@ -52,7 +52,7 @@ class From(Operator, ChildSlotMixin):
         """
         Constructor.
         Args:
-            destination: A Address instance destinationing a Table provided by this Platform.
+            destination: An Address instance destinationing a Table provided by this Platform.
             annotation: An Annotation instance.
             capabilities: A Capabilities instance, set according to the metadata related
                 to the Table queried by this From Node.
