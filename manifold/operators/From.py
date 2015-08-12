@@ -77,7 +77,7 @@ class From(Operator, ChildSlotMixin):
         self._partitions   = partitions
 
     def copy(self):
-        return From(self._interface, self._destination.copy(), self._capabilities, self._key)
+        return From(self._interface, self._destination.clone(), self._capabilities, self._key)
 
     #---------------------------------------------------------------------------
     # 

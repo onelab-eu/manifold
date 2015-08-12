@@ -17,8 +17,6 @@ from manifold.core.announce         import Announces, Announce
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
 from manifold.core.address          import Address
-# DEPRECATED BY FIBfrom manifold.core.dbnorm           import to_3nf   # Replaced by FIB
-# DEPRECATED BY FIBfrom manifold.core.dbgraph          import DBGraph  # Replaced by FIB
 from manifold.core.fib              import FIB
 from manifold.core.filter           import Filter
 from manifold.core.operator_graph   import OperatorGraph

@@ -47,7 +47,16 @@ class StorageCollection(SQLAlchemyCollection):
 
 class StorageGateway(SQLAlchemyGateway):
 
-    def __init__(self, router, platform_name='storage', **platform_config):
+    def __init__(self, router, platform_name = 'storage', **platform_config):
+        """
+        Constructor.
+        Args:
+            router: The Router configured by this Storage.
+            platform_name: A String identifying the Storage among the
+               other Platforms managed by the Router.
+            platform_config: A dict storing the configuration of the
+               Storage.
+        """
         url = platform_config.get('url', STORAGE_SQLA_URL)
         platform_config['url'] = url
         db_filename = os.sep.join(url.split('?')[0].split('/')[1:])
@@ -65,20 +74,25 @@ class StorageGateway(SQLAlchemyGateway):
         from .models.session               import ModelSession
         from .models.user                  import ModelUser
 
-        self.register_model_collection(ModelAccount, 'account', 'local')
-        self.register_model_collection(ModelLinkedAccount, 'linked_account', 'local')
-        self.register_model_collection(ModelPlatform, 'platform', 'local')
-        self.register_model_collection(ModelPolicy, 'policy', 'local')
-        self.register_model_collection(ModelSession, 'session', 'local')
-        self.register_model_collection(ModelUser, 'user', 'local')
+        self.register_model_collection(ModelAccount,       'account',        LOCAL_NAMESPACE)
+        self.register_model_collection(ModelLinkedAccount, 'linked_account', LOCAL_NAMESPACE)
+        self.register_model_collection(ModelPlatform,      'platform',       LOCAL_NAMESPACE)
+        self.register_model_collection(ModelPolicy,        'policy',         LOCAL_NAMESPACE)
+        self.register_model_collection(ModelSession,       'session',        LOCAL_NAMESPACE)
+        self.register_model_collection(ModelUser,          'user',           LOCAL_NAMESPACE)
 
         self._update_router()
 
     def _update_router(self):
+        """
+        Enable in the nested router the Interfaces related to the enabled Platforms.
+        By doing so, Router class do not depend on Storage (the Storage configures
+        the Router).
+        """
         # XXX This code should be factored to be used anywhere we need to make a
         # query.
         # Redundant with : Router::execute_query()
-        platform_collection = self.get_collection('platform', 'local')
+        platform_collection = self.get_collection('platform', LOCAL_NAMESPACE)
         packet = GET()
         destination = Address('platform')
 

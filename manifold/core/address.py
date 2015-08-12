@@ -45,11 +45,11 @@ class Address(object):
         self._origin = origin
         self._namespace = namespace
 
-    def copy(self):
-        Log.warning("Address::copy is deprecated. Use clone()")
-        return self.clone()
-
     def clone(self):
+        """
+        Returns:
+            An Address instance cloned from self.
+        """
         return copy.deepcopy(self)
 
     #---------------------------------------------------------------------------
