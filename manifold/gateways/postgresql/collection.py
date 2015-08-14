@@ -12,21 +12,21 @@
 import re, datetime, traceback
 
 import time # for timing sql calls
-from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
+from types                                      import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
 
 from manifold.core.object                       import ObjectFactory
 from manifold.core.key                          import Key
 from manifold.core.keys                         import Keys
 from manifold.core.query                        import Query
-
-from manifold.core.capabilities         import Capabilities
+from manifold.core.query_factory                import QueryFactory
+from manifold.core.capabilities                 import Capabilities
 from manifold.core.field                        import Field
-from manifold.gateways.object           import ManifoldCollection
-from manifold.gateways.postgresql.connection import PostgreSQLConnection
+from manifold.gateways.object                   import ManifoldCollection
+from manifold.gateways.postgresql.connection    import PostgreSQLConnection
 
 from manifold.util.log                          import Log
-from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
-from manifold.util.type                 import accepts, returns
+from manifold.util.predicate                    import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.util.type                         import accepts, returns
 
 #---------------------------------------------------------------------------
 # Collection 
@@ -536,7 +536,7 @@ class PostgreSQLCollection(ManifoldCollection):
             # Get data records from your platform
 
             # packet is used if the GW supports filters and fields selection
-            query = Query.from_packet(packet)
+            query = QueryFactory.from_packet(packet)
             sql = self.to_sql(query)
             records = self.selectall(sql, None)
             # send the records

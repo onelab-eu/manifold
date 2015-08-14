@@ -19,12 +19,12 @@
 import re, sys
 import pyparsing as pp
 
-from manifold.core.query     import Query
-from manifold.core.filter    import Filter
-from manifold.util.clause    import Clause
-from manifold.util.log       import Log
-from manifold.util.predicate import Predicate
-from manifold.util.type      import accepts, returns
+from manifold.core.query_factory    import QueryFactory
+from manifold.core.filter           import Filter
+from manifold.util.clause           import Clause
+from manifold.util.log              import Log
+from manifold.util.predicate        import Predicate
+from manifold.util.type             import accepts, returns
 
 #DEBUG = True
 DEBUG = False
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     def eval(s):
         print "===== %s =====" % s
         print "PARSED:", SQLParser().parse(s)
-        query = Query.from_dict(SQLParser().parse(s))
+        query = QueryFactory.from_dict(SQLParser().parse(s))
         print "QUERY:", query
 
     if len(sys.argv) == 2:

@@ -69,6 +69,9 @@ class Address(object):
         Log.warning("get_object is deprecated")
         return self.get_object_name()
 
+    def get_clause(self):
+        return self._filter
+
     def set_object(self, object):
         """
         Args:

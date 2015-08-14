@@ -17,6 +17,7 @@ from types                              import StringTypes
 
 from manifold.core.announce             import Announces
 from manifold.core.query                import Query
+from manifold.core.query_factory        import QueryFactory
 from manifold.core.result_value         import ResultValue
 from manifold.gateways                  import Gateway
 from manifold.util.callback             import Callback
@@ -158,7 +159,7 @@ class ManifoldGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
-        query = Query.from_packet(packet)
+        query = QueryFactory.from_packet(packet)
         annotation = packet.get_annotation()
         receiver = packet.get_receiver()
 

@@ -106,6 +106,25 @@ class Filter(set):
         self.add(predicate)
         return self
 
+    def unfilter_by(self, *args):
+        assert len(args) == 1 or len(args) == 3, "Invalid expression for filter"
+
+        if not self.is_empty():
+            if len(args) == 1: # we got a Filter, or a set, or a list, or a tuple or None.
+                filters = args[0]
+                if filters != None:
+                    if not isinstance(filters, (set, list, tuple, Filter)):
+                        filters = [filters]
+                    for predicate in set(filters):
+                        self.remove(predicate)
+            elif len(args) == 3: # we got three args: (field_name, op, value)
+                predicate = Predicate(*args)
+                self.remove(predicate)
+
+        assert isinstance(self, Filter),\
+            "Invalid filters = %s" % (self, type(self))
+        return self
+
     def add(self, predicate_or_filter):
         """
         Adds a predicate or a filter (a set of predicate) -- or a list thereof -- to the current filter.

@@ -17,7 +17,8 @@ from manifold.core.filter           import Filter
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import LeftRightSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.query            import Query
+from manifold.core.packet_util      import packet_update_query
+from manifold.core.query_factory    import QueryFactory
 from manifold.core.packet           import Record, Records
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -164,8 +165,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # We build the predicate to perform the join
         predicate = Predicate(self._predicate.get_value(), included, self._left_map.keys())
-        self._right_packet.update_query(lambda q: q.filter_by(predicate))
-
+        packet_update_query(self._right_packet, lambda q: q.filter_by(predicate))
         self._get_right().send(self._right_packet) # XXX
 
     def send_impl(self, packet):
@@ -177,7 +177,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         left_field_names = self._get_left().get_destination().get_field_names()
 
-        q = Query.from_packet(packet)
+        q = QueryFactory.from_packet(packet)
         # We forward the query to the left node
         # TODO : a subquery in fact
 
@@ -189,14 +189,14 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
         left_field_names = q.get_select() & left_field_names
         left_field_names |= left_key
-        left_packet.update_query(lambda q: q.select(left_field_names, clear = True))
+        packet_update_query(left_packet, lambda q: q.select(left_field_names, clear = True))
 
-        # left_packet.update_query(lambda q: q.select(q.get_select() & left_field_names | left_key, clear = True))
-        left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_field_names, True), clear = True))
+        #packet_update_query(left_packet, lambda q: q.select(q.get_select() & left_field_names | left_key, clear = True))
+        packet_update_query(left_packet, lambda q: q.filter_by(q.get_filter().split_fields(left_field_names, True), clear = True))
 
         right_packet = packet.clone()
         # We should rewrite the query...
-        right_packet.update_query(lambda q: q.set_object(right_object))
+        packet_update_query(right_packet, lambda q: q.set_object(right_object))
 
         # Updating fields
         right_field_names = self._get_right().get_destination().get_field_names()
@@ -207,9 +207,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         else:
             right_field_names = q.get_select() & right_field_names
         right_field_names |= right_key
-        right_packet.update_query(lambda q: q.select(right_field_names, clear = True))
+        packet_update_query(right_packet, lambda q: q.select(right_field_names, clear = True))
 
-        right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_field_names, True), clear = True))
+        packet_update_query(right_packet, lambda q: q.filter_by(q.get_filter().split_fields(right_field_names, True), clear = True))
         self._right_packet = right_packet
 
         self._get_left().send(left_packet)

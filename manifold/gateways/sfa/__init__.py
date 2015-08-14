@@ -21,6 +21,7 @@ from twisted.python.failure             import Failure
 from manifold.core.exceptions           import ManifoldException, MissingCredentialException, ManagementException, NoAccountException, NoAdminAccountException, ManifoldInternalException, MissingSSCertException, MissingGIDException
 from manifold.core.packet               import ErrorPacket # XXX not catching exceptions if we comment this
 from manifold.core.query                import Query 
+from manifold.core.query_factory        import QueryFactory 
 from manifold.core.record               import Record, Records
 from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.proxy        import SFAProxy
@@ -286,7 +287,7 @@ class SFAGatewayCommon(Gateway):
             packet: A QUERY Packet instance.
         """
         
-        query = Query.from_packet(packet)
+        query = QueryFactory.from_packet(packet)
         annotation = packet.get_annotation()
         user = annotation.get("user", None)
         user_email = user.get('email') if user else None
@@ -382,7 +383,7 @@ class SFAGatewayCommon(Gateway):
         Returns:
             The list of corresponding Records if any.
         """
-        query = Query.from_packet(packet)
+        query = QueryFactory.from_packet(packet)
 
         # XXX This would be done on top of the first encountered router. -- # jordan
         # Check whether action is set to a valid value.

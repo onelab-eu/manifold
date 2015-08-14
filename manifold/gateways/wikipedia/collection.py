@@ -16,7 +16,7 @@ from manifold.core.object               import ObjectFactory
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
 from manifold.core.keys                 import Keys
-from manifold.core.query                import Query
+from manifold.core.query_factory        import QueryFactory
 from manifold.gateways.object           import ManifoldCollection
 
 from manifold.util.log                  import Log
@@ -266,7 +266,7 @@ class WikipediaCollection(ManifoldCollection):
             destination = packet.get_destination()
             object_name = destination.get_object_name()
 
-            query = Query.from_packet(packet)
+            query = QueryFactory.from_packet(packet)
             where = query.get_where()
             values = list()
             record = {}

@@ -21,7 +21,7 @@ from manifold.auth                      import Auth
 from manifold.core.annotation           import Annotation
 from manifold.core.code                 import CORE, ERROR, FORBIDDEN
 #from manifold.core.deferred_receiver    import DeferredReceiver
-from manifold.core.query                import Query
+from manifold.core.query_factory        import QueryFactory
 from manifold.core.result_value         import ResultValue
 from manifold.util.options              import Options
 from manifold.util.log                  import Log
@@ -124,7 +124,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         # self._deferred_router_client is a ManifoldDeferredRouterClient, it returns a deferred
         annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
-        return self._deferred_router_client.forward(Query.from_dict(query), annotation)
+        return self._deferred_router_client.forward(QueryFactory.from_dict(query), annotation)
 
     def _xmlrpc_action(self, action, *args):
         Log.info("_xmlrpc_action")

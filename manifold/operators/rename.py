@@ -16,7 +16,7 @@ from manifold.core.field_names      import FIELD_SEPARATOR
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.query            import Query
+from manifold.core.query_factory    import QueryFactory
 from manifold.core.record           import Record, Records
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -250,7 +250,7 @@ class Rename(Operator, ChildSlotMixin):
 
         # 3) Process params (move to a Params() class ?)
         # XXX This is about the "applicative layer"
-        params = Query.from_packet(packet).get_params()
+        params = QueryFactory.from_packet(packet).get_params()
         for key in params.keys():
             if key in rmap:
                 params[rmap[key]] = params.pop(key)

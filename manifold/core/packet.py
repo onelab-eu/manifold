@@ -26,15 +26,15 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 import copy, pickle, uuid
-from types                      import GeneratorType, StringTypes
+from types                          import GeneratorType, StringTypes
 
-from manifold.core.annotation   import Annotation
-from manifold.core.code         import ERROR, WARNING
-from manifold.core.exceptions   import ManifoldException
-from manifold.core.field_names  import FieldNames, FIELD_SEPARATOR
-from manifold.core.flow         import Flow
-from manifold.util.log          import Log
-from manifold.util.type         import accepts, returns
+from manifold.core.annotation       import Annotation
+from manifold.core.code             import ERROR, WARNING
+from manifold.core.exceptions       import ManifoldException
+from manifold.core.field_names      import FieldNames, FIELD_SEPARATOR
+from manifold.core.flow             import Flow
+from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 class Unspecified(object):
     pass
@@ -162,26 +162,41 @@ class Packet(object):
 
     def update_annotation(self, annotation):
         self._annotation.update(annotation)
-
     
+    @returns(int)
     def get_ttl(self):
+        """
+        Returns:
+            Return the Time-To-Live of this Packet.
+        """
         return self._ttl
 
     def set_ttl(self, ttl):
+        """
+        Set the Time-To-Live of this Packet.
+        Args:
+            ttl: An integer. 
+        """
         self._ttl = ttl
 
     def inc_ttl(self):
+        """
+        Increment the Time-To-Live of this Packet.
+        """
         self._ttl += 1
 
     # Compatibility
     def set_query(self, query):
+        Log.warning("DEPRECATED: set_query(): use set_destination() and set_data()")
         self.set_destination(query.get_destination())
         self.set_data(query.get_data())
 
-    def update_query(self, method, *args, **kwargs):
-        from manifold.core.query import Query
-        Log.warning("update_query is to be deprecated - we should rather manipulate destination")
-        self.set_query(method(Query.from_packet(self), *args, **kwargs))
+# Use packet_update_query(packet,  method, *args, **kwargs)
+#
+#DEPRECATED|    def update_query(self, method, *args, **kwargs):
+#DEPRECATED|        from manifold.core.query import Query
+#DEPRECATED|        Log.warning("DEPRECATED: update_query(): use set_destination() and set_data()")
+#DEPRECATED|        self.set_query(method(QueryFactory.from_packet(self), *args, **kwargs))
 
     def get_data(self):
         return self._data

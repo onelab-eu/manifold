@@ -16,6 +16,7 @@ from manifold.core.address          import Address
 from manifold.core.filter           import Filter, Predicate
 from manifold.core.field_names      import FieldNames
 from manifold.core.packet           import Packet
+#from manifold.core.query_factory    import QueryFactory
 from manifold.util.clause           import Clause
 from manifold.util.frozendict       import frozendict
 from manifold.util.log              import Log
@@ -85,90 +86,10 @@ class Query(object):
                 self.action, self.object, self.filters, self.params, self.fields, self.timestamp = args
 
         # Initialization from a dict
-        elif "object" in kwargs:
-            self = Query.from_dict(kwargs)
+        #elif "object" in kwargs:
+        #    self = QueryFactory.from_dict(kwargs)
 
         self.sanitize()
-
-    @staticmethod
-    def from_dict(query_dict):
-        query = Query()
-        if "action" in query_dict:
-            query.action = query_dict["action"]
-            del query_dict["action"]
-        else:
-            Log.warning("query: Defaulting to get action")
-            query.action = ACTION_GET
-
-
-        query.object = query_dict["object"]
-        del query_dict["object"]
-
-        if "filters" in query_dict:
-            query.filters = query_dict["filters"]
-            del query_dict["filters"]
-        else:
-            query.filters = Filter()
-
-        if "fields" in query_dict:
-            # '*' Handling
-            fields = query_dict.pop('fields')
-            if '*' in fields:
-                #Log.tmp("SET STAR IN KWARGS")
-                query.fields = FieldNames(star = True)
-            else:
-                query.fields = FieldNames(fields, star = False)
-        else:
-            query.fields = FieldNames(star = True)
-
-        # "update table set x = 3" => params == set
-        if "params" in query_dict:
-            query.params = query_dict["params"]
-            del query_dict["params"]
-        else:
-            query.params = {}
-
-        if "timestamp" in query_dict:
-            query.timestamp = query_dict["timestamp"]
-            del query_dict["timestamp"]
-        else:
-            query.timestamp = "now"
-
-        # Indicates the key used to store the result of this query in manifold-shell
-        # Ex: $myVariable = SELECT foo FROM bar
-        if "variable" in query_dict:
-            query.variable = query_dict["variable"][0]
-            del query_dict["variable"]
-        else:
-            query.variable = None
-
-        query.sanitize()
-        return query
-
-    @staticmethod
-    def from_packet(packet):
-        Log.warning("Distinction between params.keys() and fields is not so good")
-        destination = packet.get_destination()
-
-        object_name = destination.get_object_name()
-        namespace   = destination.get_namespace()
-        filters     = destination.get_filter()
-        field_names = destination.get_field_names()
-
-        params      = packet.get_data()
-
-        if namespace:
-            query = Query.get("%s:%s" % (namespace, object_name))
-        else:
-            query = Query.get(object_name)
-        if filters:
-            query.filter_by(filters)
-        if field_names:
-            query.select(field_names)
-        if params:
-            query.set(params)
-        return query
-
 
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()
@@ -554,24 +475,6 @@ class Query(object):
             "Invalid self.filters = %s" % (self.filters, type(self.filters))
         return self
 
-    def unfilter_by(self, *args):
-        assert len(args) == 1 or len(args) == 3, "Invalid expression for filter"
-
-        if not self.filters.is_empty():
-            if len(args) == 1: # we got a Filter, or a set, or a list, or a tuple or None.
-                filters = args[0]
-                if filters != None:
-                    if not isinstance(filters, (set, list, tuple, Filter)):
-                        filters = [filters]
-                    for predicate in set(filters):
-                        self.filters.remove(predicate)
-            elif len(args) == 3: # we got three args: (field_name, op, value)
-                predicate = Predicate(*args)
-                self.filters.remove(predicate)
-
-        assert isinstance(self.filters, Filter),\
-            "Invalid self.filters = %s" % (self.filters, type(self.filters))
-        return self
 
     #@returns(Query)
     #def select(self, *fields, **kwargs):

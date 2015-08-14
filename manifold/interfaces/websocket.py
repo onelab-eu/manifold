@@ -21,11 +21,11 @@ from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 
 # pip install autobahn
-from autobahn.twisted.websocket import WebSocketServerProtocol, \
+from autobahn.twisted.websocket     import WebSocketServerProtocol, \
                                        WebSocketServerFactory
 
 from manifold.core.packet           import GET
-from manifold.core.query            import Query
+from manifold.core.query_factory    import QueryFactory
 
 DEFAULT_PORT = 9000
 
@@ -101,7 +101,7 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
             # We expect a JSON dict
             query_dict = json.loads(payload.decode('utf-8'))
             packet = GET()
-            query = Query.from_dict(query_dict)
+            query = QueryFactory.from_dict(query_dict)
             packet.set_destination(query.get_destination())
 
             packet.set_receiver(self._receiver)

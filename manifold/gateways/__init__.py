@@ -16,7 +16,7 @@ from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import CORE, ERROR, GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
-from manifold.core.query            import Query
+from manifold.core.query_factory    import QueryFactory
 from manifold.core.record           import Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
@@ -324,7 +324,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             packet: A QUERY Packet instance.
         """
         self.check_query_packet(packet)
-        query = Query.from_packet(packet)
+        query = QueryFactory.from_packet(packet)
         socket = self.get_socket(query)
 
 #DEPRECATED|        # Clear PIT
@@ -468,7 +468,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
     def handle_query_object(self, packet):
         ret = False
         if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
-            query = Query.from_packet(packet)
+            query = QueryFactory.from_packet(packet)
             table_name = query.get_table_name()
             if table_name == "object":
                 action = query.get_action()

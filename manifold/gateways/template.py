@@ -11,12 +11,11 @@
 
 # Add required Manifold modules in the following list (TODO)
 
-from manifold.core.announce import Announce, announces_from_docstring
-from manifold.core.query    import Query
-from manifold.core.table    import Table
-from manifold.gateways      import Gateway
-from manifold.util.log      import Log
-from manifold.util.type     import accepts, returns
+from manifold.core.announce         import Announce, announces_from_docstring
+from manifold.core.query_factory    import QueryFactory
+from manifold.gateways              import Gateway
+from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 class FooGateway(Gateway): # (TODO) Update this class name
     # You may inherits another Gateway, for instance a PostgreSQLGateway.
@@ -75,7 +74,7 @@ class FooGateway(Gateway): # (TODO) Update this class name
         # QUERY Packets carry information such as the incoming Query,
         # and some additionnal Annotations carrying (for instance the user
         # credentials).
-        query = Query.from_packet(packet)
+        query = QueryFactory.from_packet(packet)
         records = list() 
 
         # Fill records by appending Record or dict instances

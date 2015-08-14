@@ -15,7 +15,7 @@
 import os
 
 from manifold.core.announce                 import Announces, announces_from_docstring
-from manifold.core.query                    import Query
+from manifold.core.query_factory            import QueryFactory
 from manifold.gateways                      import Gateway
 from manifold.gateways.conf.pattern_parser  import PatternParser
 from manifold.util.type                     import accepts, returns
@@ -43,7 +43,7 @@ class ConfGateway(Gateway):
         Args:
             packet: A QUERY Packet.
         """
-        query = Query.from_packet()
+        query = QueryFactory.from_packet()
         # XXX ensure query parameters are non empty for create
         parser = PatternParser(query, BASEDIR)
         table_name = query.get_table_name()

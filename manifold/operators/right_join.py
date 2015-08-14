@@ -16,7 +16,9 @@ from manifold.core.filter           import Filter
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import LeftRightSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.query            import Query, ACTION_CREATE, ACTION_UPDATE, ACTION_GET
+from manifold.core.packet_util      import packet_update_query
+from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE, ACTION_GET
+from manifold.core.query_factory    import QueryFactory
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -112,10 +114,10 @@ class RightJoin(Operator, LeftRightSlotMixin):
         # uses tuples...
         ########### OLD #### predicate = Predicate(self._predicate.get_key(), included, self._right_map.keys())
         #param = { self._predicate.get_key(): self._right_map.keys()[0]}
-        #self._left_packet.update_query(lambda q: q.set(param))
+        #packet_update_query(self._left_packet, lambda q: q.set(param))
 
         # Check whether we are propagating a CREATE QUERY
-        left_action = Query.from_packet(self._left_packet).get_action()
+        left_action = QueryFactory.from_packet(self._left_packet).get_action()
         # XXX why testing left_action
         if left_action == ACTION_CREATE and self.right_params:
             param_key   = self._predicate.get_key()
@@ -123,7 +125,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             assert len(param_value) == 1 # XXX We can insert one record at a time
             param_value = param_value[0]
 
-            self._left_packet.update_query(lambda q: q.set({param_key: param_value}))
+            packet_update_query(self._left_packet, lambda q: q.set({param_key: param_value}))
 
         elif left_action == ACTION_UPDATE:
             param_key   = self._predicate.get_key()
@@ -131,7 +133,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             assert len(param_value) == 1 # XXX We can update one record at a time
             param_value = param_value[0]
 
-            self._left_packet.update_query(lambda q: q.filter_by(param_key, eq, param_value))
+            packet_update_query(self._left_packet, lambda q: q.filter_by(param_key, eq, param_value))
 
         else:
             raise ManifoldInternalException("Unexpected params for '%s' action" % left_action)
@@ -149,7 +151,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         right_fields = self._get_right().get_destination().get_field_names()
 
         if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
-            q = Query.from_packet(packet)
+            q = QueryFactory.from_packet(packet)
             # We forward the query to the left node
             # TODO : a subquery in fact
 
@@ -169,21 +171,21 @@ class RightJoin(Operator, LeftRightSlotMixin):
             #
             # We will have to find the key to be updated though !!!!
             #if q.get_action == ACTION_CREATE and not right_params:
-            right_packet.update_query(lambda q: q.set_action(ACTION_GET))
+            packet_update_query(right_packet, lambda q: q.set_action(ACTION_GET))
             
-            right_packet.update_query(lambda q: q.set_object(right_object))
-            right_packet.update_query(lambda q: q.select(q.get_field_names() & right_fields | right_key, clear = True))
-            right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
+            packet_update_query(right_packet, lambda q: q.set_object(right_object))
+            packet_update_query(right_packet, lambda q: q.select(q.get_field_names() & right_fields | right_key, clear = True))
+            packet_update_query(right_packet, lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
             # We need to transform right params into Filters
-            #right_packet.update_query(lambda q: q.set(self.right_params, clear = True))
+            #packet_update_query(right_packet, lambda q: q.set(self.right_params, clear = True))
             for k, v in self.right_params.items():
-                right_packet.update_query(lambda q: q.filter_by(k, eq, v))
+                packet_update_query(right_packet, lambda q: q.filter_by(k, eq, v))
 
             left_packet = packet.clone()
             # We should rewrite the query...
-            left_packet.update_query(lambda q: q.select(q.get_field_names() & left_fields | left_key, clear = True))
-            left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
-            left_packet.update_query(lambda q: q.set(left_params, clear = True))
+            packet_update_query(left_packet, lambda q: q.select(q.get_field_names() & left_fields | left_key, clear = True))
+            packet_update_query(left_packet, lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
+            packet_update_query(left_packet, lambda q: q.set(left_params, clear = True))
             self._left_packet = left_packet
 
             #print "SENDING RIGHT PACKET FIRST", right_packet

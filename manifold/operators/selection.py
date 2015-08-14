@@ -20,6 +20,7 @@ from manifold.core.field_names      import FieldNames
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
+from manifold.core.packet_util      import packet_update_query
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
@@ -105,10 +106,9 @@ class Selection(Operator, ChildSlotMixin):
             new_packet = packet.clone()
             
             # We don't need the result to be filtered since we are doing it...
-            new_packet.update_query(Query.unfilter_by, self._filter)
-
+            packet_update_query(new_packet, Query.unfilter_by, self._filter)
             # ... but we need the fields to filter on
-            new_packet.update_query(Query.select, self._filter.get_field_names())
+            packet_update_query(new_packet, Query.select, self._filter.get_field_names())
             self._get_child().send(new_packet)
 
     def receive_impl(self, packet, slot_id = None):

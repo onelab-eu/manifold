@@ -2,17 +2,17 @@
 
 import threading, subprocess, uuid, os
 
-from ...core.announce           import Announces
-from manifold.core.field        import Field
-from manifold.core.query        import Query
-from manifold.gateways          import Gateway
-from manifold.core.key          import Key
-from manifold.core.table        import Table
-from manifold.gateways.object   import ManifoldCollection
-from manifold.util.log          import Log
-from manifold.util.misc         import is_iterable
-from manifold.util.predicate    import eq, included
-from manifold.util.type         import accepts, returns
+from ...core.announce               import Announces
+from manifold.core.field            import Field
+from manifold.core.query_factory    import QueryFactory
+from manifold.gateways              import Gateway
+from manifold.core.key              import Key
+from manifold.core.table            import Table
+from manifold.gateways.object       import ManifoldCollection
+from manifold.util.log              import Log
+from manifold.util.misc             import is_iterable
+from manifold.util.predicate        import eq, included
+from manifold.util.type             import accepts, returns
 
 class ProcessField(dict):
     def get_name(self):         return self.get('name')
@@ -72,7 +72,7 @@ class ProcessCollection(ManifoldCollection):
             self.get_gateway().records([], packet)
             return
 
-        query      = Query.from_packet(new_packet)
+        query      = QueryFactory.from_packet(new_packet)
         annotation = new_packet.get_annotation()
 
         #Log.tmp("[PROCESS GATEWAY] received query", query)

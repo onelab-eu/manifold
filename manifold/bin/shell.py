@@ -23,7 +23,7 @@ from twisted.internet               import defer
 #from manifold.auth                  import Auth
 from manifold.core.annotation       import Annotation
 from manifold.core.packet           import ErrorPacket
-from manifold.core.query            import Query
+from manifold.core.query_factory    import QueryFactory
 from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
@@ -533,7 +533,7 @@ class Shell(object):
             annotation['receiver'] = receiver
         annotation.update(dic.pop('annotation', dict()))
 
-        query = Query.from_dict(dic)
+        query = QueryFactory.from_dict(dic)
 
         return self.execute(query, annotation)
 
@@ -596,7 +596,7 @@ class Shell(object):
             annotation['receiver'] = receiver
         annotation.update(dic.pop('annotation', dict()))
 
-        query = Query.from_dict(dic)
+        query = QueryFactory.from_dict(dic)
 
         result_value = yield self.deferred_execute(query, annotation)
         defer.returnValue(result_value)

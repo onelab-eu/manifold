@@ -336,7 +336,7 @@ class Interface(object):
             record: A Records or a list of instances that may be
                 casted in Record (e.g. Record or dict instances).
         """
-        #socket = self.get_socket(Query.from_packet(packet))
+        #socket = self.get_socket(QueryFactory.from_packet(packet))
 
         # Print debugging information
         # TODO refer properly pending Socket of each Gateway because

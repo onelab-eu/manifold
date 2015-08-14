@@ -26,6 +26,7 @@ from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.table            import Table
+from manifold.core.query_factory    import QueryFactory
 from manifold.gateways              import Gateway
 from manifold.interfaces            import Interface
 from manifold.policy                import Policy
@@ -571,7 +572,7 @@ class Router(object):
             self.get_fib().receive(packet)
             return
 
-        query      = Query.from_packet(packet)
+        query      = QueryFactory.from_packet(packet)
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
 
