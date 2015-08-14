@@ -29,7 +29,7 @@ from manifold.util.predicate                    import and_, or_, inv, add, mul,
 from manifold.util.type                         import accepts, returns
 
 #---------------------------------------------------------------------------
-# Collection 
+# Collection
 #---------------------------------------------------------------------------
 class PostgreSQLCollection(ManifoldCollection):
 
@@ -44,7 +44,7 @@ class PostgreSQLCollection(ManifoldCollection):
     SQL_TABLE_KEYS = """
     SELECT       tc.table_name                        AS table_name,
                  array_agg(kcu.column_name::text)   AS column_names
-        FROM     information_schema.table_constraints AS tc   
+        FROM     information_schema.table_constraints AS tc
             JOIN information_schema.key_column_usage  AS kcu ON tc.constraint_name = kcu.constraint_name
         WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s
         GROUP BY tc.table_name;
@@ -52,21 +52,21 @@ class PostgreSQLCollection(ManifoldCollection):
 
     # in case of failure of SQL_TABLE_KEYS execute SQL_TABLE_KEYS_2
     SQL_TABLE_KEYS_2 = """
-    SELECT      table_name AS table_name, array_agg(column_name::text) AS column_names 
-        FROM information_schema.key_column_usage 
-        WHERE table_name = %(table_name)s 
+    SELECT      table_name AS table_name, array_agg(column_name::text) AS column_names
+        FROM information_schema.key_column_usage
+        WHERE table_name = %(table_name)s
         AND constraint_name LIKE '%%_pkey'
         GROUP BY table_name;
     """
 
     SQL_TABLE_FOREIGN_KEYS = """
     SELECT replace(replace(cons.conname, %(table_name)s || '_', ''), '_fkey', '') AS column_name, c2.relname AS foreign_table_name
-        FROM pg_class c                                          
+        FROM pg_class c
             JOIN            pg_namespace n ON n.oid = c.relnamespace
             LEFT OUTER JOIN pg_constraint cons ON cons.conrelid = c.oid
             LEFT OUTER JOIN pg_class c2 ON cons.confrelid = c2.oid
             LEFT OUTER JOIN pg_namespace n2 ON n2.oid = c2.relnamespace
-        WHERE c.relkind = 'r' 
+        WHERE c.relkind = 'r'
             AND n.nspname IN ('public') -- any other schemas in here
             AND (cons.contype = 'f' OR cons.contype IS NULL)
             AND c.relname = %(table_name)s;
@@ -82,7 +82,7 @@ class PostgreSQLCollection(ManifoldCollection):
     SQL_TABLE_COLUMNS_COMMENT = """
     SELECT
         a.attname                             AS column_name,
-        col_description(a.attrelid, a.attnum) AS description 
+        col_description(a.attrelid, a.attnum) AS description
     FROM     pg_catalog.pg_attribute    AS a
         JOIN pg_catalog.pg_class        AS c ON a.attrelid = c.oid
     WHERE   c.relname = %(table_name)s
@@ -110,7 +110,7 @@ class PostgreSQLCollection(ManifoldCollection):
         self.is_relation_table = False
 
         # Static data model
-        # Get fields and key from config of the platform 
+        # Get fields and key from config of the platform
         if 'fields' in config and 'key' in config:
             field_names, field_types = self.get_fields_from_config()
             self._field_names = field_names
@@ -238,7 +238,7 @@ class PostgreSQLCollection(ManifoldCollection):
         capabilities.join       = False
         capabilities.selection  = True
         capabilities.projection = True
-           
+
         return capabilities
 
     @returns(dict)
@@ -261,7 +261,7 @@ class PostgreSQLCollection(ManifoldCollection):
         return {comment.relname : comment.description for comment in comments}
 
     #---------------------------------------------------------------------------
-    # Query to SQL 
+    # Query to SQL
     #---------------------------------------------------------------------------
 
     @staticmethod
@@ -338,7 +338,7 @@ class PostgreSQLCollection(ManifoldCollection):
         if isinstance(value, (list, tuple, set, frozenset)):
             # handling filters like '~slice_id':[]
             # this should return true, as it's the opposite of 'slice_id':[] which is false
-            # prior to this fix, 'slice_id':[] would have returned ``slice_id IN (NULL) '' which is unknown 
+            # prior to this fix, 'slice_id':[] would have returned ``slice_id IN (NULL) '' which is unknown
             # so it worked by coincidence, but the negation '~slice_ids':[] would return false too
             if not value or len(list(value)) == 0:
                 if op_ in [and_, or_]:
@@ -436,7 +436,7 @@ class PostgreSQLCollection(ManifoldCollection):
         Args:
             query: A Query instance
         Returns:
-            A String containing a postgresql command 
+            A String containing a postgresql command
         """
         table_name = query.get_table_name()
         if not table_name: Log.error("PostgreSQLCollection::to_sql(): Invalid query: %s" % query)
@@ -510,7 +510,7 @@ class PostgreSQLCollection(ManifoldCollection):
         elif sql_type == "boolean":
             return "bool"
         elif sql_type == "array":
-            # TODO we need to infer the right type 
+            # TODO we need to infer the right type
             return "string"
         elif sql_type in ["real","double precision"]:
             return "double"
@@ -524,14 +524,17 @@ class PostgreSQLCollection(ManifoldCollection):
             Log.warning("PostgreSQLCollection to_manifold_type: %r might not be supported" % sql_type)
             return sql_type
 
-
     def get(self, packet):
+        """
+        Retrieve Records from this Collection.
+        Args:
+            packet: A Packet instance.
+        """
         #  this example will just send an empty list of Records
+        records = list()
         try:
-            records = list()
-
             # -----------------------------
-            #      Add your code here 
+            #      Add your code here
             # -----------------------------
             # Get data records from your platform
 
@@ -547,7 +550,11 @@ class PostgreSQLCollection(ManifoldCollection):
             raise Exception("Error in PostgreSQLCollection on get() function: %s" % e)
 
     def create(self, packet):
-
+        """
+        Insert Records into this Collection.
+        Args:
+            packet: A Packet instance.
+        """
         if not packet.is_empty():
 
             data = packet.get_data()
@@ -555,7 +562,7 @@ class PostgreSQLCollection(ManifoldCollection):
             object_name = source.get_object_name()
 
             # -----------------------------
-            #      Add your code here 
+            #      Add your code here
             # -----------------------------
 
             # Create a record in your platform
@@ -564,7 +571,11 @@ class PostgreSQLCollection(ManifoldCollection):
             Log.info("Last record")
 
     def update(self, packet):
-
+        """
+        Update Records stored in this Collection.
+        Args:
+            packet: A Packet instance.
+        """
         if not packet.is_empty():
 
             data = packet.get_data()
@@ -572,7 +583,7 @@ class PostgreSQLCollection(ManifoldCollection):
             object_name = source.get_object_name()
 
             # -----------------------------
-            #      Add your code here 
+            #      Add your code here
             # -----------------------------
 
             # Update a record in your platform
@@ -581,7 +592,11 @@ class PostgreSQLCollection(ManifoldCollection):
             Log.info("Last record")
 
     def delete(self, packet):
-
+        """
+        Delete some Records stored in this Collection.
+        Args:
+            packet: A Packet instance.
+        """
         if not packet.is_empty():
 
             data = packet.get_data()
@@ -589,7 +604,7 @@ class PostgreSQLCollection(ManifoldCollection):
             object_name = source.get_object_name()
 
             # -----------------------------
-            #      Add your code here 
+            #      Add your code here
             # -----------------------------
 
             # Delete a record in your platform
@@ -606,7 +621,7 @@ class PostgreSQLCollection(ManifoldCollection):
             object_name = source.get_object_name()
 
             # -----------------------------
-            #      Add your code here 
+            #      Add your code here
             # -----------------------------
 
             # Execute a method on your platform

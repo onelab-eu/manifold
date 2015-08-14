@@ -244,16 +244,16 @@ class Query(object):
         """
         return self.action
 
-    def get_protocol(self):
-        _map = {
-            ACTION_PING     : Packet.PROTOCOL_PING,
-            ACTION_GET      : Packet.PROTOCOL_GET,
-            ACTION_CREATE   : Packet.PROTOCOL_CREATE,
-            ACTION_UPDATE   : Packet.PROTOCOL_UPDATE,
-            ACTION_DELETE   : Packet.PROTOCOL_DELETE,
-        }
-        return _map[self.action]
-
+#DEPRECATED|    def get_protocol(self):
+#DEPRECATED|        _map = {
+#DEPRECATED|            ACTION_PING     : Packet.PROTOCOL_PING,
+#DEPRECATED|            ACTION_GET      : Packet.PROTOCOL_GET,
+#DEPRECATED|            ACTION_CREATE   : Packet.PROTOCOL_CREATE,
+#DEPRECATED|            ACTION_UPDATE   : Packet.PROTOCOL_UPDATE,
+#DEPRECATED|            ACTION_DELETE   : Packet.PROTOCOL_DELETE,
+#DEPRECATED|        }
+#DEPRECATED|        return _map[self.action]
+#DEPRECATED|
     def set_action(self, action):
         """
         Set the action related to this Query instance.
@@ -658,7 +658,7 @@ class Query(object):
             The corresponding Address.
         """
         return Address(
-            self.get_object_name(), 
+            self.get_object_name(),
             self.get_filter(),
             self.fields | FieldNames(self.params.keys()),
             namespace = self.get_namespace())

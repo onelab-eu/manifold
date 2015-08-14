@@ -13,13 +13,26 @@ from manifold.core.clause       import Clause
 from manifold.core.field_names  import FieldNames
 from manifold.core.query        import Query
 from manifold.util.log          import Log
+from manifold.util.type         import accepts, returns
 
 class QueryFactory(object):
     """
     QueryFactory creates a Query instance
     """
     @staticmethod
+    @returns(Query)
     def from_dict(query_dict):
+        """
+        Build a Query according to an input dict.
+        Args:
+            query_dict: A dict instance. Supported keys:
+                "action",
+                "filters",
+                "fields",
+                "timestamp",
+                "variable"
+        """
+        assert isinstance(query_dict, dict)
         query = Query()
         if "action" in query_dict:
             query.action = query_dict["action"]
@@ -83,6 +96,7 @@ class QueryFactory(object):
         filters     = destination.get_filter()
         field_names = destination.get_field_names()
 
+        # TODO: action
         params      = packet.get_data()
 
         if namespace:

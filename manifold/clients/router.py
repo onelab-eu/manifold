@@ -14,7 +14,7 @@ from types                   import StringTypes
 
 from ..clients.client        import ManifoldClient
 from ..core.annotation       import Annotation
-from ..core.packet           import Packet, GET
+from ..core.packet           import Packet
 from ..core.query            import Query
 from ..core.result_value     import ResultValue
 from ..core.router           import Router

@@ -9,28 +9,27 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import json, traceback
-from types                          import GeneratorType, StringTypes
+import traceback
+from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
-from manifold.core.announce         import Announces, Announce
+from manifold.core.announce         import Announce
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
 from manifold.core.address          import Address
 from manifold.core.fib              import FIB
 from manifold.core.filter           import Filter
 from manifold.core.operator_graph   import OperatorGraph
-from manifold.core.packet           import ErrorPacket, Packet, GET, CREATE, UPDATE, DELETE
+from manifold.core.packet           import ErrorPacket, Packet
+from manifold.core.packet_factory   import PacketFactory
 from manifold.core.query            import Query
+from manifold.core.query_factory    import QueryFactory
 from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
-from manifold.core.table            import Table
-from manifold.core.query_factory    import QueryFactory
 from manifold.gateways              import Gateway
 from manifold.interfaces            import Interface
 from manifold.policy                import Policy
-from manifold.util.constants        import DEFAULT_PEER_URL, DEFAULT_PEER_PORT
 from manifold.util.log              import Log
 from manifold.util.predicate        import Predicate
 from manifold.util.type             import returns, accepts
@@ -154,10 +153,10 @@ class Router(object):
         super(Router, self).boot()
 
     def register_local_collection(self, cls):
-        self.get_interface('local').register_collection(cls, 'local')
+        self.get_interface(LOCAL_NAMESPACE).register_collection(cls, LOCAL_NAMESPACE)
 
     def register_collection(self, cls, namespace=None):
-        self.get_interface('local').register_collection(cls, namespace)
+        self.get_interface(LOCAL_NAMESPACE).register_collection(cls, namespace)
 
     def register_interface(self, interface):
         self._interfaces[interface.get_platform_name()] = interface
@@ -175,10 +174,14 @@ class Router(object):
         request metadata.
         """
         fib = self.get_fib()
-        interface.send(GET(), 
-                source      = fib.get_address(), 
-                destination = Address('object', namespace='local'), 
-                receiver    = fib)
+        src_addr = fib.get_address()
+        dst_addr = Address('object', namespace=LOCAL_NAMESPACE)
+        interface.send(
+            PacketFactory.query_get(src_addr, dst_addr),
+            source      = src_addr,
+            destination = dst_addr,
+            receiver    = fib
+        )
 
     def on_interface_down(self, interface):
         Log.warning("Router interface is now down. We need to remove corresponding FIB entries")
@@ -547,8 +550,8 @@ class Router(object):
 #DEPRECATED|                return
 #DEPRECATED|            packet_dict = packet.to_dict()
 #DEPRECATED|            origins = packet_dict.get('origins')
-#DEPRECATED|            platform_name = origins[0] if origins else 'local'
-#DEPRECATED|            namespace = 'local' if platform_name == 'local' else None
+#DEPRECATED|            platform_name = origins[0] if origins else LOCAL_NAMESPACE
+#DEPRECATED|            namespace = LOCAL_NAMESPACE if platform_name == LOCAL_NAMESPACE else None
 #DEPRECATED|            announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
 #DEPRECATED|            self.get_fib().add(platform_name, announce, namespace)
 
@@ -667,7 +670,7 @@ class Router(object):
 
         # Store packet UUID in pit
         self._pit.add(packet.get_uuid())
-        
+
         try:
             root_node.send(packet)
         except Exception, e:
@@ -685,7 +688,7 @@ class Router(object):
     @returns(list)
     def execute_query(self, query, annotation, error_message):
         """
-        Forward a Query 
+        Forward a Query
         Args:
             annotation: An Annotation instance.
             query: A Query instance
@@ -693,6 +696,10 @@ class Router(object):
         Returns:
             The corresponding list of Record.
         """
+        assert isinstance(annotation, Annotation)
+        assert isinstance(query, Query)
+        assert isinstance(error_message, StringTypes)
+
         Log.warning("Router::execute_query is deprecated and hardcodes a GET packet")
         destination = query
         # XXX We should benefit from caching if rules allows for it possible

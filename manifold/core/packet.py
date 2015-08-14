@@ -44,25 +44,26 @@ class Packet(object):
     A generic packet class: Query packet, Record packet, Error packet (ICMP), etc.
     """
 
-#    PROTOCOL_QUERY  = 1
+    PROTOCOL_NONE   = 0
+    PROTOCOL_QUERY  = 1
 #    PROTOCOL_RECORD = 2
     PROTOCOL_ERROR  = 3
-    PROTOCOL_GET    = 4
-    PROTOCOL_CREATE = 5
-    PROTOCOL_UPDATE = 6
-    PROTOCOL_DELETE = 7
-    PROTOCOL_PING = 8
+#LOIC|    PROTOCOL_GET    = 4
+#LOIC|    PROTOCOL_CREATE = 5
+#LOIC|    PROTOCOL_UPDATE = 6
+#LOIC|    PROTOCOL_DELETE = 7
+    PROTOCOL_PING   = 8
 
-    PROTOCOL_QUERY_TYPES = [PROTOCOL_GET, PROTOCOL_UPDATE, PROTOCOL_DELETE] # TEMP, Records == CREATE
+#LOIC|    PROTOCOL_QUERY_TYPES = [PROTOCOL_GET, PROTOCOL_UPDATE, PROTOCOL_DELETE] # TEMP, Records == CREATE
 
     PROTOCOL_NAMES = {
-#        PROTOCOL_QUERY  : "QUERY",
+        PROTOCOL_QUERY  : "QUERY",
 #        PROTOCOL_RECORD : "RECORD",
         PROTOCOL_ERROR  : "ERROR",
-        PROTOCOL_GET    : "GET",
-        PROTOCOL_CREATE : "CREATE",
-        PROTOCOL_UPDATE : "UPDATE",
-        PROTOCOL_DELETE : "DELETE",
+#LOIC|        PROTOCOL_GET    : "GET",
+#LOIC|        PROTOCOL_CREATE : "CREATE",
+#LOIC|        PROTOCOL_UPDATE : "UPDATE",
+#LOIC|        PROTOCOL_DELETE : "DELETE",
         PROTOCOL_PING   : "PING",
     }
 
@@ -83,27 +84,36 @@ class Packet(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, receiver = None, last = True):
+    def __init__(
+        self,
+        receiver = None,
+        last = True,
+        protocol = PROTOCOL_NONE,
+        src_addr = None,
+        dst_addr = None
+    ):
         """
         Constructor.
         Args:
-            type: A value among {Packet.PROTOCOL_*}.
+            receiver:
+            last: A boolean indicating whether this Packet is the last related to a Flow.
+            protocol: A value among PROTOCOL_*
+            src_addr: The source Address.
+            dst_addr: The destination Address.
         """
         assert isinstance(last, bool),\
             "Invalid last = %s (%s)" % (last, type(last))
 
-        self._source        = None
-        self._destination   = None
         self._receiver      = receiver
+        self._last          = last
+        self._protocol      = protocol
+        self._source        = src_addr
+        self._destination   = dst_addr
 
-        self._protocol      = None
         self._annotation    = Annotation()
-
         self._ttl           = 0
 
-        # Flags
-        self._last          = last
-
+        # If this is a PROTOCOL_QUERY Packet, self._data contains Query.action & Query.args
         self._data          = None
 
         # We internally attach some data to packets
@@ -125,6 +135,7 @@ class Packet(object):
     def set_protocol(self, protocol):
         self._protocol = protocol
 
+    @returns(bool)
     def is_last(self):
         return self._last
 
@@ -162,7 +173,7 @@ class Packet(object):
 
     def update_annotation(self, annotation):
         self._annotation.update(annotation)
-    
+
     @returns(int)
     def get_ttl(self):
         """
@@ -175,7 +186,7 @@ class Packet(object):
         """
         Set the Time-To-Live of this Packet.
         Args:
-            ttl: An integer. 
+            ttl: An integer.
         """
         self._ttl = ttl
 
@@ -205,6 +216,14 @@ class Packet(object):
         self._data = data
 
     def update_data(self, data):
+        """
+        Args:
+            data: either a Packet instance or a dict.
+        """
+        Log.tmp(data)
+        assert isinstance(data, (Packet, dict))
+        if isinstance(data, Packet):
+            assert self.get_protocol() == PROTOCOL_QUERY
         if not self._data:
             self._data = {}
         self._data.update(data)
@@ -226,7 +245,7 @@ class Packet(object):
     def get_dict(self):
         """
         Returns:
-            The dict nested in this Record. Note that most of time
+            The dict nested in this Packet. Note that most of time
             you should use to_dict() method instead.
         """
         return self._data
@@ -238,9 +257,9 @@ class Packet(object):
     def to_dict(self):
         """
         Returns:
-            The dict representation of this Record.
+            The dict representation of this Packet.
         """
-        dic = dict() 
+        dic = dict()
         if self._data:
             try:
                 for k, v in self._data.iteritems():
@@ -269,9 +288,9 @@ class Packet(object):
         """
         return self._data is None
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Internal methods
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     def __getitem__(self, key):
         """
@@ -280,7 +299,7 @@ class Packet(object):
             key: A String instance corresponding to a field name
                 of this Record.
         Returns:
-            The corresponding value. 
+            The corresponding value.
         """
         if not self._data:
             raise Exception, "Empty record"
@@ -299,7 +318,7 @@ class Packet(object):
             self._data = dict()
         return dict.__setitem__(self._data, key, value, **kwargs)
 
-    def __iter__(self): 
+    def __iter__(self):
         """
         Returns:
             A dictionary-keyiterator allowing to iterate on fields
@@ -312,9 +331,9 @@ class Packet(object):
 #    def get(self, value, default=None):
 #        return .get(value, default)
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Methods
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     # XXX This should disappear when we have a nice get_value
     @returns(list)
@@ -334,7 +353,7 @@ class Packet(object):
             if field_name in self._data:
                 return [(self._data[field_name], self._data)]
             else:
-                return list() 
+                return list()
         else:
             ret = list()
             for record in self._data[field_name]:
@@ -357,7 +376,7 @@ class Packet(object):
                     return dict.get(self._data, field_name)
                 else:
                     return dict.get(self._data, field_name, default)
-                    
+
         else:
             if default is Unspecified:
                 subrecord = dict.get(self._data, field_name)
@@ -552,7 +571,7 @@ class Packet(object):
             "uuid"       : "%s" % self._uuid,
             "annotation" : "%r" % self.get_annotation() if self.get_annotation else '',
             "last"       : self.is_last(),
-            "src"        : self.get_source(), 
+            "src"        : self.get_source(),
             "dst"        : self.get_destination(),
             "data"       : ' '.join([("%s" % self._data) if self._data else ''])
         }
@@ -604,7 +623,7 @@ class Packet(object):
         """
         Set the next hop which will receive this Packet.
         Args:
-            receiver: A Node instance.
+            receiver: A FIB or From or SyncReceiver instance.
         """
         self._receiver = receiver
 
@@ -740,14 +759,14 @@ class Packet(object):
 #DEPRECATED|                raise Exception, "Bad initializer for Record: %r" % (args,)
 #DEPRECATED|
 #DEPRECATED|            self._data.update(kwargs)
-#DEPRECATED|            
+#DEPRECATED|
 #DEPRECATED|        else:
 #DEPRECATED|            # We need None to test whether the record is empty
 #DEPRECATED|             self._data = None
 #DEPRECATED|
-#DEPRECATED|    #--------------------------------------------------------------------------- 
+#DEPRECATED|    #---------------------------------------------------------------------------
 #DEPRECATED|    # Class methods
-#DEPRECATED|    #--------------------------------------------------------------------------- 
+#DEPRECATED|    #---------------------------------------------------------------------------
 
     @classmethod
     @returns(dict)
@@ -757,31 +776,32 @@ class Packet(object):
         else:
             return Record(izip(key, value))
 
-class PING(Packet):
-    def __init__(self):
-        Packet.__init__(self, **kwargs)
-        self.set_protocol(Packet.PROTOCOL_PING)
-
-class GET(Packet):
-    def __init__(self, **kwargs):
-        Packet.__init__(self, **kwargs)
-        self.set_protocol(Packet.PROTOCOL_GET)
-
-class CREATE(Packet):
-    def __init__(self, **kwargs):
-        Packet.__init__(self, **kwargs)
-        self.set_protocol(Packet.PROTOCOL_CREATE)
-
-class UPDATE(Packet):
-    def __init__(self):
-        Packet.__init__(self, **kwargs)
-        self.set_protocol(Packet.PROTOCOL_UPDATE)
-
-class DELETE(Packet):
-    def __init__(self, **kwargs):
-        Packet.__init__(self, **kwargs)
-        self.set_protocol(Packet.PROTOCOL_DELETE)
-
+# See PacketFactory
+#LOIC|class PING(Packet):
+#LOIC|    def __init__(self):
+#LOIC|        Packet.__init__(self, **kwargs)
+#LOIC|        self.set_protocol(Packet.PROTOCOL_PING)
+#LOIC|
+#LOIC|class GET(Packet):
+#LOIC|    def __init__(self, **kwargs):
+#LOIC|        Packet.__init__(self, **kwargs)
+#LOIC|        self.set_protocol(Packet.PROTOCOL_GET)
+#LOIC|
+#LOIC|class CREATE(Packet):
+#LOIC|    def __init__(self, **kwargs):
+#LOIC|        Packet.__init__(self, **kwargs)
+#LOIC|        self.set_protocol(Packet.PROTOCOL_CREATE)
+#LOIC|
+#LOIC|class UPDATE(Packet):
+#LOIC|    def __init__(self):
+#LOIC|        Packet.__init__(self, **kwargs)
+#LOIC|        self.set_protocol(Packet.PROTOCOL_UPDATE)
+#LOIC|
+#LOIC|class DELETE(Packet):
+#LOIC|    def __init__(self, **kwargs):
+#LOIC|        Packet.__init__(self, **kwargs)
+#LOIC|        self.set_protocol(Packet.PROTOCOL_DELETE)
+#LOIC|
 
 # Error types
 E_TYPE_TIMEOUT = 28
@@ -896,60 +916,4 @@ class TimeoutErrorPacket(ErrorPacket):
         if not 'last' in kwargs:
             kwargs['last'] = True
         ErrorPacket.__init__(self, type=E_TYPE_TIMEOUT, code=E_CODE_TIMEOUT, **kwargs)
-#-------------------------------------------------------------------------------
-# Records class
-#-------------------------------------------------------------------------------
 
-class Record(CREATE):
-    def __init__(self, *args, **kwargs):
-        last = kwargs.pop('last', False)
-        receiver = kwargs.pop('receiver', None)
-        CREATE.__init__(self, receiver=receiver, last=last)
-        assert len(args) in [0,1]
-        if len(args) > 0:
-            assert isinstance(args[0], (CREATE, dict))
-            self.update_data(args[0])
-        if kwargs:
-            self.update_data(kwargs)
-
-class Records(list):
-    """
-    A Records instance transport a list of Record instances.
-    """
-
-    def __init__(self, itr = None): 
-        """
-        Constructor.
-        Args:
-            itr: An Iterable instance containing instances that
-                can be casted into a Record (namely dict or
-                Record instance). For example, itr may be
-                a list of dict (having the same keys).
-        """
-        if itr:
-            list.__init__(self, [(x if isinstance(x, Record) else Record(x)) for x in itr])
-        else:
-            list.__init__(self)
-
-    @returns(list)
-    def to_dict_list(self):
-        """
-        Returns:
-            The list of Record instance corresponding to this
-            Records instance.
-        """
-        return [record.to_dict() for record in self]
-
-    to_list = to_dict_list
-
-    def get_one(self):
-        return self[0]
-
-    def get_field_names(self):
-        return self.get_one().get_field_names()
-
-    def add_record(self, record):
-        self.append(record)
-
-    def add_records(self, records):
-        self.extend(records)

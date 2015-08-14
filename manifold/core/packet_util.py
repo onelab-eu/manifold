@@ -25,3 +25,13 @@ def packet_update_query(packet,  method, *args, **kwargs):
     assert packet.get_type() in Packet.PROTOCOL_QUERY_TYPES
 
     packet.set_query(method(QueryFactory.from_packet(self), *args, **kwargs))
+
+
+def packet_update_action(packet, action):
+    """
+    """
+    assert isinstance(packet, Packet)
+    # recup la query, query.update,  "puis packet.set_query"
+    query = QueryFactory.from_packet(packet)
+    query.set_action(action)
+    packet.set_query(query)

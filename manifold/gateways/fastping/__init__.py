@@ -6,7 +6,7 @@ import os, sys, urllib, threading
 
 from fastping                   import Fastping
 
-from manifold.core.packet       import Record, Records
+from manifold.core.record       import Record, Records
 from manifold.gateways          import Gateway
 from manifold.gateways.object   import ManifoldCollection
 from manifold.util.log          import Log
@@ -25,7 +25,7 @@ BLACKLIST_URL = 'http://www.top-hat.info/download/anycast-census/blacklist.fastp
 def ensure_dataset(dataset):
     if os.path.exists(CACHE_DIRECTORY + dataset):
         return
-    
+
     # Let's download dataset
     ensure_writable_directory(CACHE_DIRECTORY)
 
@@ -129,7 +129,7 @@ class FastPingCollection(ManifoldCollection):
                 self.get_gateway().error('Missing mandatory field in annotation for FTP: %s' % e, packet)
                 return
             opt['upload'] = [ftp_hostname, ftp_username, ftp_password, ftp_port, ftp_directory, ftp_passive]
-            
+
         Log.info("Initializing fastping with options: %r" % opt)
         fastping = Fastping(**opt)
 

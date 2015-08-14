@@ -17,15 +17,14 @@ from twisted.protocols.basic        import IntNStringReceiver
 from manifold.interfaces            import Interface
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
+from manifold.core.packet_factory   import PacketFactory
+from manifold.core.query_factory    import QueryFactory
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 
 # pip install autobahn
 from autobahn.twisted.websocket     import WebSocketServerProtocol, \
                                        WebSocketServerFactory
-
-from manifold.core.packet           import GET
-from manifold.core.query_factory    import QueryFactory
 
 DEFAULT_PORT = 9000
 
@@ -35,7 +34,7 @@ class ManifoldJSONEncoder(JSONEncoder):
         if isinstance(o, Packet):
             return o.get_dict()
         else:
-            return o.__dict__    
+            return o.__dict__
 
 # TODO
 # - clarify methods that an interface should implement
@@ -94,16 +93,21 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
         #self.sendMessage(u"bienvenue".encode(), False) # packet)
 
     def onMessage(self, payload, isBinary):
+        """
+        Handle incoming message.
+        Args:
+            payload: A json utf8 string or a binary.
+            isBinary: A boolean.
+        """
         if isBinary:
             print("Binary message received: {0} bytes".format(len(payload)))
         else:
             print("Text message received: {0}".format(payload.decode('utf8')))
             # We expect a JSON dict
             query_dict = json.loads(payload.decode('utf-8'))
-            packet = GET()
             query = QueryFactory.from_dict(query_dict)
+            packet = PacketFactory.query_get()
             packet.set_destination(query.get_destination())
-
             packet.set_receiver(self._receiver)
             Interface.receive(self, packet)
 

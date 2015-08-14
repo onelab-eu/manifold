@@ -8,16 +8,17 @@
 #   Jordan Augé         <jordan.auge@lip6.fr
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-from types                      import StringTypes
-from twisted.internet.defer     import Deferred
+from types                          import StringTypes
+from twisted.internet.defer         import Deferred
 
-# from manifold.core.code        import FORBIDDEN
-from manifold.core.node         import Node
-from manifold.core.operator_slot import ChildSlotMixin
-from manifold.core.packet       import Packet, Records
-from manifold.core.result_value import ResultValue
-from manifold.util.log          import Log
-from manifold.util.type         import accepts, returns
+# from manifold.core.code           import FORBIDDEN
+from manifold.core.node             import Node
+from manifold.core.operator_slot    import ChildSlotMixin
+from manifold.core.packet           import Packet
+from manifold.core.record           import Records
+from manifold.core.result_value     import ResultValue
+from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 # XXX Do we need receivers to inherit from Consumer ?
 class DeferredReceiver(Node, ChildSlotMixin):
@@ -38,7 +39,7 @@ class DeferredReceiver(Node, ChildSlotMixin):
         self._deferred = Deferred()
 
         # BUGFIX
-        
+
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------

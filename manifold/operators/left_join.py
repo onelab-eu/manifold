@@ -6,7 +6,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                          import StringTypes
@@ -19,7 +19,7 @@ from manifold.core.operator_slot    import LeftRightSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.packet_util      import packet_update_query
 from manifold.core.query_factory    import QueryFactory
-from manifold.core.packet           import Record, Records
+from manifold.core.record           import Record, Records
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.operators.right_join  import RightJoin
@@ -31,7 +31,7 @@ from manifold.util.type             import returns
 
 # XXX No more support for list as a child
 # XXX Manage callbacks
-# XXX Manage query 
+# XXX Manage query
 # XXX Do we still need inject ?
 
 #------------------------------------------------------------------
@@ -76,7 +76,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._set_right(producers)
 
 
-        self._left_map     = dict() 
+        self._left_map     = dict()
         self._left_done    = False
         self._right_packet = None
         self._parent_records = Records()
@@ -144,7 +144,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
     def get_destination(self):
         """
         Returns:
-            The Address corresponding to this Operator. 
+            The Address corresponding to this Operator.
         """
         dleft  = self._get_left().get_destination()
         dright = self._get_right().get_destination()
@@ -234,7 +234,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             if not record.is_empty():
                 # We store the parent records since what will be in left
                 # map is just the subrecords that have to be completed
-                # by 
+                # by
                 if self._subrecord_mode():
                     self._parent_records.append(record)
 
@@ -269,7 +269,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                 self._left_done = True
                 self._update_and_send_right_packet()
                 return
-            
+
 
         else:
             # formerly right_callback()
@@ -285,14 +285,14 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                 # We expect to receive information about keys we asked, and only these,
                 # so we are confident the key exists in the map
                 # XXX Dangers of duplicates ?
-                # XXX MACCHA XXX 
+                # XXX MACCHA XXX
                 key = record.get_value(self._predicate.get_value_names())
                 left_records = self._left_map.pop(key)
 
                 # XXX Only the left member can have dots !
                 for left_record in left_records:
                     left_record.update(record)
-                
+
                     if not self._subrecord_mode():
                         self.forward_upstream(left_record)
 
@@ -314,7 +314,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         last_packet = Record(last = True)
         last_packet.set_source(self.get_destination())
         self.forward_upstream(last_packet)
-                    
+
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization
@@ -328,11 +328,11 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # - selection on filters on the right: cannot push down: in fact right
         # join is possible
         # - selection on filters on the key / common fields ??? TODO
-        # 
+        #
         #                                        +------- ...
         #                                       /
         #                    +---+    +---+    /
-        #  FILTER -->    ----| ? |----| ⨝ |--< 
+        #  FILTER -->    ----| ? |----| ⨝ |--<
         #                    +---+    +---+    \
         #                                       +---+
         #                 top_filter            | ? |---- ...
@@ -346,7 +346,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # We do go for a right_join ?
         # - no filters on left child => YES
         # - in case of insert => YES
-        # - on join ? 
+        # - on join ?
         # - filters on PK are more efficients => YES ?
         # - note that we might do a partial right join (example: where user_id = # 3 and platform = ple
         # Maybe as soon as we have filters on the right member since we can keep
@@ -414,7 +414,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         if self._subrecord_mode():
             left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
             right_field_names = FieldNames([f for f in right_field_names if FieldNames.join(left_prefix, f) in fields])
-                
+
 #DEPRECATED|            # We need to adapt the right destination
 #DEPRECATED|            # eg. PREDICATE = hops.probes.ip == ip
 #DEPRECATED|            # right_destination should be prefixed by hops.probes since it will
@@ -449,7 +449,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
     def subquery(self, ast, relation):
         """
-        SQ_new o LJ 
+        SQ_new o LJ
 
         Overrides the default behaviour where the SQ operator is added at the
         top.

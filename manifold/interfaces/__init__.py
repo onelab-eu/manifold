@@ -4,8 +4,8 @@ from manifold.core.annotation       import Annotation
 from manifold.core.address          import Address
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ChildSlotMixin
-from manifold.core.packet           import GET # to deprecate
-from manifold.core.packet           import Record, Records, TimeoutErrorPacket
+from manifold.core.packet           import TimeoutErrorPacket
+from manifold.core.record           import Record, Records
 from manifold.util.async            import async_sleep
 from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
@@ -111,7 +111,7 @@ class Interface(object):
 
     # The interface is now up...
     def on_up(self):
-        Log.info("Platform %s/%s: new state UP." % 
+        Log.info("Platform %s/%s: new state UP." %
                 (self.get_interface_type(), self._platform_name,))
         self._state = self.STATE_UP
 
@@ -126,7 +126,7 @@ class Interface(object):
         # Trigger callbacks to inform interface is up
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
-        
+
     def set_down(self):
         self._state = self.STATE_PENDING_DOWN
         self.down_impl()
@@ -178,14 +178,14 @@ class Interface(object):
 
     def add_up_callback(self, callback, *args, **kwargs):
         cb_tuple = (callback, args, kwargs)
-        self._up_callbacks.append(cb_tuple) 
+        self._up_callbacks.append(cb_tuple)
 
     def del_up_callback(self, callback):
         self._up_callbacks = [cb for cb in self._up_callbacks if cb[0] == callback]
-        
+
     def add_down_callback(self, callback, *args, **kwargs):
         cb_tuple = (callback, args, kwargs)
-        self._down_callbacks.append(cb_tuple) 
+        self._down_callbacks.append(cb_tuple)
 
     def del_down_callback(self, callback):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
@@ -351,14 +351,14 @@ class Interface(object):
         if not records:
             self.last(packet)
             return
-        
+
         has_last = False
         for record, last in lookahead(records):
             has_last = True
             self.record(record, packet, last=last)
         if not has_last:
             self.last(packet)
-            
+
     def last(self, packet):
         self.record(Record(last = True), packet)
 

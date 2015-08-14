@@ -49,7 +49,7 @@ class OLocalLocalObject(ManifoldCollection):
     """
 
     def get(self, packet):
-        
+
         objects = list()
         for collection in self.get_gateway().get_collections():
             obj = collection.get_object().get_announce().to_dict()
@@ -153,8 +153,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # namespace -> (object_name -> obj)
         self._collections_by_namespace = dict()
 
-        self.register_collection(OLocalLocalObject(), 'local')
-        self.register_collection(OLocalLocalColumn(), 'local')
+        self.register_collection(OLocalLocalObject(), LOCAL_NAMESPACE)
+        self.register_collection(OLocalLocalColumn(), LOCAL_NAMESPACE)
 
     def terminate(self):
         pass
@@ -569,7 +569,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             kwargs are ignored, present for compatibility with operators.
         """
         destination = packet.get_destination()
-        
+
         namespace   = destination.get_namespace()
         object_name = destination.get_object_name()
 

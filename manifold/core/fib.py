@@ -241,7 +241,6 @@ class FIB(ChildSlotMixin):
 
         # IDEAL, see manifold.core.local before
         # announce = Announce.from_dict(packet.to_dict(), platform_name)
-
         announce = Announce(Table.from_dict(data, platform_name))
         obj = announce.get_object()
         namespace = obj.get_namespace()

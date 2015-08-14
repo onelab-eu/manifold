@@ -7,7 +7,7 @@ from manifold.core.capabilities     import Capabilities
 from manifold.core.field_names      import FieldNames
 from manifold.core.keys             import Keys
 from manifold.core.partition        import Partitions
-from manifold.core.packet           import Record
+from manifold.core.record           import Record
 from manifold.core.relation         import Relation
 from manifold.core.table            import Table
 from manifold.util.log              import Log
@@ -72,7 +72,7 @@ class Object(Record):
     __namespace__       = None
 
 
-    # META 
+    # META
     @classmethod
     def collection(cls, *args, **kwargs):
         # Hardcoded values, we should issue a query to manifold
@@ -81,7 +81,7 @@ class Object(Record):
         o1.log = "O1 LOG"
         o2.log = "O2 log"
         return [o1, o2]
-    
+
 
     @staticmethod
     def from_announce(announce):
@@ -92,7 +92,7 @@ class Object(Record):
         obj.set_keys(table.get_keys())
         obj.set_capabilities(table.get_capabilities())
         obj.set_partitions(table.get_partitions())
-        
+
         return obj
 
     def copy(self):
@@ -168,7 +168,7 @@ class Object(Record):
 #    def get_announce(self):
 #        fields = set(self.get_fields())
 #        t = Table(self.get_partitions(), self.get_object_name(), self.get_fields(), self.get_keys())
-#        
+#
 #        # XXX We hardcode table capabilities
 #        t.capabilities.retrieve   = True
 #        t.capabilities.join       = True
@@ -314,7 +314,7 @@ class Object(Record):
         #      /        \
         # LINK_1N     LINK_N1
         #       \       /  \
-        #        LINK_11 ___\ 
+        #        LINK_11 ___\
         #           |        \
         #        SIBLINGS    SHORTCUT?
         #        /      \
@@ -408,15 +408,15 @@ class Object(Record):
         # XXX hash on keys needed without order, see Key class
         return object.__hash__(self)
 
-def ObjectFactory(name): 
+def ObjectFactory(name):
     def __init__(self, **kwargs):
         Object.__init__(self, **kwargs)
         for key, value in kwargs.items():
             # here, the argnames variable is the one passed to the
             # ClassFactory call
-            
+
             if not self.__fields__ or key not in self.__fields__.keys():
-                raise TypeError("Argument %s not valid for %s" 
+                raise TypeError("Argument %s not valid for %s"
                     % (key, self.__class__.__name__))
             self[key] = value
             #setattr(cls, key, value)
@@ -432,7 +432,7 @@ def ObjectFactory(name):
 
     # That is only for FIB
 
-    newclass.__relations__       = dict() # object_name -> relation 
-    newclass.__platform_info__   = dict() # String -> PlatformInfo()    
+    newclass.__relations__       = dict() # object_name -> relation
+    newclass.__platform_info__   = dict() # String -> PlatformInfo()
 
     return newclass
