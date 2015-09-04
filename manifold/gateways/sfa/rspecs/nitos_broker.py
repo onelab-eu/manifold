@@ -218,7 +218,7 @@ class NITOSBrokerParser(RSpecParser):
                         resource['latitude']  = '48.847104'
                         resource['longitude'] = '2.357499'
                     else:
-                        resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
+                        resource['testbed_name'] = 'FIT '+t_hrn[1].title()
                         resource['country']   = 'France'
                 else:
                     resource['testbed_name'] = 'Nitos'
