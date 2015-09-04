@@ -269,8 +269,16 @@ class SFAWrapParser(RSpecParser):
 
         # hostname is used in MySlice display and should never be None
         # some RSpecs like VTAM don't have component_name so we replace it by component_id
-        if 'component_name' in node and node['component_name'] is not None:
-            node['hostname'] = node['component_name']
+        if 'component_name' in node: #and node['component_name'] is not None:
+            if node['component_name'] == None:
+                # XXX LOIC 
+                # XXX This happens when there are nodes in a lease
+                # <lease slice_id="urn:publicid:IDN+iotlab+slice+guzzo_slice" start_time="1441398850" duration="33">
+                #   <node component_id="urn:publicid:IDN+iotlab+node+wsn430-165.euratech.iot-lab.info"/>
+                # </lease>
+                node['hostname'] = node['component_id'].split("+")[-1]
+            else:
+                node['hostname'] = node['component_name']
         else:
             node['hostname'] = node['component_id']
         node['initscripts'] = node.pop('pl_initscripts')
