@@ -106,8 +106,12 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
             # We expect a JSON dict
             query_dict = json.loads(payload.decode('utf-8'))
             query = QueryFactory.from_dict(query_dict)
-            packet = PacketFactory.query_get()
-            packet.set_destination(query.get_destination())
+            # Address of the Interface
+            # Should be the Address of the client instead
+            source = self.get_address()
+            destination = query.get_destination()
+            packet = PacketFactory.query_get(source, destination)
+            #packet.set_destination(query.get_destination())
             packet.set_receiver(self._receiver)
             Interface.receive(self, packet)
 

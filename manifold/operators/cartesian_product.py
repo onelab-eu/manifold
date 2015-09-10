@@ -15,13 +15,14 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from itertools                   import product, imap
 from types                       import StringTypes
 
 from manifold.core.filter        import Filter
+from manifold.core.query         import ACTION_CREATE, ACTION_UPDATE, ACTION_GET
 from manifold.operators.operator import Operator
 from manifold.operators          import ChildCallback, ChildStatus
 from manifold.util.log           import Log
@@ -31,7 +32,7 @@ from manifold.util.type          import returns
 DUMPSTR_CARTESIANPRODUCT = "CPRODUCT"
 
 #------------------------------------------------------------------
-# CartesianProduct Operator 
+# CartesianProduct Operator
 #------------------------------------------------------------------
 
 class CartesianProduct(Operator):
@@ -120,7 +121,7 @@ class CartesianProduct(Operator):
 
         records = imap(lambda x: merge(x), product(*self.child_results))
         records[-1].set_last()
-        
+
         map(lambda x: self.send(x), records)
 
     #---------------------------------------------------------------------------
@@ -133,33 +134,37 @@ class CartesianProduct(Operator):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
-            # formerly start()
-            raise Exception, "CartesianProduct::receive(QUERY) Not implemented"
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            query = QueryFactory.from_packet(packet)
+            if query.get_action() in [ACTION_GET, ACTION_UPDATE, ACTION_DELETE]:
+                # formerly start()
+                raise Exception, "CartesianProduct::receive(QUERY) Not implemented"
 
-            # We would need to do all the tracking here instead of init(), a bit
-            # like cwnd
+                # We would need to do all the tracking here instead of init(), a bit
+                # like cwnd
 
-            # XXX We need to send a query to all producers
-            # - parent_query
-            # - child_query
-            # - relation
+                # XXX We need to send a query to all producers
+                # - parent_query
+                # - child_query
+                # - relation
 
-            # Start all children
-            for i, child in enumerate(self.children):
-                self.status.started(i)
-            for i, child in enumerate(self.children):
-                child.start()
+                # Start all children
+                for i, child in enumerate(self.children):
+                    self.status.started(i)
+                for i, child in enumerate(self.children):
+                    child.start()
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            # formerly child_callback()
+            elif query.get_action() == ACTION_CREATE:
+                # formerly child_callback()
 
-            # XXX child_id & source ?
-            record = packet.get_record()
-            if record.is_last():
-                self.status.completed(child_id)
-                return
-            self.child_results[child_id].append(record)
+                # XXX child_id & source ?
+                record = packet.get_record()
+                if record.is_last():
+                    self.status.completed(child_id)
+                    return
+                self.child_results[child_id].append(record)
+            else: # TYPE_ERROR
+                self.send(packet)
 
         else: # TYPE_ERROR
             self.send(packet)
@@ -172,7 +177,7 @@ class CartesianProduct(Operator):
                 if predicate.get_field_names() <= child_fields:
                     child_filter.add(predicate)
             if child_filter:
-               self.children[i] = child.optimize_selection(query, child_filter) 
+               self.children[i] = child.optimize_selection(query, child_filter)
         return self
 
     def optimize_projection(self, query, fields):

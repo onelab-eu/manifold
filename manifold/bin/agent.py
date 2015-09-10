@@ -33,7 +33,7 @@ from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.core.address              import Address
 from manifold.core.field_names          import FieldNames
 from manifold.core.filter               import Filter
-from manifold.core.packet               import GET
+from manifold.core.packet               import Packet
 from manifold.util.predicate            import Predicate
 
 # This might inherit from routerdaemon
@@ -78,9 +78,9 @@ class AgentDaemon(Daemon):
         "server_mode"   : False,
     }
 
-    ########################################################################### 
+    ###########################################################################
     # Supernode management
-    ########################################################################### 
+    ###########################################################################
 
     #@defer.inlineCallbacks
     def register_as_supernode(self):
@@ -135,7 +135,7 @@ class AgentDaemon(Daemon):
             self._router.set_keyvalue('agent_supernode_state', 'up')
 
         defer.returnValue(None)
-        
+
     @defer.inlineCallbacks
     def get_supernode_delays(self, supernodes):
         """
@@ -156,8 +156,10 @@ class AgentDaemon(Daemon):
         # Let's ping supernodes
         # XXX Such calls should be simplified
         # XXX We send a single probe...
-        d = DeferredReceiver() 
-        self._ping.send(GET(), 
+        d = DeferredReceiver()
+        packet = Packet()
+        packet.set_protocol(Packet.PROTOCOL_QUERY)
+        self._ping.send(packet,
                 destination = Address('ping',
                     Filter().filter_by(Predicate('destination', 'included', list(supernodes))),
                     FieldNames(['destination', 'delay'])),
@@ -211,7 +213,7 @@ class AgentDaemon(Daemon):
 
             Log.info("=> Selected %s" % (best_supernode,))
             defer.returnValue(best_supernode)
-                    
+
         else:
             # Get the first of the set
             first = iter(supernodes).next()
@@ -314,9 +316,9 @@ class AgentDaemon(Daemon):
         interface.add_down_callback(self._on_supernode_down, supernode)
         interface.set_up()
 
-    ########################################################################### 
+    ###########################################################################
     # Misc. unused
-    ########################################################################### 
+    ###########################################################################
 
     def check_connectivity(self, interface):
         # XXX Can't we get events from the interface
@@ -327,9 +329,9 @@ class AgentDaemon(Daemon):
         # What is a valid result
         ping_result = receiver.get_result_value().get_all()
 
-    ########################################################################### 
+    ###########################################################################
     # Main
-    ########################################################################### 
+    ###########################################################################
 
     @staticmethod
     def init_options():
@@ -353,10 +355,10 @@ class AgentDaemon(Daemon):
         self._ping = self._router.add_interface("ping", interface_name="ping")
         if not Options().server_mode:
             self._paristraceroute = self._router.add_interface("paristraceroute", interface_name="paristraceroute")
-            
+
             # XXX fastping messes up metadata and interferes with ping
             # self._fastping = self._router.add_interface("fastping", name="fastping")
-            
+
             # Is it because of a memory leak ?
             # Should we run fastping as a process instead of a thread ?
 
@@ -380,7 +382,7 @@ class AgentDaemon(Daemon):
             #self._router.add_interface("csv", "airports", **AIRPORTS_CSV_CONFIG)
             #self._router.add_interface("tdmi", "tdmi") # XXX ? clitos ?
 
-            self.register_as_supernode() 
+            self.register_as_supernode()
 
 
         else:
@@ -394,7 +396,7 @@ class AgentDaemon(Daemon):
         # XXX We need to periodically check for connectivity
 
         #self._router.get_fib().dump()
-        
+
 def main():
     AgentDaemon.init_options()
     Log.init_options()

@@ -7,7 +7,7 @@
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 
 from types                          import StringTypes
 
@@ -74,7 +74,7 @@ class Dup(Operator):
             True iif this record has already been seen
         """
         return record.get_value() in self._seen
-        
+
     def send_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
@@ -83,7 +83,7 @@ class Dup(Operator):
         """
         # Demux Operator simply forwards any kind of Packet to its
         # Consumer(s)/Node according to the nature of the Packet.
-        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             record = packet
             if not self.is_duplicate(record):
                 self.send(packet)
@@ -91,7 +91,7 @@ class Dup(Operator):
                 # This packet has been already seen, however is has
                 # the LAST_RECORD flag enabled, so we send an empty
                 # RECORD Packet carrying this flag.
-                self.send(Packet(Packet.PROTOCOL_CREATE, True))
+                self.send(Packet(Packet.PROTOCOL_QUERY, True))
         else:
             self.send(packet)
 

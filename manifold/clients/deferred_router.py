@@ -5,7 +5,7 @@ from manifold.core.packet               import Packet
 from manifold.util.log                  import Log
 
 class ManifoldDeferredRouterClient(ManifoldRouterClient):
-    
+
     def forward(self, query, annotation = None):
         """
         Send a Query to the nested Manifold Router.
@@ -18,13 +18,13 @@ class ManifoldDeferredRouterClient(ManifoldRouterClient):
         """
         if not annotation:
             annotation = Annotation()
-        annotation |= self.get_annotation() 
+        annotation |= self.get_annotation()
 
         receiver = DeferredReceiver()
         #packet = QueryPacket(query, annotation, receiver = receiver)
 
         packet = Packet()
-        packet.set_protocol(query.get_protocol())
+        packet.set_protocol(Packet.PROTOCOL_QUERY)
         data = query.get_data()
         if data:
             packet.set_data(data)

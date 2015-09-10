@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # ManifoldClient is a the base virtual class that
-# inherits any Manifold client. 
+# inherits any Manifold client.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -51,7 +51,7 @@ class ManifoldClient(object):
 
     def terminate(self):
         """
-        Shutdown gracefully self.router 
+        Shutdown gracefully self.router
         """
         if self._interface:
             self._interface.terminate()
@@ -101,8 +101,7 @@ class ManifoldClient(object):
         r = self.make_receiver(deferred = deferred)
 
         packet = Packet()
-        packet.set_protocol(query.get_protocol())
-        packet.set_protocol(query.get_protocol())
+        packet.set_protocol(Packet.PROTOCOL_QUERY)
         data = query.get_data()
         if data:
             packet.set_data(data)

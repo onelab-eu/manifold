@@ -22,10 +22,16 @@ def packet_update_query(packet,  method, *args, **kwargs):
             *args and **kwargs are passed to method.
     """
     assert isinstance(packet, Packet)
-    assert packet.get_type() in Packet.PROTOCOL_QUERY_TYPES
+    assert packet.get_protocol() == Packet.PROTOCOL_QUERY
 
-    packet.set_query(method(QueryFactory.from_packet(self), *args, **kwargs))
+    packet.set_query(method(QueryFactory.from_packet(packet), *args, **kwargs))
 
+def packet_get_action(packet):
+    """
+    """
+    assert isinstance(packet, Packet)
+    query = QueryFactory.from_packet(packet)
+    return query.get_action()
 
 def packet_update_action(packet, action):
     """

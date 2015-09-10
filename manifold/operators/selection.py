@@ -45,7 +45,7 @@ class Selection(Operator, ChildSlotMixin):
         Constructor
         Args:
             child: A Node instance (the child of this Node)
-            filter: A Filter instance. 
+            filter: A Filter instance.
         """
         assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)"   % (child, type(child))
@@ -69,7 +69,7 @@ class Selection(Operator, ChildSlotMixin):
     def get_destination(self):
         """
         Returns:
-            The Address corresponding to this Operator. 
+            The Address corresponding to this Operator.
         """
         d = self._get_child().get_destination()
         return d.selection(self._filter)
@@ -104,7 +104,7 @@ class Selection(Operator, ChildSlotMixin):
         else:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
-            
+
             # We don't need the result to be filtered since we are doing it...
             packet_update_query(new_packet, Query.unfilter_by, self._filter)
             # ... but we need the fields to filter on
@@ -124,7 +124,7 @@ class Selection(Operator, ChildSlotMixin):
             self.forward_upstream(packet)
             return
 
-        # We drop the packet. 
+        # We drop the packet.
 
         # This packet doesn't satisfies the Filter, however is has
         # the LAST_RECORD flag enabled, so we send an empty
@@ -132,7 +132,7 @@ class Selection(Operator, ChildSlotMixin):
         if packet.is_last():
             packet.clear_data()
             self.forward_upstream(packet)
-                
+
     @returns(Node)
     def optimize_selection(self, filter):
         # Concatenate both selections...

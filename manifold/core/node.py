@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Node is the parent class of: 
+# Node is the parent class of:
 # - Consumer (see manifold/core/consumer.py)
 # - Producer (see manifold/core/producer.py)
 #
@@ -105,7 +105,7 @@ class Node(object):
         Args:
             consumer: A Consumer instance.
             cascade: A boolean set to true to add 'self'
-                to the producers set of 'consumer'. 
+                to the producers set of 'consumer'.
         """
         self._pool_consumers.add(consumer, slot_id = slot_id)
         if cascade:
@@ -142,8 +142,8 @@ class Node(object):
         Returns:
             A String containing the ids of the Consumers of this Producer.
         """
-        return "{[%s]}" % "], [".join(("%r" % consumer.get_identifier() for consumer in self.get_consumers())) 
- 
+        return "{[%s]}" % "], [".join(("%r" % consumer.get_identifier() for consumer in self.get_consumers()))
+
 
 
     #---------------------------------------------------------------------------
@@ -170,10 +170,10 @@ class Node(object):
 #DEPRECATED|        """
 #DEPRECATED|        (pure virtual method). Send a Packet.
 #DEPRECATED|        Args:
-#DEPRECATED|            packet: A Packet instance. 
+#DEPRECATED|            packet: A Packet instance.
 #DEPRECATED|        """
 #DEPRECATED|        raise NotImplementedError("Method 'send' must be overloaded: %s" % self.__class__.__name__)
-        
+
     def receive(self, packet, slot_id = None):
         """
         (pure virtual method). Send a Packet.
@@ -196,8 +196,8 @@ class Node(object):
     def forward_upstream(self, packet):
         #self.check_send(packet)
         #packet.set_source(self)
-        if packet.get_protocol() in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR] \
-        or packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
+        if packet.get_protocol() in [Packet.PROTOCOL_QUERY, Packet.PROTOCOL_ERROR]:
+        #or packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
             self._pool_consumers.receive(packet)
         else:
             Log.warning("No upstream. Packet has been ignored")
@@ -216,12 +216,12 @@ class Node(object):
             "self" : self
         }
 
- 
+
     @returns(StringTypes)
     def format_downtree_rec(self, indent, res):
         """
         (Internal use)
-        Format debug information to test the path(s) from this Consumer 
+        Format debug information to test the path(s) from this Consumer
         towards the end-Producer(s)
         Args:
             ident: An integer corresponding to the current indentation.
@@ -243,7 +243,7 @@ class Node(object):
     @returns(StringTypes)
     def format_downtree(self):
         """
-        Format debug information to test the path(s) from this Consumer 
+        Format debug information to test the path(s) from this Consumer
         towards the end-Producer(s)
         Returns:
             The String containing the corresponding down-tree.

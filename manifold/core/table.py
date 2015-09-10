@@ -86,12 +86,12 @@ class Table(object):
         """
         Table constructor
         Args:
-            partitions: 
+            partitions:
             table_name: The name of the table
             fields: A set/list of FieldNames involved in the table or None
             keys: A set of Key instances or None
         """
-        # Check parameters 
+        # Check parameters
         Table.check_init(table_name, fields, keys)
 
         # Init self.name.
@@ -787,7 +787,7 @@ class Table(object):
                                     relations.add(Relation(Relation.types.LINK_11, predicate, name=field.get_name()))
                                 else:
                                     # A non-local field (not array) is typed against v table
-                                    # Eg: TDMI:node -> DNS:ip 
+                                    # Eg: TDMI:node -> DNS:ip
                                     relations.add(Relation(Relation.types.LINK, predicate, name = str(uuid.uuid4())))
             # BAD
             #if v_key.is_composite():
@@ -947,9 +947,10 @@ class Table(object):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
+        Log.tmp(dic)
+        Log.tmp(platform_name)
         partitions_list = dic.pop('partitions', None)
         partitions  = Partitions.from_list(partitions_list) if partitions_list else None
-
         t = Table(partitions, dic['object_name'])
         t.set_namespace(dic['namespace'])
 

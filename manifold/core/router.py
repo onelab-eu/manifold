@@ -173,15 +173,20 @@ class Router(object):
         This callback is triggered when an interface becomes up. The router will
         request metadata.
         """
-        fib = self.get_fib()
-        src_addr = fib.get_address()
-        dst_addr = Address('object', namespace=LOCAL_NAMESPACE)
-        interface.send(
-            PacketFactory.query_get(src_addr, dst_addr),
-            source      = src_addr,
-            destination = dst_addr,
-            receiver    = fib
-        )
+        Log.tmp("on_interface_up()")
+        #fib = self.get_fib()
+        #src_addr = fib.get_address()
+        #dst_addr = Address('object', namespace=LOCAL_NAMESPACE)
+        ## get metadata of the objects provided by this interface
+        ## Should be Async
+        ## Send back the results to FIB
+        ##interface.send(
+        #interface.receive(
+        #    PacketFactory.query_get(src_addr, dst_addr),
+        #    source      = src_addr,
+        #    destination = dst_addr,
+        #    receiver    = fib
+        #)
 
     def on_interface_down(self, interface):
         Log.warning("Router interface is now down. We need to remove corresponding FIB entries")
@@ -696,11 +701,11 @@ class Router(object):
         Returns:
             The corresponding list of Record.
         """
-        assert isinstance(annotation, Annotation)
+        #assert isinstance(annotation, Annotation)
         assert isinstance(query, Query)
-        assert isinstance(error_message, StringTypes)
+        #assert isinstance(error_message, StringTypes)
 
-        Log.warning("Router::execute_query is deprecated and hardcodes a GET packet")
+        Log.warning("Router::execute_query is deprecated and hardcodes a Packet PROTOCOL_QUERY")
         destination = query
         # XXX We should benefit from caching if rules allows for it possible
         # XXX LOCAL
@@ -710,7 +715,10 @@ class Router(object):
 
         receiver = SyncReceiver()
 
-        packet = GET()
+        #packet = GET()
+        packet = Packet()
+        packet.set_protocol(Packet.PROTOCOL_QUERY)
+
         packet.set_source(self.get_address())
         packet.set_destination(query.get_destination())
         packet.set_receiver(receiver)

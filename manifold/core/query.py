@@ -45,7 +45,6 @@ class Query(object):
     1/ A field designates several tables = OR specification.
     2/ The set of fields specifies a AND between OR clauses.
     """
-
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
@@ -475,6 +474,10 @@ class Query(object):
             "Invalid self.filters = %s" % (self.filters, type(self.filters))
         return self
 
+
+    def unfilter_by(self, *args):
+        self.get_filter().unfilter_by(*args)
+        return self
 
     #@returns(Query)
     #def select(self, *fields, **kwargs):

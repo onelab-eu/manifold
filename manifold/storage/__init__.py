@@ -15,7 +15,8 @@ from types                          import StringTypes
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
 from manifold.core.address          import Address
-from manifold.core.packet           import GET
+#from manifold.core.packet           import GET
+from manifold.core.packet_factory   import PacketFactory
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
@@ -93,13 +94,16 @@ class StorageGateway(SQLAlchemyGateway):
         # query.
         # Redundant with : Router::execute_query()
         platform_collection = self.get_collection('platform', LOCAL_NAMESPACE)
-        packet = GET()
+        #packet = GET()
+
         destination = Address('platform')
 
         # This should be automatically done by send based on the destination
         # address
-        packet.set_destination(destination)
-        packet.set_source(self.get_address()) 
+        packet = PacketFactory.query_get(self.get_address(),destination)
+        #packet.set_destination(destination)
+        #packet.set_source(self.get_address())
+
         receiver = SyncReceiver()
         packet.set_receiver(receiver)
         platforms = platform_collection.get(packet)

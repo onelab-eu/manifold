@@ -263,9 +263,9 @@ class Packet(object):
         if self._data:
             try:
                 for k, v in self._data.iteritems():
-                    if isinstance(v, Record):
+                    if isinstance(v, Packet):
                         dic[k] = v.to_dict()
-                    elif isinstance(v, Records):
+                    elif isinstance(v, list) and not type(v) == list:
                         dic[k] = v.to_list()
                     else:
                         dic[k] = v
@@ -275,16 +275,16 @@ class Packet(object):
 
     @staticmethod
     def from_dict(dic):
-        record = Record()
-        record.set_dict(dic)
-        return record
+        packet = Packet()
+        packet.set_dict(dic)
+        return packet
 
     @returns(bool)
     def is_empty(self):
         """
         Returns:
-            True iif this Record is the last one of a list
-            of Records corresponding to a given Query.
+            True iif this Packet is the last one of a list
+            of Packets corresponding to a given Query.
         """
         return self._data is None
 
@@ -294,10 +294,10 @@ class Packet(object):
 
     def __getitem__(self, key):
         """
-        Extract from this Record a field value.
+        Extract from this Packet a field value.
         Args:
             key: A String instance corresponding to a field name
-                of this Record.
+                of this Packet.
         Returns:
             The corresponding value.
         """
@@ -311,7 +311,7 @@ class Packet(object):
         Set the value corresponding to a given key.
         Args:
             key: A String instance corresponding to a field name
-                of this Record.
+                of this Packet.
             value: The value that must be mapped with this key.
         """
         if not self._data:
@@ -322,7 +322,7 @@ class Packet(object):
         """
         Returns:
             A dictionary-keyiterator allowing to iterate on fields
-            of this Record.
+            of this Packet.
         """
         if self._data is None:
             return dict.__iter__({})
@@ -382,10 +382,10 @@ class Packet(object):
                 subrecord = dict.get(self._data, field_name)
             else:
                 subrecord = dict.get(self._data, field_name, default)
-            if isinstance(subrecord, Records):
+            if isinstance(subrecord, list):
                 # A list of lists
                 return  map(lambda r: r._get(subfield, default, remove), subrecord)
-            elif isinstance(subrecord, Record):
+            elif isinstance(subrecord, Packet):
                 return [subrecord._get(subfield, default, remove)]
             else:
                 return [default]
@@ -402,11 +402,11 @@ class Packet(object):
         if subkey:
             if not key in self._data:
                 Log.warning("Strange case 1, should not happen often... To test...")
-                self._data[key] = Record()
+                self._data[key] = Packet()
             subrecord = self._data[key]
-            if isinstance(subrecord, Records):
+            if isinstance(subrecord, list):
                 Log.warning("Strange case 2, should not happen often... To test...")
-            elif isinstance(subrecord, Record):
+            elif isinstance(subrecord, Packet):
                 subrecord.set(subkey, value)
             else:
                 raise NotImplemented
@@ -434,9 +434,9 @@ class Packet(object):
                 key, _, subkey = key.partition(FIELD_SEPARATOR)
                 if not key in self._data:
                     return None
-                if isinstance(self._data[key], Records):
+                if isinstance(self._data[key], list):
                     return [subrecord.get_value(subkey) for subrecord in self._data[key]]
-                elif isinstance(self._data[key], Record):
+                elif isinstance(self._data[key], Packet):
                     return self._data[key].get_value(subkey)
                 else:
                     raise Exception, "Unknown field"
@@ -452,7 +452,7 @@ class Packet(object):
     @returns(bool)
     def has_field_names(self, field_names):
         """
-        Test whether a Record carries a set of field names.
+        Test whether a Packet carries a set of field names.
         Args:
             field_names: A FieldNames instance.
         Returns:
@@ -482,7 +482,7 @@ class Packet(object):
     @returns(bool)
     def has_empty_fields(self, keys):
         """
-        Tests whether a Record contains a whole set of field names.
+        Tests whether a Packet contains a whole set of field names.
         Args:
             keys: A set of String (corresponding to field names).
         Returns:
@@ -503,7 +503,7 @@ class Packet(object):
         """
         Returns:
             A list of String where each String correspond to a field
-            name of this Record.
+            name of this Packet.
         """
         return dict.keys(self._data) if self._data else list()
 
@@ -627,154 +627,13 @@ class Packet(object):
         """
         self._receiver = receiver
 
-
-#DEPRECATED|# NOTE: This class will probably disappear and we will use only the Packet class
-#DEPRECATED|class QueryPacket(Packet):
-#DEPRECATED|
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|    # Constructor
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|
-#DEPRECATED|    def __init__(self, query, annotation, receiver = None, source = None, records = None):
-#DEPRECATED|        """
-#DEPRECATED|        Constructor
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance.
-#DEPRECATED|            annotation: An Annotation instance related to the Query or None.
-#DEPRECATED|            receiver: An absolute destination on which RECORD Packet must
-#DEPRECATED|                be uploaded
-#DEPRECATED|            source: The issuer of the QueryPacket
-#DEPRECATED|        """
-#DEPRECATED|        assert isinstance(query, Query), \
-#DEPRECATED|            "Invalid query = %s (%s)" % (query, type(query))
-#DEPRECATED|        assert not annotation or isinstance(annotation, Annotation), \
-#DEPRECATED|            "Invalid annotation = %s (%s)" % (annotation, type(annotation))
-#DEPRECATED|
-#DEPRECATED|        Log.warning("QUERY PACKETS ARE DEPRECATED")
-#DEPRECATED|
-#DEPRECATED|        Packet.__init__(self, Packet.PROTOCOL_QUERY, receiver)
-#DEPRECATED|        #self._destination = query.get_destination()
-#DEPRECATED|        self._query       = query
-#DEPRECATED|        self._annotation  = annotation
-#DEPRECATED|        self._source      = source
-#DEPRECATED|        s     = records
-#DEPRECATED|
-#DEPRECATED|    @returns(StringTypes)
-#DEPRECATED|    def __repr__(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The '%r' representation of this ERROR Packet.
-#DEPRECATED|        """
-#DEPRECATED|        return "<Packet.%s: %s>" % (
-#DEPRECATED|            Packet.get_protocol_name(self.get_protocol()),
-#DEPRECATED|            self._query
-#DEPRECATED|        )
-#DEPRECATED|
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|    # Accessors
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|
-#DEPRECATED|    @returns(Query)
-#DEPRECATED|    def get_query(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The Query nested in this QUERY Packet.
-#DEPRECATED|        """
-#DEPRECATED|        return self._query
-#DEPRECATED|
-#DEPRECATED|    def set_query(self, query):
-#DEPRECATED|        """
-#DEPRECATED|        Set the Query carried by this QUERY Packet.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: The new Query installed in this Packet.
-#DEPRECATED|        """
-#DEPRECATED|        assert isinstance(query, Query)
-#DEPRECATED|        self._query = query
-#DEPRECATED|
-#DEPRECATED|    def update_query(self, method, *args, **kwargs):
-#DEPRECATED|        self._query = method(self._query, *args, **kwargs)
-#DEPRECATED|
-#DEPRECATED|
-#DEPRECATED|    def get_source(self):
-#DEPRECATED|        return self._source
-#DEPRECATED|
-#DEPRECATED|    def get_destination(self):
-#DEPRECATED|        return self._query.get_destination()
-#DEPRECATED|
-#DEPRECATED|    def set_destination(self, destination):
-#DEPRECATED|        self._query.set_destination(destination)
-#DEPRECATED|
-#DEPRECATED|    # XXX In records, we are storing the parent record uuids. This is currently
-#DEPRECATED|    # used for the local cache until a better solution is found
-#DEPRECATED|    def set_records(self, records):
-#DEPRECATED|        s = records
-#DEPRECATED|    def get_records(self):
-#DEPRECATED|        return s
-#DEPRECATED|
-#DEPRECATED|    #@returns(QueryPacket)
-#DEPRECATED|    def clone(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            A Packet instance cloned from self.
-#DEPRECATED|        """
-#DEPRECATED|        query      = self._query.clone()
-#DEPRECATED|        annotation = self._annotation
-#DEPRECATED|        receiver   = self._receiver
-#DEPRECATED|        try:
-#DEPRECATED|            records    = copy.deepcopy(s)
-#DEPRECATED|        except Exception, e:
-#DEPRECATED|            print "exception in clone", e
-#DEPRECATED|        return QueryPacket(query, annotation, receiver, records = records)
-#DEPRECATED|
-#DEPRECATED|    @returns(StringTypes)
-#DEPRECATED|    def __str__(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The '%s' representation of this QUERY Packet.
-#DEPRECATED|        """
-#DEPRECATED|        return "%s(%s)" % (self.__repr__(), self.get_query())
-
-#DEPRECATED|class Record(Packet):
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|    # Constructor
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|
-#DEPRECATED|    def __init__(self, *args, **kwargs):
-#DEPRECATED|        """
-#DEPRECATED|        Constructor.
-#DEPRECATED|        """
-#DEPRECATED|
-#DEPRECATED|        protocol = kwargs.pop('protocol', Packet.PROTOCOL_CREATE)
-#DEPRECATED|
-#DEPRECATED|# DEPRECATED|        packet_kwargs = dict()
-#DEPRECATED|# DEPRECATED|        packet_kwargs['last'] = kwargs.pop('last', False)
-#DEPRECATED|# DEPRECATED|        packet_kwargs['receiver'] = kwargs.pop('receiver', None)
-#DEPRECATED|# DEPRECATED|        Packet.__init__(self, protocol = protocol, **packet_kwargs)
-#DEPRECATED|
-#DEPRECATED|        if args or kwargs:
-#DEPRECATED|            self._data = dict()
-#DEPRECATED|            if len(args) == 1:
-#DEPRECATED|                self._data.update(args[0])
-#DEPRECATED|            elif len(args) > 1:
-#DEPRECATED|                raise Exception, "Bad initializer for Record: %r" % (args,)
-#DEPRECATED|
-#DEPRECATED|            self._data.update(kwargs)
-#DEPRECATED|
-#DEPRECATED|        else:
-#DEPRECATED|            # We need None to test whether the record is empty
-#DEPRECATED|             self._data = None
-#DEPRECATED|
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|    # Class methods
-#DEPRECATED|    #---------------------------------------------------------------------------
-
     @classmethod
     @returns(dict)
     def from_key_value(self, key, value):
         if isinstance(key, StringTypes):
             return {key : value}
         else:
-            return Record(izip(key, value))
+            return Packet(izip(key, value))
 
 # See PacketFactory
 #LOIC|class PING(Packet):

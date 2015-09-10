@@ -37,6 +37,13 @@ class Record(Packet):
         if kwargs:
             self.update_data(kwargs)
 
+    @staticmethod
+    def from_dict(dic):
+        record = Record()
+        record.set_dict(dic)
+        return record
+
+
 class Records(list):
     """
     A Records instance transport a list of Record instances.

@@ -6,7 +6,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                          import StringTypes
@@ -67,7 +67,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
 
         self._predicate = predicate
 
-        self._right_map     = dict() 
+        self._right_map     = dict()
         self._right_done    = False
         self._right_packet = None
 
@@ -91,7 +91,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
     def get_destination(self):
         """
         Returns:
-            The Address corresponding to this Operator. 
+            The Address corresponding to this Operator.
         """
         dleft  = self._get_left().get_destination()
         dright = self._get_right().get_destination()
@@ -150,99 +150,101 @@ class RightJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         right_fields = self._get_right().get_destination().get_field_names()
 
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
-            q = QueryFactory.from_packet(packet)
-            # We forward the query to the left node
-            # TODO : a subquery in fact
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            query = QueryFactory.from_packet(packet)
+            if query.get_action() in [ACTION_GET, ACTION_UPDATE, ACTION_DELETE]:
+                q = QueryFactory.from_packet(packet)
+                # We forward the query to the left node
+                # TODO : a subquery in fact
 
-            left_key    = self._predicate.get_field_names()
-            right_key    = self._predicate.get_value_names()
+                left_key    = self._predicate.get_field_names()
+                right_key    = self._predicate.get_value_names()
 
-            left_fields = self._get_left().get_destination().get_field_names()
-            right_object = self._get_right().get_destination().get_object()
+                left_fields = self._get_left().get_destination().get_field_names()
+                right_object = self._get_right().get_destination().get_object()
 
-            right_packet        = packet.clone()
-            # split filter and fields
-            self.right_params = {k: v for k, v in q.get_params().items() if k in right_fields}
-            left_params = {k: v for k, v in q.get_params().items() if k in left_fields}
+                right_packet        = packet.clone()
+                # split filter and fields
+                self.right_params = {k: v for k, v in q.get_params().items() if k in right_fields}
+                left_params = {k: v for k, v in q.get_params().items() if k in left_fields}
 
-            # Right members can never be part of an update,
-            # otherwise, how to know about the existence of the object (SELECT_OR_CREATE)
-            #
-            # We will have to find the key to be updated though !!!!
-            #if q.get_action == ACTION_CREATE and not right_params:
-            packet_update_query(right_packet, lambda q: q.set_action(ACTION_GET))
-            
-            packet_update_query(right_packet, lambda q: q.set_object(right_object))
-            packet_update_query(right_packet, lambda q: q.select(q.get_field_names() & right_fields | right_key, clear = True))
-            packet_update_query(right_packet, lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
-            # We need to transform right params into Filters
-            #packet_update_query(right_packet, lambda q: q.set(self.right_params, clear = True))
-            for k, v in self.right_params.items():
-                packet_update_query(right_packet, lambda q: q.filter_by(k, eq, v))
+                # Right members can never be part of an update,
+                # otherwise, how to know about the existence of the object (SELECT_OR_CREATE)
+                #
+                # We will have to find the key to be updated though !!!!
+                #if q.get_action == ACTION_CREATE and not right_params:
+                packet_update_query(right_packet, lambda q: q.set_action(ACTION_GET))
 
-            left_packet = packet.clone()
-            # We should rewrite the query...
-            packet_update_query(left_packet, lambda q: q.select(q.get_field_names() & left_fields | left_key, clear = True))
-            packet_update_query(left_packet, lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
-            packet_update_query(left_packet, lambda q: q.set(left_params, clear = True))
-            self._left_packet = left_packet
+                packet_update_query(right_packet, lambda q: q.set_object(right_object))
+                packet_update_query(right_packet, lambda q: q.select(q.get_field_names() & right_fields | right_key, clear = True))
+                packet_update_query(right_packet, lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
+                # We need to transform right params into Filters
+                #packet_update_query(right_packet, lambda q: q.set(self.right_params, clear = True))
+                for k, v in self.right_params.items():
+                    packet_update_query(right_packet, lambda q: q.filter_by(k, eq, v))
 
-            #print "SENDING RIGHT PACKET FIRST", right_packet
-            self._get_right().receive(right_packet)
+                left_packet = packet.clone()
+                # We should rewrite the query...
+                packet_update_query(left_packet, lambda q: q.select(q.get_field_names() & left_fields | left_key, clear = True))
+                packet_update_query(left_packet, lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
+                packet_update_query(left_packet, lambda q: q.set(left_params, clear = True))
+                self._left_packet = left_packet
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            record = packet
+                #print "SENDING RIGHT PACKET FIRST", right_packet
+                self._get_right().receive(right_packet)
 
-            is_last = record.is_last()
-            #if is_last:
-            #    record.unset_last()
+            elif query.get_action() == ACTION_CREATE:
+                record = packet
 
-            #if packet.get_source() == self._producers.get_producer(): # XXX
-            if not self._right_done:
+                is_last = record.is_last()
+                #if is_last:
+                #    record.unset_last()
 
-                # XXX We need primary key in left record (fk in right record)
-                if not record.has_field_names(self._predicate.get_field_names()):
-                    Log.warning("Missing RIGHTJOIN predicate %s in left record %r : discarding" % \
-                            (self._predicate, record))
-                    #self.send(record)
+                #if packet.get_source() == self._producers.get_producer(): # XXX
+                if not self._right_done:
+
+                    # XXX We need primary key in left record (fk in right record)
+                    if not record.has_field_names(self._predicate.get_field_names()):
+                        Log.warning("Missing RIGHTJOIN predicate %s in left record %r : discarding" % \
+                                (self._predicate, record))
+                        #self.send(record)
+
+                    else:
+                        # Store the result in a hash for joining later
+                        hash_key = record.get_value(self._predicate.get_key())
+                        self._right_map[hash_key] = record
+
+                    if is_last:
+                        self._right_done = True
+                        self._update_and_send_left_packet()
+                        return
+
 
                 else:
-                    # Store the result in a hash for joining later
-                    hash_key = record.get_value(self._predicate.get_key())
-                    self._right_map[hash_key] = record
+                    # formerly right_callback()
 
-                if is_last:
-                    self._right_done = True
-                    self._update_and_send_left_packet()
-                    return
-                
+                    # Skip records missing information necessary to join
+                    if not set(self._predicate.get_value_names()) <= set(record.keys()) \
+                    or record.has_empty_fields(self._predicate.get_value_names()):
+                        Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
+                                (self._predicate, record))
+                        # We send the right record as is.
+                        self.forward_upstream(record)
+                        return
 
-            else:
-                # formerly right_callback()
+                    # We expect to receive information about keys we asked, and only these,
+                    # so we are confident the key exists in the map
+                    # XXX Dangers of duplicates ?
+                    key = record.get_value(self._predicate.get_value())
+                    #key = record.get_value(self._predicate.get_value_names()) # XXX WHAT IS THE KEY, A SINGLE RECORD OR A LIST LIKE LEFT JOIN ????
+                    # XXX XXX XXX A SINGLE !!!
 
-                # Skip records missing information necessary to join
-                if not set(self._predicate.get_value_names()) <= set(record.keys()) \
-                or record.has_empty_fields(self._predicate.get_value_names()):
-                    Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
-                            (self._predicate, record))
-                    # We send the right record as is.
+                    # We don't remove the left record since we might have several
+                    # right records corresponding to it
+                    right_record = self._right_map.get(key)
+
+                    record.update(right_record)
                     self.forward_upstream(record)
-                    return
-                
-                # We expect to receive information about keys we asked, and only these,
-                # so we are confident the key exists in the map
-                # XXX Dangers of duplicates ?
-                key = record.get_value(self._predicate.get_value())
-                #key = record.get_value(self._predicate.get_value_names()) # XXX WHAT IS THE KEY, A SINGLE RECORD OR A LIST LIKE LEFT JOIN ????
-                # XXX XXX XXX A SINGLE !!!
-                
-                # We don't remove the left record since we might have several
-                # right records corresponding to it
-                right_record = self._right_map.get(key)
-                
-                record.update(right_record)
-                self.forward_upstream(record)
 
         else: # TYPE_ERROR
             self.forward_upstream(packet)
@@ -254,11 +256,11 @@ class RightJoin(Operator, LeftRightSlotMixin):
         # - selection on filters on the left: can push down in the left child
         # - selection on filters on the right: cannot push down
         # - selection on filters on the key / common fields ??? TODO
-        # 
+        #
         #                                        +------- ...
         #                                       /
         #                    +---+    +---+    /
-        #  FILTER -->    ----| ? |----| ⨝ |--< 
+        #  FILTER -->    ----| ? |----| ⨝ |--<
         #                    +---+    +---+    \
         #                                       +---+
         #                 top_filter            | ? |---- ...
@@ -320,7 +322,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         if left_fields | right_fields > fields:
             return Projection(self, fields)
         return self
-            
+
 #DEPRECATED|    @returns(Node)
 #DEPRECATED|    def reorganize_create(self):
 #DEPRECATED|        self._update_left( lambda l: l.reorganize_create())

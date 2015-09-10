@@ -65,14 +65,14 @@ class SyncReceiver(Node, ChildSlotMixin):
                 corresponding record is bufferized in this SyncReceiver
                 until records retrieval.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             if not packet.is_empty():
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet) # .get_exception()
-        elif packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
-            # This can be caused by an announce request packet
-            return
+        #elif packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
+        #    # This can be caused by an announce request packet
+        #    return
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (

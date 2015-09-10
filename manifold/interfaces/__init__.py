@@ -290,9 +290,10 @@ class Interface(object):
         """
         #print "[RECEIVE]", self, packet
 
+        # This packet has been received by the current interface
         packet._ingress = self.get_address()
 
-        receiver = self._manage_incoming_flow(packet)
+        # Determine if this packet is an answer to another packet -> check the flow table
         if not receiver:
             return
 

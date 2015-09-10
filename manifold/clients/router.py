@@ -148,7 +148,7 @@ class ManifoldRouterClient(ManifoldClient):
         receiver = SyncReceiver()
 
         packet = Packet()
-        packet.set_protocol(query.get_protocol())
+        packet.set_protocol(Packet.PROTOCOL_QUERY)
         data = query.get_data()
         if data:
             packet.set_data(data)

@@ -17,6 +17,7 @@ from manifold.core.code             import CORE, ERROR, GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.query_factory    import QueryFactory
+from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE, ACTION_GET
 from manifold.core.record           import Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
@@ -49,7 +50,7 @@ class OLocalLocalObject(ManifoldCollection):
     """
 
     def get(self, packet):
-
+        Log.tmp("OLocalLocalObject get()")
         objects = list()
         for collection in self.get_gateway().get_collections():
             obj = collection.get_object().get_announce().to_dict()
@@ -153,6 +154,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # namespace -> (object_name -> obj)
         self._collections_by_namespace = dict()
 
+        Log.tmp("class Gateway __init__()")
         self.register_collection(OLocalLocalObject(), LOCAL_NAMESPACE)
         self.register_collection(OLocalLocalColumn(), LOCAL_NAMESPACE)
 
@@ -267,7 +269,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         """
         assert isinstance(packet, Packet), \
             "Invalid packet = %s (%s)" % (packet, type(packet))
-        assert packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES,\
+        assert packet.get_protocol() == Packet.PROTOCOL_QUERY,\
             "Invalid packet type = %s (%s)" % (packet, type(packet))
 
     #---------------------------------------------------------------------------
@@ -467,7 +469,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
     @returns(bool)
     def handle_query_object(self, packet):
         ret = False
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY_TYPES:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             query = QueryFactory.from_packet(packet)
             table_name = query.get_table_name()
             if table_name == "object":
@@ -568,12 +570,16 @@ class Gateway(Interface, Node): # XXX Node needed ?
             packet: A QUERY Packet instance.
             kwargs are ignored, present for compatibility with operators.
         """
+        Log.tmp("Gateway receive() %s" % packet)
         destination = packet.get_destination()
 
         namespace   = destination.get_namespace()
         object_name = destination.get_object_name()
 
         try:
+            Log.tmp("def receive")
+            Log.tmp(object_name)
+            Log.tmp(namespace)
             collection = self.get_collection(object_name, namespace)
         except ValueError:
             raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
@@ -581,16 +587,19 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # This is because we assure the gateway could modify the packet, which
         # is further used in self.records
         packet_clone = packet.clone()
-
-        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            collection.create(packet_clone)
-            self.last(packet)
-            return
-        elif packet.get_protocol() == Packet.PROTOCOL_GET:
-            # Do not wait results when the receiver has been changed
-            records = collection.get(packet_clone)
-        else:
-            raise NotImplemented
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            query = QueryFactory.from_packet(packet)
+            #if packet.get_protocol() == Packet.PROTOCOL_CREATE:
+            if query.get_action() == ACTION_CREATE:
+                collection.create(packet_clone)
+                self.last(packet)
+                return
+            #elif packet.get_protocol() == Packet.PROTOCOL_GET:
+            elif query.get_action() == ACTION_GET:
+                # Do not wait results when the receiver has been changed
+                records = collection.get(packet_clone)
+            else:
+                raise NotImplemented
 
         # Asynchronous gateways return None,
         # Others should return an empty list
@@ -603,6 +612,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
             self.last(packet)
 
     def get_collection(self, object_name, namespace = None):
+        Log.tmp(self._collections_by_namespace)
         return self._collections_by_namespace[namespace][object_name]
 
     def get_collections(self, namespace = None):
