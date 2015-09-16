@@ -103,8 +103,11 @@ class ManifoldClient(object):
         packet = Packet()
         packet.set_protocol(Packet.PROTOCOL_QUERY)
         data = query.get_data()
+        action = query.get_action()
         if data:
             packet.set_data(data)
+        if action:
+            packet.set_action(action)
 
         packet.set_source(self._interface.get_address())
         packet.set_destination(query.get_destination())

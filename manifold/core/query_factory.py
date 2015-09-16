@@ -11,7 +11,7 @@
 
 from manifold.core.clause       import Clause
 from manifold.core.field_names  import FieldNames
-from manifold.core.query        import Query
+from manifold.core.query        import Query, ACTION_GET
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
@@ -97,12 +97,15 @@ class QueryFactory(object):
         field_names = destination.get_field_names()
 
         # TODO: action
+        action      = packet.get_action()
         params      = packet.get_data()
 
         if namespace:
             query = Query.get("%s:%s" % (namespace, object_name))
         else:
             query = Query.get(object_name)
+        if action:
+            query = query.set_action( action)
         if filters:
             query.filter_by(filters)
         if field_names:

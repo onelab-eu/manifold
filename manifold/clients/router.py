@@ -152,7 +152,9 @@ class ManifoldRouterClient(ManifoldClient):
         data = query.get_data()
         if data:
             packet.set_data(data)
-
+        action = query.get_action()
+        if action:
+            packet.set_action(action)
 
         packet.set_source(self._router.get_address())
         packet.set_destination(query.get_destination())

@@ -442,6 +442,7 @@ class PostgreSQLCollection(ManifoldCollection):
         if not table_name: Log.error("PostgreSQLCollection::to_sql(): Invalid query: %s" % query)
 
         select = query.get_select()
+        Log.tmp(query)
         where  = PostgreSQLCollection.to_sql_where(query.get_where())
         params = {
             "fields"     : "*" if select.is_star() else ", ".join(select),

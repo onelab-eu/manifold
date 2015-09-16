@@ -587,17 +587,28 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # This is because we assure the gateway could modify the packet, which
         # is further used in self.records
         packet_clone = packet.clone()
+        Log.tmp(packet)
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            query = QueryFactory.from_packet(packet)
+            #query = QueryFactory.from_packet(packet)
             #if packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            if query.get_action() == ACTION_CREATE:
+            #elif packet.get_protocol() == Packet.PROTOCOL_GET:
+            if packet.get_action() == ACTION_GET:
+                # Do not wait results when the receiver has been changed
+                records = collection.get(packet_clone)
+            elif packet.get_action() == ACTION_CREATE:
                 collection.create(packet_clone)
                 self.last(packet)
                 return
-            #elif packet.get_protocol() == Packet.PROTOCOL_GET:
-            elif query.get_action() == ACTION_GET:
-                # Do not wait results when the receiver has been changed
-                records = collection.get(packet_clone)
+            elif packet.get_action() == ACTION_UPDATE:
+                records = collection.update(packet_clone)
+            elif packet.get_action() == ACTION_DELETE:
+                records = collection.delete(packet_clone)
+                self.last(packet)
+                return
+            elif packet.get_action() == ACTION_EXECUTE:
+                records = collection.execute(packet_clone)
+            elif packet.get_action() == ACTION_PING:
+                records = collection.ping(packet_clone)
             else:
                 raise NotImplemented
 

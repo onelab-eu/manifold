@@ -52,6 +52,20 @@ class AuthMethod(object):
         self.router = router
         self.auth = auth
 
+class APIKeyAuth(AuthMethod):
+    """
+    """
+    def check(self):
+        assert self.auth.has_key('api_key')
+
+        # Get record (must be enabled)
+        query_users = Query.get("local:user").filter_by("api_key", "==", self.auth["api_key"].lower())
+        users = self.router.execute_local_query(query_users)
+        if not users:
+            raise AuthenticationFailure, "No such account (api_key): %s" % self.auth["api_key"]
+        user = users[0]
+        return user
+
 class PasswordAuth(AuthMethod):
     """
     """
@@ -59,7 +73,7 @@ class PasswordAuth(AuthMethod):
         # Method.type_check() should have checked that all of the
         # mandatory fields were present.
         assert self.auth.has_key('Username')
-        
+
         # Get record (must be enabled)
         query_users = Query.get("local:user").filter_by("email", "==", self.auth["Username"].lower())
         users = self.router.execute_local_query(query_users)
@@ -191,11 +205,11 @@ class PLEAuth(AuthMethod):
            auth['AuthMethod'] = auth['RemoteAuthMethod']
            del auth['RemoteAuthMethod']
         else:
-            auth['AuthMethod'] = 'password' 
+            auth['AuthMethod'] = 'password'
         if not ple.AuthCheck(auth):
             raise AuthenticationFailure, "No such PlanetLab Europe account"
 
-        # Eventually returns local user based on email, or return newly created user 
+        # Eventually returns local user based on email, or return newly created user
         # NOTE: we trust PLE for email validation
         user_email = auth['Username'].lower()
         try:
@@ -224,11 +238,11 @@ class PLCAuth(AuthMethod):
            auth['AuthMethod'] = auth['RemoteAuthMethod']
            del auth['RemoteAuthMethod']
         else:
-            auth['AuthMethod'] = 'password' 
+            auth['AuthMethod'] = 'password'
         if not ple.AuthCheck(auth):
             raise AuthenticationFailure, "No such PlanetLab Europe account"
 
-        # Eventually returns local user based on email, or return newly created user 
+        # Eventually returns local user based on email, or return newly created user
         # NOTE: we trust PLC for email validation
         user_email = auth['Username'].lower()
         try:
@@ -252,7 +266,7 @@ class ManagedAuth(AuthMethod):
         if self.auth['AuthAdmin'] != ADMIN_USER:
             raise AuthenticationFailure, "Failed authentication as administrator"
 
-        # We authenticate the ADMIN_USER thanks to PasswordAuth 
+        # We authenticate the ADMIN_USER thanks to PasswordAuth
         admin_auth = {
             'AuthMethod': 'password',
             'Username'  : self.auth['AuthAdmin'],
@@ -284,6 +298,7 @@ class Auth(object):
 
     auth_map = {
         'anonymous': AnonymousAuth,
+        'api_key': APIKeyAuth,
         'password': PasswordAuth,
         'session': SessionAuth,
         'ple': PLEAuth,
@@ -305,12 +320,12 @@ class Auth(object):
         return self.auth_method.check()
 
 # deprecated #     # These are temporary functions...
-# deprecated # 
+# deprecated #
 # deprecated #     def GetSession(self, *args):
 # deprecated #         auth = args[0]
 # deprecated #         user = Auth(auth).check()
 # deprecated #         return SessionAuth(auth).get_session(user)
-# deprecated # 
+# deprecated #
 # deprecated #     def GetPersons(self, *args):
 # deprecated #         auth = args[0]
 # deprecated #         print "getpersons auth=", auth
@@ -319,5 +334,5 @@ class Auth(object):
 # deprecated #         dic.update({'first_name': 'FIRST', 'last_name': 'LAST'})
 # deprecated #         return [dic]
 # deprecated #         #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
-# deprecated # 
-# deprecated # 
+# deprecated #
+# deprecated #

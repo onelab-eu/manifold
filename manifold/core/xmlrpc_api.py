@@ -69,8 +69,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def display_query(self, *args):
         # Don't show password in Server Logs
         display_args = make_list(copy.deepcopy(args))
-        if 'AuthString' in display_args[0].keys():
-            display_args[0]['AuthString'] = "XXXXX"
+        if 'authentication' in display_args[0].keys():
+            if 'AuthString' in display_args[0]['authentication'].keys():
+                display_args[0]['authentication']['AuthString'] = "XXXXX"
         return display_args
 
 
@@ -94,7 +95,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, query, annotation = None):
         """
         """
-        Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), annotation))
+        Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), self.display_query(annotation)))
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")
         else:

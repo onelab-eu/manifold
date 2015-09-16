@@ -44,7 +44,7 @@ class SQLAlchemyCollection(ManifoldCollection):
         types.Boolean : "bool",
         types.DateTime: "datetime"
     }
-    
+
     def __init__(self, object_name, model = None):
         self._object_name = object_name
         self._model = model
@@ -134,7 +134,7 @@ class SQLAlchemyCollection(ManifoldCollection):
         """
         destination = packet.get_destination()
         annotation = packet.get_annotation()
-    
+
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
 
@@ -145,7 +145,7 @@ class SQLAlchemyCollection(ManifoldCollection):
 
         # XXX What about filters on such fields
         # filter works with account and platform table only
-        table_name = destination.get_table_name()
+        table_name = destination.get_object_name()
         if table_name == "account" or table_name == "platform":
             if not destination.get_filter().has_eq("platform_id") and not destination.get_filter().has_eq("platform"):
                 raise Exception, "Cannot update JSON fields on multiple platforms"
@@ -177,9 +177,10 @@ class SQLAlchemyCollection(ManifoldCollection):
         # We hash the password
         # As a result from the frontend the edited password will be inserted
         # into the local DB as hash
-        if "password" in packet.get_data():
-            destination.params["password"] = hash_password(destination.params["password"])
-        _params = cls.process_params(destination.params, _filters, user, self.get_router(), session)
+        params = packet.get_data()
+        if "password" in params:
+            params["password"] = hash_password(params["password"])
+        _params = cls.process_params(params, _filters, user, self.get_router(), session)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in destination.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
 
@@ -305,7 +306,7 @@ class SQLAlchemyCollection(ManifoldCollection):
             import re
             s = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', string)
             return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s).lower()
-            
+
         table_name = camel_to_underscore(self.__class__.__name__)
 
         table = Table(None, self._object_name)

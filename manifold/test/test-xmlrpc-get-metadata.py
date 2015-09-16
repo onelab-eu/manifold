@@ -4,7 +4,7 @@
 import xmlrpclib, pprint
 from config import auth
 
-srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
+srv = xmlrpclib.Server("https://localhost:7080/", allow_none = True)
 
 def print_err(err):
     print '-'*80
@@ -15,19 +15,18 @@ def print_err(err):
 
 q = {
     'object': 'local:object',
-    'filters': [['table', '==', 'asn']]
+    #'filters': [['table', '==', 'asn']]
 }
 
-ret = srv.forward(auth, q)
+ret = srv.forward(q, auth)
+
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors
-        for err in ret['description']:
-            print_err(err)
+        pprint.pprint(ret)
 
 ret = ret['value']
 
 print "===== RESULTS ====="
-for r in ret:
-    pprint.pprint(r)
+pprint.pprint(ret['value'])
 

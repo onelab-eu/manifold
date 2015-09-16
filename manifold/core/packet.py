@@ -113,8 +113,10 @@ class Packet(object):
         self._annotation    = Annotation()
         self._ttl           = 0
 
-        # If this is a PROTOCOL_QUERY Packet, self._data contains Query.action & Query.args
+        # If this is a PROTOCOL_QUERY Packet, self._data contains Query.args
         self._data          = None
+        # self._action contains Query.action, ACTION_GET by default
+        self._action        = 'get'
 
         # We internally attach some data to packets
         self._ingress       = None
@@ -214,6 +216,12 @@ class Packet(object):
 
     def set_data(self, data):
         self._data = data
+
+    def get_action(self):
+        return self._action
+
+    def set_action(self, action):
+        self._action = action
 
     def update_data(self, data):
         """
@@ -564,6 +572,7 @@ class Packet(object):
             "last       : %(last)s",
             "src        : %(src)s",
             "dst        : %(dst)s",
+            "action     : %(action)s",
             "data       : %(data)s\n>"
         ])
         return fmt % {
@@ -573,6 +582,7 @@ class Packet(object):
             "last"       : self.is_last(),
             "src"        : self.get_source(),
             "dst"        : self.get_destination(),
+            "action"     : self.get_action(),
             "data"       : ' '.join([("%s" % self._data) if self._data else ''])
         }
 

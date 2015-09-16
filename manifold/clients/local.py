@@ -129,6 +129,10 @@ class ManifoldLocalClient(ManifoldClient):
         if data:
             packet.set_data(data)
 
+        action = query.get_action()
+        if action:
+            packet.set_action(data)
+
         packet.set_source(self._interface.get_address())
         packet.set_destination(query.get_destination())
         if annotation:
