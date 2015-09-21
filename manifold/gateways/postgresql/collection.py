@@ -486,6 +486,7 @@ class PostgreSQLCollection(ManifoldCollection):
         #print "SQL took", time.time() - start_time, "s", "[", query, "]"
         self.cursor.close()
         self.cnx.commit()
+        self.cnx.close()
 
         if key_field is not None and key_field in labels:
             # Return rows as a dictionary keyed on the specified field

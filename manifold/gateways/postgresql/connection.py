@@ -18,6 +18,7 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
 from manifold.util.type                 import accepts, returns
+from manifold.util.log                  import Log
 
 #---------------------------------------------------------------------------
 # Connection 
