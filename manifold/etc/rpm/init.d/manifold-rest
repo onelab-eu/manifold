@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# Init file for $DESC
+#
+# chkconfig: 2345 55 25
+# description: $DESC
+#
+# processname: manifold-rest 
+# config: /etc/manifold/manifold.conf
+# pidfile: /var/run/manifold-rest.pid
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+# pull in sysconfig settings
+[ -f /etc/sysconfig/manifold-rest ] && . /etc/sysconfig/manifold-rest
+
+RETVAL=0
+DESC="Manifold rest daemon"
+NAME=manifold-rest
+DAEMON=/usr/bin/${NAME}
+PIDFILE=/var/run/${NAME}.pid
+SOCKET_PATH=/var/run/manifold/manifold-rest.sock
+SCRIPTNAME=/etc/init.d/$NAME
+MANIFOLD_CONF="/etc/manifold/manifold.conf"
+DAEMON_ARGS="--log-duplicates --config=$MANIFOLD_CONF --socket=$SOCKET_PATH --pid-file=$PIDFILE"
+
+# Distribution specific paths
+VAR_LOCK_FILE=/var/lock/subsys/$NAME
+
+runlevel=$(set -- $(runlevel); eval "echo \$$#" )
+
+execute()
+{
+        if [ $# != 2 ]
+        then
+                echo "Usage: print_status COMMAND MESSAGE"
+                exit 1
+        fi
+
+	echo -n $2"..."
+	logger -t $SYSLOG_PREFIX -p $SYSLOG_FACILITY.notice "N: $2"
+	$1 1>/dev/null 2>/dev/null && success || failure
+	# Maybe redirect error messages ?
+	echo ""
+}
+
+start()
+{
+	mkdir -p `dirname $PIDFILE`
+	mkdir -p `dirname $SOCKET_PATH`
+
+	execute "$DAEMON $DAEMON_ARGS" "Starting $DESC"
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] && touch $VAR_LOCK_FILE
+	echo
+}
+
+stop()
+{
+	if [ -n "`pidfileofproc $DAEMON`" ] ; then
+		execute "killproc $DAEMON" "Stopping $DESC: $NAME"
+		RETVAL=$?
+		[ "$RETVAL" = 0 ] && rm -f $VAR_LOCK_FILE
+		echo
+	else
+		logger -t $SYSLOG_PREFIX -p $SYSLOG_FACILITY.error "E: Cannot stop $DESC: no pidfile found"
+	fi
+	rm -f $PIDFILE.lock $VAR_LOCK_FILE
+}
+
+reload()
+{
+	echo -n $"Reloading $NAME: "
+	if [ -n "`pidfileofproc $DAEMON`" ] ; then
+	    killproc $DAEMON -HUP
+	else
+	    failure $"Reloading $NAME"
+	fi
+	RETVAL=$?
+	echo
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop
+		start
+		;;
+	reload)
+		reload
+		;;
+	status)
+		status $DAEMON
+		RETVAL=$?
+		;;
+	*)
+		echo $"Usage: $SCRIPTNAME {start|stop|restart|reload|status}"
+		RETVAL=1
+esac
+exit $RETVAL
