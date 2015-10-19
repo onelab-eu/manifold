@@ -278,7 +278,8 @@ class Interface(object):
         packet.inc_ttl()
 
         if self.is_up():
-            Log.warning("We have to get rid of receiver now that we have a flow table")
+            # XXX TODO
+            #Log.warning("We have to get rid of receiver now that we have a flow table")
             new_receiver.receive(packet)
         else:
             self._tx_buffer.append(packet)
