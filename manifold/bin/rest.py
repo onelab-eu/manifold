@@ -56,6 +56,9 @@ class TornadoRest(tornado.web.RequestHandler):
                     f = f.replace('_gte_','>=')
                 if '_ne_' in f:
                     f = f.replace('_ne_','!=')
+                if '_in_' in f:
+                    f = f.replace('_in_',' INCLUDED ')
+
                 l_filters.extend(f.split("and"))
             #for i, item in enumerate(l_filters):
             #    l_filters[i] = item.split(",")
