@@ -117,10 +117,10 @@ class PostgreSQLConnection():
             The corresponding cursor
         """
         connection_ok = (self.connection != None)
-        if not connection_ok:
-            connection_ok = self.connect_unix()
         if not connection_ok: 
             connection_ok = self.connect_tcp()
+        if not connection_ok:
+            connection_ok = self.connect_unix()
         if not connection_ok: 
             raise RuntimeError("Cannot connect to PostgreSQL server")
 
