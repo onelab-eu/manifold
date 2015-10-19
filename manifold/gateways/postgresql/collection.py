@@ -17,6 +17,7 @@ from types                                      import StringTypes, GeneratorTyp
 from manifold.core.object                       import ObjectFactory
 from manifold.core.key                          import Key
 from manifold.core.keys                         import Keys
+from manifold.core.record                       import Record
 from manifold.core.query                        import Query
 from manifold.core.query_factory                import QueryFactory
 from manifold.core.capabilities                 import Capabilities
@@ -105,6 +106,7 @@ class PostgreSQLCollection(ManifoldCollection):
             raise Exception("Wrong format for field description. Expected dict")
 
         self._config = config
+        self.platform_config = platform_config
         self.cnx    = PostgreSQLConnection(platform_config)
         self.cursor = self.cnx.get_cursor()
         self.is_relation_table = False
@@ -210,6 +212,7 @@ class PostgreSQLCollection(ManifoldCollection):
         return self.cursor.fetchall()
 
     def get_keys(self, object_name):
+        pks = []
         param_execute = {"table_name": object_name}
         # PRIMARY KEYS: XXX simple key ?
         # We build a key dictionary associating each table with its primary key
@@ -217,11 +220,25 @@ class PostgreSQLCollection(ManifoldCollection):
         self.cursor.execute(PostgreSQLCollection.SQL_TABLE_KEYS, param_execute)
         pks = self.cursor.fetchall()
         #print "SQL took", time.time() - start_time, "s", "[get_pk]"
+        
+        # Try a second SQL QUERY to get the Primary Keys
         if len(pks) == 0:
             #param_execute['constraint_name'] = '_pkey'
             self.cursor.execute(PostgreSQLCollection.SQL_TABLE_KEYS_2, param_execute)
             pks = self.cursor.fetchall()
 
+        # This table has no Primary Key at all
+        # Then all fields are considered as Keys
+        if len(pks) == 0:
+            self.cursor.execute(PostgreSQLCollection.SQL_TABLE_FIELDS, {"table_name": object_name})
+            fields = self.cursor.fetchall()
+            # Record(table_name=u'availability', column_names=[u'oml_tuple_id'])
+            pk = Record()
+            pk.table_name = object_name
+            pk.column_names = [f.column_name for f in fields]
+            #r = Record.from_dict(pk)
+            pks.append(pk)
+        Log.tmp(pks)
         return pks
 
     @returns(Capabilities)
@@ -474,6 +491,7 @@ class PostgreSQLCollection(ManifoldCollection):
             Returns a list of dict corresponding to fetched records.
         """
         start_time = time.time()
+        self.cnx    = PostgreSQLConnection(self.platform_config)
         self.cursor = self.cnx.get_cursor()
         self.cursor.execute(query, params)
         rows = self.cursor.fetchall()
@@ -487,6 +505,7 @@ class PostgreSQLCollection(ManifoldCollection):
         self.cursor.close()
         self.cnx.commit()
         self.cnx.close()
+        self.cnx = None
 
         if key_field is not None and key_field in labels:
             # Return rows as a dictionary keyed on the specified field
