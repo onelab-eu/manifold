@@ -1,11 +1,17 @@
 from sqlalchemy                 import create_engine
 from sqlalchemy.orm             import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from manifold.util.log          import Log
 
 # exceptions.Exception: Error during local request: (ProgrammingError) SQLite objects created in a thread can only be used in that same thread.The object was created in thread id 139885302400768 and this is thread id 139885208180480 'SELECT platform.platform AS platform_platform \nFROM platform' [immutabledict({})]
 #engine = create_engine('sqlite:///:memory:?check_same_thread=False', echo=False)
 #engine = create_engine('sqlite:////var/myslice/db.sqlite?check_same_thread=False', echo=False)
-engine = create_engine('mysql://root:onelab@localhost/manifold', echo=False)
+
+#url = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
+from manifold.util.storage import DBStorage
+url = DBStorage.get_url()
+
+engine = create_engine(url, echo=False, pool_recycle=3600)
 
 # OLD from tophat.conf import settings
 # OLD from sqlalchemy.pool import StaticPool

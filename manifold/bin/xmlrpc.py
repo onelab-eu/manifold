@@ -21,14 +21,16 @@ from manifold.core.router           import Router
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.capabilities     import Capabilities
-from manifold.models.platform       import Platform
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.daemon           import Daemon
+from manifold.util.storage          import DBStorage
 from manifold.util.type             import returns, accepts
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 from manifold.util.reactor_thread   import ReactorThread
 
+# This package has to be imported after storage
+from manifold.models.platform       import Platform
 # Let's try to load this before twisted
 
 from manifold.types.string      import string
@@ -237,6 +239,7 @@ def main():
     XMLRPCDaemon.init_options()
     Log.init_options()
     Daemon.init_options()
+    DBStorage.init_options()
     Options().parse()
     
     XMLRPCDaemon().start()

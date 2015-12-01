@@ -188,7 +188,13 @@ class NITOSBrokerParser(RSpecParser):
 
                 #resource['facility_name'] = 'NITOS'
                 resource['facility_name'] = 'Wireless'
-                hrn = resource['hrn'].replace('\\','')
+                if 'hrn' in resource:
+                    hrn = resource['hrn'].replace('\\','')
+                elif 'component_id' in resource:
+                    urn = resource['component_id']
+                    hrn,type = urn_to_hrn(urn)
+                    resource['hrn'] = hrn
+                    resource['urn'] = urn
                 if 'omf' in hrn:
                     t_hrn = hrn.split('.')
                     if t_hrn[1] == 'nitos':
@@ -228,7 +234,7 @@ class NITOSBrokerParser(RSpecParser):
                         resource['latitude']  = '48.847104'
                         resource['longitude'] = '2.357499'
                     else:
-                        resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
+                        resource['testbed_name'] = 'FIT '+t_hrn[1].title()
                         resource['country']   = 'France'
                 else:
                     resource['testbed_name'] = 'Nitos'
