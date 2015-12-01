@@ -22,7 +22,7 @@ def usage():
 
 def main():
     argc = len(sys.argv)
-    if argc != 3:
+    if argc != 4:
         usage()
         sys.exit(1)
 
