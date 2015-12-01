@@ -6,7 +6,7 @@ import json
 class User(Base):
     # if not admin restrict_to_self
     restrict_to_self = True
-    user_id = Column(Integer, primary_key=True, doc="User identifier")
+    user_id = Column(Integer, primary_key=True, doc="User identifier", autoincrement=True)
     email = Column(String, doc="User email")
     password = Column(String, doc="User password")
     config = Column(String, doc="User config (serialized in JSON)")
