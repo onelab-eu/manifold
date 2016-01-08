@@ -222,6 +222,11 @@ class NITOSBrokerParser(RSpecParser):
                         resource['country']   = 'South Korea'
                         resource['latitude']  = '36.369362' 
                         resource['longitude'] = '127.364025'
+                    elif t_hrn[1] == 'etri':
+                        resource['testbed_name'] = 'ETRI'
+                        resource['country']   = 'South Korea'
+                        resource['latitude']  = '36.3808653'
+                        resource['longitude'] = '127.3650244'
                     elif 'paris' in hrn:
                         resource['testbed_name'] = 'FIT NITOS '+t_hrn[1].title()
                         # XXX Hardcoded for Paris @ UPMC

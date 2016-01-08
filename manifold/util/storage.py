@@ -98,7 +98,7 @@ class DBStorage(Storage):
             url += login + ':' + password + '@' + host 
             if port:
                url += ':'+port
-            url = '/' + database 
+            url += '/' + database 
             #URL='mysql://root:onelab@localhost/manifold'
 
         return url
