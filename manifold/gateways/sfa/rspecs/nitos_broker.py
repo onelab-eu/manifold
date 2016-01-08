@@ -195,8 +195,8 @@ class NITOSBrokerParser(RSpecParser):
                     hrn,type = urn_to_hrn(urn)
                     resource['hrn'] = hrn
                     resource['urn'] = urn
+                t_hrn = hrn.split('.')
                 if 'omf' in hrn:
-                    t_hrn = hrn.split('.')
                     if t_hrn[1] == 'nitos':
                         resource['testbed_name'] = 'NITOS-Volos'
                         resource['country']   = 'Greece'
@@ -232,7 +232,8 @@ class NITOSBrokerParser(RSpecParser):
                         resource['testbed_name'] = 'FIT '+t_hrn[1].title()
                         resource['country']   = 'France'
                 else:
-                    resource['testbed_name'] = 'Nitos'
+                    resource['testbed_name'] = 'FIT '+t_hrn[1].title()
+                    #resource['testbed_name'] = 'Nitos'
 
                 if 'services.login.username' in resource:
                     if resource['services.login.username']:
