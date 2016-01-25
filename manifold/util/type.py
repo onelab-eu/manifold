@@ -39,7 +39,9 @@ Needed to cast params as floats in function def (or simply divide by 2.0).
 
 '''
 import sys
-from itertools import izip
+# for python3
+try:    from itertools import izip
+except: izip = zip
 
 def accepts(*types, **kw):
     '''Function decorator. Checks decorated function's arguments are
@@ -72,15 +74,15 @@ def accepts(*types, **kw):
                     if debug is 1:
                         print >> sys.stderr, 'TypeWarning: ', msg
                     elif debug is 2:
-                        raise TypeError, msg
+                        raise TypeError(msg)
                 return f(*args, **kwargs)
             newf.__name__ = f.__name__
             return newf
         return decorator
-    except KeyError, key:
-        raise KeyError, key + "is not a valid keyword argument"
-    except TypeError, msg:
-        raise TypeError, msg
+    except KeyError as key:
+        raise KeyError ("{} is not a valid keyword argument".format(key))
+    except TypeError as msg:
+        raise TypeError(msg)
 
 def compare_types(expected, actual):
     if isinstance(expected, tuple):
@@ -124,15 +126,15 @@ def returns(ret_type, **kw):
                     if debug is 1:
                         print >> sys.stderr, 'TypeWarning: ', msg
                     elif debug is 2:
-                        raise TypeError, msg
+                        raise TypeError(msg)
                 return result
             newf.__name__ = f.__name__
             return newf
         return decorator
-    except KeyError, key:
-        raise KeyError, key + "is not a valid keyword argument"
-    except TypeError, msg:
-        raise TypeError, msg
+    except KeyError as key:
+        raise KeyError("{} is not a valid keyword argument".format(key))
+    except TypeError as msg:
+        raise TypeError(msg)
 
 def info(fname, expected, actual, flag):
     '''Convenience function returns nicely formatted error/warning msg.'''

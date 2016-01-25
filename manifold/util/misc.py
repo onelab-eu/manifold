@@ -1,5 +1,7 @@
 import os, glob, inspect
-from types import StringTypes
+# python3
+try:    from types import StringTypes
+except: StringTypes = str
 
 def find_local_modules(filepath):
     modules = []
