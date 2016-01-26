@@ -1,9 +1,16 @@
+from __future__ import print_function
+
 import sys, argparse#, cfgparse
 import os.path
-import StringIO
+
+#for python3
+try:    from StringIO import StringIO
+except: from io import StringIO
+
+try:    from ConfigParser import SafeConfigParser
+except: from configparser import SafeConfigParser
 
 from manifold.util.singleton import Singleton
-from ConfigParser            import SafeConfigParser
 
 # http://docs.python.org/dev/library/argparse.html#upgrading-optparse-code
 
@@ -45,7 +52,7 @@ class Options(object):
             try:
                 with open(cfg_filename): pass
             except IOError: 
-                raise Exception, "Cannot open specified configuration file: %s" % cfg_filename
+                raise Exception("Cannot open specified configuration file: %s" % cfg_filename)
         except ValueError:
             try:
                 with open(self.CONF_FILE): pass
@@ -55,7 +62,7 @@ class Options(object):
 
         cfg_options = None
         if cfg_filename:
-            config = StringIO.StringIO()
+            config = StringIO()
             config.write('[%s]\n' % FAKE_SECTION)
             config.write(open(cfg_filename).read())
             config.seek(0, os.SEEK_SET)
@@ -82,7 +89,7 @@ class Options(object):
         self.uptodate = True
         
     def add_option(self, *args, **kwargs):
-        print "I: add_option has to be replaced by add_argument"
+        print("I: add_option has to be replaced by add_argument")
         default = kwargs.get('default', None)
         self._defaults[kwargs['dest']] = default
         if 'default' in kwargs:
@@ -112,7 +119,7 @@ class Options(object):
             parser_method = getattr(self._parser, key)
             self.uptodate = False
             return parser_method
-        except Exception, e:
+        except Exception as e:
             if not self.uptodate:
                 self.parse()
             return self.options.get(key, None)

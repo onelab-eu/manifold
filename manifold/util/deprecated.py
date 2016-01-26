@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 """
 Deprecated decorator.
 
@@ -65,4 +67,4 @@ if __name__ == '__main__':
     def sum_couple(a, b):
         return a + b
 
-    print sum_couple(2, 2)
+    print(sum_couple(2, 2))

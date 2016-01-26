@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys, logging, traceback, inspect, os.path
 from logging                 import handlers
 from manifold.util.singleton import Singleton
@@ -138,9 +140,9 @@ class Log(object):
         if log_dir and not os.path.exists(log_dir):
             try:
                 os.makedirs(log_dir)
-            except OSError, why:
+            except OSError as why:
                 # XXX here we don't log since log is not initialized yet
-                print "OS error: %s" % why
+                print("OS error: %s" % why)
 
         # Prepare the handler
         shandler = logging.handlers.RotatingFileHandler(
@@ -172,11 +174,11 @@ class Log(object):
     def print_msg(cls, msg, level=None, caller=None):
         sys.stdout.write(cls.color(level))
         if level:
-            print "%s" % level,
+            print("%s" % level, end="")
         if caller:
-            print "[%30s]" % caller,
-        print msg,
-        print cls.color('END')
+            print("[%30s]" % caller, end="")
+        print(msg, end="")
+        print(cls.color('END'))
         sys.stdout.flush()
 
     #---------------------------------------------------------------------
@@ -208,7 +210,7 @@ class Log(object):
             try:
                 count = cls.seen.get(msg, 0)
                 cls.seen[msg] = count + 1
-            except TypeError, e:
+            except TypeError as e:
                 # Unhashable types in msg
                 count = 0
             

@@ -1,17 +1,24 @@
-from types                  import StringTypes
-from manifold.util.log      import Log
-try:
-    set
-except NameError:
-    from sets import Set
-    set = Set
+from __future__ import print_function
+
+#python3
+try:    from types                  import StringTypes
+except: StringTypes = str
+
+# python3
+try:    from itertools import ifilter
+except: ifilter = filter
+
+# older pythons
+try:               set
+except NameError: from sets import Set as set
 
 import copy
 import time
 import datetime # Jordan
+
+from manifold.util.log      import Log
 #from manifold.util.parameter import Parameter, Mixed, python_type
 from manifold.util.predicate import Predicate, eq
-from itertools                  import ifilter
 
 class Filter(set):
     """
@@ -35,8 +42,8 @@ class Filter(set):
         try:
             for element in l:
                 f.add(Predicate(*element))
-        except Exception, e:
-            print "Error in setting Filter from list", e
+        except Exception as e:
+            print("Error in setting Filter from list", e)
             return None
         return f
         
@@ -68,7 +75,7 @@ class Filter(set):
         """
         NOTE: We can only handle simple clauses formed of AND fields.
         """
-        raise Exception, "Not implemented"
+        raise Exception("Not implemented")
 
     def filter_by(self, predicate):
         self.add(predicate)
@@ -147,7 +154,7 @@ class Filter(set):
             if x.key == key and x.op == op:
                 x.value = value
                 return
-        raise KeyError, key
+        raise KeyError(key)
 
     def set_eq(self, key, value):
         return self.set_op(key, eq, value)
@@ -163,7 +170,7 @@ class Filter(set):
 #    def filter(self, dic):
 #        # We go through every filter sequentially
 #        for predicate in self:
-#            print "predicate", predicate
+#            print("predicate", predicate)
 #            dic = predicate.filter(dic)
 #        return dic
 
@@ -332,7 +339,7 @@ False # XXX
 #            # filter on fields
 #            if not modifiers['-']:
 #                if field not in self.fields:
-#                    raise PLCInvalidArgument, "Invalid filter field '%s'" % field
+#                    raise PLCInvalidArgument("Invalid filter field '%s'" % field)
 #
 #                # handling array fileds always as compound values
 #                if modifiers['&'] or modifiers['|']:
@@ -408,7 +415,7 @@ False # XXX
 #            # sorting and clipping
 #            else:
 #                if field not in ('SORT','OFFSET','LIMIT'):
-#                    raise PLCInvalidArgument, "Invalid filter, unknown sort and clip field %r"%field
+#                    raise PLCInvalidArgument("Invalid filter, unknown sort and clip field %r"%field)
 #                # sorting
 #                if field == 'SORT':
 #                    if not isinstance(value,(list,tuple,set)):
@@ -421,7 +428,7 @@ False # XXX
 #                            field = field[1:]
 #                            order = 'DESC'
 #                        if field not in self.fields:
-#                            raise PLCInvalidArgument, "Invalid field %r in SORT filter"%field
+#                            raise PLCInvalidArgument("Invalid field %r in SORT filter"%field)
 #                        sorts.append("%s %s"%(field,order))
 #                # clipping
 #                elif field == 'OFFSET':
@@ -436,6 +443,6 @@ False # XXX
 #            clip_part += " ORDER BY " + ",".join(sorts)
 #        if clips:
 #            clip_part += " " + " ".join(clips)
-##       print 'where_part=',where_part,'clip_part',clip_part
+##       print('where_part=',where_part,'clip_part',clip_part)
 #        return (where_part,clip_part)
 #

@@ -11,12 +11,17 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                      import StringTypes
-from manifold.util.type         import returns, accepts 
+from __future__ import print_function
+
+# python3
+try:    from types import StringTypes
+except: StringTypes = str
 
 from operator import (
     and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
 )
+
+from manifold.util.type         import returns, accepts 
 
 # Define the inclusion operators
 class contains(type): pass
@@ -72,7 +77,7 @@ class Predicate:
         elif len(args) == 1 and isinstance(args[0], Predicate):
             key, op, value = args[0].get_tuple()
         else:
-            raise Exception, "Bad initializer for Predicate (args = %r)" % args
+            raise Exception("Bad initializer for Predicate (args = %r)" % args)
 
         assert not isinstance(value, (frozenset, dict, set)), "Invalid value type (type = %r)" % type(value)
         if isinstance(value, list):
@@ -245,7 +250,7 @@ class Predicate:
             else:
                 return dic[self.key] in self.value
         else:
-            raise Exception, "Unexpected table format: %r" % dic
+            raise Exception("Unexpected table format: %r" % dic)
 
     def filter(self, dic):
         """
@@ -274,16 +279,16 @@ class Predicate:
                     dic[method] = subpred.filter(dic[method])
                     return dic
             else:
-                raise Exception, "Unexpected table format: %r", dic
+                raise Exception("Unexpected table format: %r", dic)
 
 
         else:
             # Individual field operations: this could be simplified, since we are now using operators_short !!
             # XXX match
-            print "current predicate", self
-            print "matching", dic
-            print "----"
-            return dic if self.match(dic) else None
+            print("current predicate", self)
+            print("matching", dic)
+            print("----")
+            return(dic if self.match(dic) else None)
 
     def get_field_names(self):
         if isinstance(self.key, (list, tuple, set, frozenset)):

@@ -4,6 +4,8 @@
 #  linux: works on console & gnome-terminal
 #  mac: untested
  
+from __future__ import print_function
+
 BLACK      = "\033[0;30m"
 BLUE       = "\033[0;34m"
 GREEN      = "\033[0;32m"
@@ -34,5 +36,5 @@ if __name__ == '__main__':
     # Display color names in their color
     for name, color in locals().items():
         if name.startswith('__'): continue
-        print color, name, MYEND
+        print(color, name, MYEND)
 
