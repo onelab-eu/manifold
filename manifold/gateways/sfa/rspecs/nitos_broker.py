@@ -237,7 +237,11 @@ class NITOSBrokerParser(RSpecParser):
                         resource['testbed_name'] = 'FIT '+t_hrn[1].title()
                         resource['country']   = 'France'
                 else:
-                    resource['testbed_name'] = 'FIT '+t_hrn[1].title()
+                    if 'component_manager_id' in resource:
+                        t,tp = urn_to_hrn(resource['component_manager_id'])
+                        resource['testbed_name'] = 'FIT '+t.title()
+                    else:
+                        resource['testbed_name'] = 'FIT '+t_hrn[1].title()
                     #resource['testbed_name'] = 'Nitos'
 
                 if 'services.login.username' in resource:
