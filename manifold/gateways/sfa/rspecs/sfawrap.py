@@ -1043,6 +1043,13 @@ class IoTLABParser(SFAWrapParser):
         resource['facility_name'] = cls.get_resource_facility_name(urn)
         resource['testbed_name']  = cls.get_resource_testbed_name(urn)
 
+        if 'exclusive' not in resource:
+            resource['exclusive'] = 'true'
+        elif resource['exclusive'] is None:
+            resource['exclusive'] = 'true'
+        else:
+            Log.warning("EXCLUSIVE = ",resource['exclusive'])
+
         #if 'location' in node:
         #    if node['location']:
         #        node['latitude'] = node['location']['latitude']
