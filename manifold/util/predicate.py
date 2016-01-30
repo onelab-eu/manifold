@@ -165,7 +165,11 @@ class Predicate:
         return (self.key, self.op, self.value)
 
     def get_str_op(self):
-        op_str = [s for s, op in self.operators.iteritems() if op == self.op]
+        # for python3
+        try:
+            op_str = [s for s, op in self.operators.iteritems() if op == self.op]
+        except:
+            op_str = [s for s, op in self.operators.items() if op == self.op]
         return op_str[0]
 
     def get_str_tuple(self):
