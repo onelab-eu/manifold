@@ -193,7 +193,7 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(server)
 
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
-        hostname = server_version.get('hostname')
+        hostname = server_version.get('hostname','')
         
         if (server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode','gaia','omf.gaia','snu','omf.snu','omf.kaist','r2lab','omf.r2lab','faraday','omf.faraday','omf.etri']):
             parser = NITOSBrokerParser
